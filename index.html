@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>The Black Bird — Hypergraph Poem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Crimson+Pro:ital,wght@0,350;0,450;1,350;1,450&display=swap" rel="stylesheet">
+<script src="vendor/d3.v7.9.0.min.js"></script>
+<style>
+:root {
+  --bg:#070706;--bg2:#0b0a09;--panel:#0d0c0b;--panel2:#11100e;
+  --line:#2a2621;--line2:#3a342b;--text:#e7e1d7;--text2:#b3aa9d;
+  --muted:#867d72;--ghost:#554e45;--amber:#c49a45;--amber2:#e2bc69;
+  --blue:#839cac;--bone:#e4dbc9;--silver:#aab0b3;--relo:#504b47;
+  --shadow:0 22px 80px rgba(0,0,0,.55);
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Crimson Pro',Georgia,serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#070706;color:var(--text);font-family:var(--serif);-webkit-font-smoothing:antialiased;}
+button,input{font:inherit}
+#app{position:fixed;inset:0;background:var(--bg);overflow:hidden;}
+.app-frame{position:absolute;inset:0;display:grid;grid-template-columns:56px minmax(0,1fr);}
+.rail{border-right:1px solid var(--line);background:#080807;display:flex;flex-direction:column;align-items:stretch;padding:28px 7px;gap:8px;z-index:15}
+.rail-btn{height:42px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;display:flex;align-items:center;justify-content:center;transition:.18s;}
+.rail-btn:hover,.rail-btn.active{border-color:var(--line2);color:var(--text);background:#100f0d}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 0px;min-width:0;height:100%;transition:grid-template-columns 620ms cubic-bezier(.22,.8,.36,1);}
+.main.reader-open{grid-template-columns:minmax(380px,58vw) minmax(420px,1fr);}
+.panel{min-width:0;overflow:hidden;opacity:0;pointer-events:none;transform:translateX(24px);transition:opacity 520ms ease,transform 620ms cubic-bezier(.22,.8,.36,1);}
+.main.reader-open .panel{opacity:1;pointer-events:auto;transform:translateX(0);}
+.map-wrap{position:relative;min-width:0;border-right:1px solid var(--line);background:radial-gradient(circle at 50% 40%,#11100e 0%,#080807 54%,#050505 100%);overflow:hidden;}
+.map-title{position:absolute;left:24px;top:22px;z-index:5;pointer-events:none;}
+.map-title h1{font-family:var(--mono);font-size:15px;font-weight:400;letter-spacing:.32em;margin:0 0 6px;color:var(--text);}
+.map-title div{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--muted);}
+.map-tools{position:absolute;right:18px;top:18px;display:none;gap:8px;z-index:8}
+.tool-btn{border:1px solid var(--line2);background:rgba(13,12,11,.82);color:var(--text2);height:36px;min-width:36px;padding:0 10px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;cursor:pointer;}
+.tool-btn:hover{color:var(--text);border-color:#5a5045;background:#151310}
+#graphSvg{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;overflow:hidden;}
+#graphSvg:active{cursor:grabbing}
+.node-label{font-family:var(--mono);font-size:8px;fill:#d7d0c3;paint-order:stroke;stroke:#050505;stroke-width:3px;stroke-linejoin:round;pointer-events:none;}
+.node-label.quiet{fill:#92887a}
+.node-core{transition:opacity .35s ease,fill .35s ease;}
+.node-focus-ring,.node-route-halo{transition:stroke-opacity .35s ease,stroke-width .35s ease;}
+.node-hit{fill:transparent;stroke:transparent;cursor:pointer;}
+.link-base,.link-proj{cursor:pointer}
+.panel{min-width:0;overflow:hidden;opacity:0;pointer-events:none;transform:translateX(24px);background:linear-gradient(180deg,#0b0a09 0%,#070706 100%);display:flex;flex-direction:column;height:100%;transition:opacity 520ms ease,transform 620ms cubic-bezier(.22,.8,.36,1);}
+.route{height:54px;flex:0 0 auto;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 18px 0 24px;overflow:hidden;white-space:nowrap;min-width:0;}
+.route-empty{color:var(--ghost);font-family:var(--mono);font-size:10px;}
+.route-item,.route-ellipsis{border:0;background:transparent;color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;padding:0 2px;min-height:32px;display:inline-flex;align-items:center;min-width:0;max-width:16ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;}
+.route-item.current{color:var(--bone);}
+.route-item:hover,.route-item:focus-visible,.route-ellipsis:hover,.route-ellipsis:focus-visible{color:var(--amber2);outline:none;}
+.route .sep{color:var(--ghost);cursor:default;font-family:var(--mono);font-size:11px;flex:0 0 auto;}
+.route .clear-route{margin-left:auto;border:0;background:linear-gradient(90deg,rgba(7,7,6,0),var(--panel) 32%);color:var(--ghost);font-family:var(--mono);font-size:10px;cursor:pointer;padding-left:28px;min-height:32px;flex:0 0 auto;}
+.route-list{border-top:1px solid var(--line);}
+.route-row{display:grid;grid-template-columns:42px minmax(0,1fr);gap:14px;align-items:center;border-bottom:1px solid #211e1a;padding:13px 0;cursor:pointer;}
+.route-row:hover .route-row-label{color:var(--amber2)}
+.route-row-index{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;}
+.route-row-label{font-family:var(--serif);font-size:18px;color:var(--text);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reader{flex:1;overflow:auto;padding:42px 52px 80px;scrollbar-color:#655d53 transparent;}
+.meta{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--muted);margin-bottom:22px;}
+.title{font-family:var(--mono);font-size:15px;letter-spacing:.28em;text-transform:uppercase;color:var(--text);margin-bottom:28px;line-height:1.55;}
+.prose{font-size:18px;line-height:1.78;max-width:680px;color:var(--text);}
+.prose p{margin:0 0 1.15em}
+.poem{font-family:var(--serif);font-size:23px;line-height:1.88;color:var(--bone);font-style:italic;max-width:430px;margin:10px 0 36px;}
+.poem > span{display:block}
+.fl{color:inherit;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#6b6256;text-underline-offset:5px;cursor:pointer;transition:.18s;}
+.fl:hover,.fl.active{color:var(--amber2);text-decoration-color:var(--amber2)}
+.section-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:34px 0 14px;}
+.chip-row{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0 24px;}
+.chip{border:1px solid var(--line2);padding:7px 10px;font-family:var(--mono);font-size:11px;color:var(--text);background:#100f0e;cursor:pointer;min-height:30px;}
+.chip:hover{border-color:#695f51;color:var(--amber2)}
+.disclosure{border-top:1px solid var(--line);margin-top:32px;padding-top:16px;}
+.disclosure button{background:transparent;border:0;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;padding:0;}
+.disclosure button:hover{color:var(--text)}
+.index-list{border-top:1px solid var(--line);max-width:680px;}
+.index-item{display:grid;grid-template-columns:80px minmax(0,1fr);gap:16px;padding:13px 0;border-bottom:1px solid #1e1b17;cursor:pointer;}
+.index-item:hover .idx-title{color:var(--amber2)}
+.idx-type{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;}
+.idx-title{font-family:var(--serif);font-size:18px;color:var(--text);line-height:1.25;}
+.ref-citation{font-family:var(--serif);font-size:22px;line-height:1.5;color:var(--text);max-width:720px;}
+.source-row{display:inline-flex;margin-top:16px;border-bottom:1px solid var(--line2);font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--text2);text-decoration:none;padding-bottom:4px;}
+.source-row:hover{color:var(--amber2);border-color:var(--amber2)}
+.edge-head{font-family:var(--mono);font-size:14px;letter-spacing:.18em;text-transform:uppercase;line-height:1.7;color:var(--text)}
+.drawer{position:absolute;top:0;bottom:0;left:56px;width:min(430px,calc(100vw - 56px));background:rgba(11,10,9,.97);border-right:1px solid var(--line2);box-shadow:var(--shadow);z-index:30;transform:translateX(calc(-100% - 57px));transition:transform .32s cubic-bezier(.22,.8,.36,1),visibility 0s linear .32s;display:flex;flex-direction:column;pointer-events:none;visibility:hidden;}
+.drawer.open{transform:translateX(0);pointer-events:auto;visibility:visible;transition:transform .32s cubic-bezier(.22,.8,.36,1),visibility 0s;}
+.drawer-head{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line);font-family:var(--mono);letter-spacing:.22em;text-transform:uppercase;font-size:12px;}
+.drawer-close{border:1px solid var(--line2);background:transparent;color:var(--text);width:34px;height:34px;cursor:pointer}
+.drawer-body{overflow:auto;padding:18px;}
+.drawer-foot{border-top:1px solid var(--line);padding:12px 18px;display:flex;gap:8px;justify-content:flex-end;background:#0b0a09;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #211e1a;padding:12px 0;font-family:var(--mono);font-size:12px;color:var(--text2)}
+.switch{width:42px;height:24px;border:1px solid var(--line2);background:#0a0908;position:relative;cursor:pointer;}
+.switch::after{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#6b6258;transition:.18s}
+.switch.on::after{left:21px;background:var(--amber2)}
+.search{width:100%;height:42px;background:#0a0908;border:1px solid var(--line2);color:var(--text);padding:0 12px;font-family:var(--mono);font-size:13px;margin:8px 0 14px}
+.object-row{display:grid;grid-template-columns:54px minmax(0,1fr) auto auto;gap:8px;align-items:center;border-bottom:1px solid #211e1a;padding:9px 0;}
+.object-row .otype{border:1px solid var(--line2);font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;padding:4px 0}
+.object-row .olabel{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.object-row .olabel:hover{color:var(--amber2)}
+.icon-small{height:28px;min-width:36px;border:1px solid var(--line2);background:transparent;color:var(--text2);font-family:var(--mono);font-size:10px;cursor:pointer}
+.icon-small:hover{color:var(--text);border-color:#65594c}
+.threshold{position:absolute;inset:0;background:radial-gradient(circle at center,#0d0c0b 0%,#070706 62%,#050505 100%);z-index:60;display:flex;align-items:center;justify-content:center;padding:28px;opacity:1;transition:opacity 520ms ease;}
+.threshold.leaving{opacity:0;pointer-events:none;}
+.threshold-card{width:min(800px,90vw);border:1px solid var(--line2);padding:64px 60px 56px;background:rgba(8,7,7,.72);box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:flex-start;opacity:0;transition:opacity 360ms ease;}
+.threshold h1{font-family:var(--mono);font-weight:400;font-size:42px;letter-spacing:.36em;margin:0 0 24px;color:var(--text);line-height:1.18}
+.threshold .sub{font-family:var(--mono);font-size:13px;letter-spacing:.22em;color:var(--text2);margin-bottom:38px}
+.threshold .author{font-family:var(--mono);font-size:13px;letter-spacing:.16em;color:var(--muted);margin-bottom:64px}
+.th-actions{display:flex;gap:12px;flex-wrap:wrap}
+.th-actions button{border:1px solid var(--line2);background:#10100f;color:var(--text);font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:14px 22px;min-width:190px;cursor:pointer;text-align:center}
+.th-actions button:hover{border-color:#6a5e50;color:var(--amber2)}
+.bottom-nav{display:none}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#0e0d0c;border-top:1px solid var(--line2);box-shadow:0 -20px 60px rgba(0,0,0,.55);z-index:40;transform:translateY(110%);transition:transform .24s ease;max-height:58vh;display:flex;flex-direction:column;}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{height:20px;display:flex;align-items:center;justify-content:center;}
+.sheet-handle::before{content:"";width:44px;height:3px;background:#675e54;border-radius:999px}
+.sheet-body{padding:8px 20px 24px;overflow:auto}
+.sheet-title{font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px;color:var(--text)}
+.sheet-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.drawer-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:25;display:none;transition:background .28s ease;}
+.drawer-backdrop.open{display:block;background:rgba(0,0,0,.38);}
+.field-prompt{position:absolute;left:50%;top:72px;transform:translateX(-50%) translateY(6px);width:min(760px,calc(100vw - 48px));z-index:20;pointer-events:none;font-family:var(--serif);font-size:clamp(20px,2.4vw,30px);line-height:1.45;color:var(--text2);text-align:center;opacity:0;transition:opacity 520ms ease,transform 520ms ease;}
+.field-prompt.visible{opacity:1;transform:translateX(-50%) translateY(0);}
+.micro-preview{position:fixed;z-index:50;pointer-events:none;min-width:160px;max-width:260px;padding:10px 12px;border:1px solid var(--line2);background:rgba(11,10,9,.96);box-shadow:0 12px 36px rgba(0,0,0,.42);opacity:0;transform:translateY(4px);transition:opacity 160ms ease,transform 160ms ease;font-family:var(--mono);}
+.micro-preview.visible{opacity:1;transform:translateY(0);}
+.micro-preview-title{font-size:12px;color:var(--text);letter-spacing:.08em;margin-bottom:5px;}
+.micro-preview-meta{font-size:10px;color:var(--muted);margin-bottom:7px;}
+.micro-preview-line{font-family:var(--serif);font-size:15px;line-height:1.35;color:var(--text2);}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+.phase-threshold .route,.phase-onboarding .route{display:none;}
+.phase-threshold .map-tools,.phase-onboarding .map-tools{opacity:0;pointer-events:none;}
+.phase-threshold .bottom-nav,.phase-onboarding .bottom-nav{display:none!important;}
+.phase-threshold .panel,.phase-onboarding .panel{display:none;}
+.phase-threshold .reader,.phase-onboarding .reader{display:none;}
+
+@media (max-width:860px){
+  /* Top map-tools Field/View buttons are duplicated by bottom-nav; hide them on mobile */
+  .map-tools{display:none!important;}
+  .app-frame{display:block;padding-bottom:calc(56px + env(safe-area-inset-bottom,0px));}
+  .rail{display:none}
+  .main{display:flex;flex-direction:column;height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px));}
+  .main.reader-open{grid-template-columns:unset;}
+  .main:not(.reader-open) .map-wrap{height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px));flex:1 1 auto;border-right:0;border-bottom:0;}
+  .main:not(.reader-open) .panel{display:none;}
+  .main.reader-open .map-wrap{height:38dvh;min-height:230px;border-right:0;border-bottom:1px solid var(--line);flex:0 0 auto;}
+  .main.reader-open .panel{display:flex;opacity:1;pointer-events:auto;transform:none;flex:1;min-height:0;}
+  .map-title{left:22px;top:20px}
+  .map-title h1{font-size:13px;letter-spacing:.28em}
+  .map-title div{font-size:9px}
+  .map-tools{right:14px;top:14px}
+  .route{height:44px;padding:0 18px;font-size:10px;}
+  .reader{padding:26px 22px 86px;}
+  .title{font-size:13px;letter-spacing:.22em}
+  .prose{font-size:17px;line-height:1.74}
+  .poem{font-size:20px;line-height:1.82;max-width:340px}
+  .drawer{left:0;width:100vw;max-width:none;bottom:56px;transform:translateX(-100%);transition:transform .28s cubic-bezier(.22,.8,.36,1),visibility 0s linear .28s;}
+  .drawer.open{transform:translateX(0);visibility:visible;pointer-events:auto;transition:transform .28s cubic-bezier(.22,.8,.36,1),visibility 0s;}
+  .drawer-foot{position:sticky;bottom:0;background:#0b0a09}
+  .drawer-backdrop{display:none!important}
+  .bottom-nav{display:grid;grid-template-columns:repeat(4,1fr);position:absolute;left:0;right:0;bottom:0;height:calc(56px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:#0b0a09;border-top:1px solid var(--line2);z-index:45;}
+  .bottom-nav button{border:0;border-right:1px solid #1e1b17;background:transparent;color:var(--text2);font-family:var(--mono);font-size:10px;letter-spacing:.08em;}
+  .bottom-nav button:last-child{border-right:0}
+  .bottom-nav button.active{color:var(--amber2)}
+  .threshold-card{padding:46px 32px 42px;width:100%;}
+  .threshold h1{font-size:32px;letter-spacing:.26em;line-height:1.28;margin-bottom:28px}
+  .threshold .sub{font-size:11px;line-height:1.8;margin-bottom:34px}
+  .threshold .author{margin-bottom:56px}
+  .th-actions{width:100%}
+  .th-actions button{width:100%;text-align:center}
+}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#3a3328;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#554e45}
+.drawer-body::-webkit-scrollbar,.sheet-body::-webkit-scrollbar{width:4px}
+@media (max-width:860px){::-webkit-scrollbar{width:4px}}
+
+/* V5.6 nightly: governed mobile surfaces */
+#app.surface-field .bottom-nav [data-mobile="field"],
+#app.surface-read .bottom-nav [data-mobile="read"]{color:var(--amber2)}
+@media (max-width:860px){
+  #app.surface-field.phase-focused .main.reader-open .map-wrap,
+  #app.surface-field.phase-field .main.reader-open .map-wrap{
+    height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px));
+    min-height:0;
+    flex:1 1 auto;
+    border-bottom:0;
+  }
+  #app.surface-field.phase-focused .main.reader-open .panel,
+  #app.surface-field.phase-field .main.reader-open .panel{
+    display:none!important;
+  }
+  #app.surface-read.phase-focused .main.reader-open .map-wrap,
+  #app.surface-read.phase-field .main.reader-open .map-wrap{
+    display:none!important;
+  }
+  #app.surface-read.phase-focused .main.reader-open .panel,
+  #app.surface-read.phase-field .main.reader-open .panel{
+    display:flex!important;
+    opacity:1;
+    pointer-events:auto;
+    transform:none;
+    flex:1 1 auto;
+    min-height:0;
+    height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px));
+  }
+  #app.surface-read .reader{
+    padding-bottom:112px;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── About chamber ─────────────────────────────────────────────────────────── */
+.th-about-link{background:transparent;border:0;color:var(--ghost);font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;margin-top:16px;padding:0;text-decoration:none;transition:color .2s;display:block;text-align:center;min-width:190px;}
+.th-about-link::after{content:'';display:block;height:1px;background:var(--amber);transform:scaleX(0);transform-origin:center;transition:transform .24s ease;margin-top:5px;}
+.th-about-link:hover,.th-about-link:focus-visible{color:var(--muted);outline:none;}
+.th-about-link:hover::after,.th-about-link:focus-visible::after{transform:scaleX(.5);}
+.map-about-btn{display:none;}
+.about-panel{position:absolute;top:0;right:0;bottom:0;width:min(640px,calc(100% - 56px));background:linear-gradient(180deg,#0b0a09 0%,#070706 100%);border-left:1px solid var(--line);z-index:35;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .34s cubic-bezier(.22,.8,.36,1),visibility 0s linear .34s;visibility:hidden;pointer-events:none;}
+.about-panel.open{transform:translateX(0);visibility:visible;pointer-events:auto;transition:transform .34s cubic-bezier(.22,.8,.36,1),visibility 0s;}
+.about-panel.from-threshold{z-index:65;}
+.about-close{border:1px solid transparent;background:transparent;color:var(--ghost);width:32px;height:32px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:border-color .18s,color .18s;flex:0 0 auto;}
+.about-close:hover,.about-close:focus-visible{border-color:var(--line2);color:var(--bone);outline:none;}
+.about-head{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line);font-family:var(--mono);letter-spacing:.22em;text-transform:uppercase;font-size:12px;flex:0 0 auto;}
+.about-nav{display:flex;align-items:center;padding:0 14px;height:44px;border-bottom:1px solid var(--line);flex:0 0 auto;overflow-x:auto;white-space:nowrap;gap:0;scrollbar-width:none;}
+.about-nav::-webkit-scrollbar{display:none;}
+.about-nav-btn{background:transparent;border:0;color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:.14em;cursor:pointer;padding:4px 8px;}
+.about-nav-btn:hover,.about-nav-btn:focus-visible{color:var(--amber2);outline:none;}
+.about-nav-sep{color:var(--ghost);font-family:var(--mono);font-size:10px;flex:0 0 auto;padding:0 2px;}
+.about-body{flex:1;overflow-y:auto;padding:42px 52px 80px;scrollbar-color:#655d53 transparent;scrollbar-width:thin;scroll-padding-top:28px;}
+.about-section{margin-bottom:52px;scroll-margin-top:28px;}
+.about-section-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+.about-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;}
+.about-tile{border:1px solid var(--line);padding:16px 18px;background:#0a0908;}
+.about-tile.span-2{grid-column:span 2;}
+.about-tile-key{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--text);margin-bottom:7px;}
+.about-tile-desc{font-family:var(--serif);font-size:16px;color:var(--text2);line-height:1.52;}
+.about-grammar-intro{font-family:var(--serif);font-size:18px;line-height:1.72;color:var(--text);margin-bottom:18px;}
+.about-grammar-cards{display:flex;flex-direction:column;gap:10px;}
+.about-grammar-card{border:1px solid var(--line);padding:16px 18px;background:#0a0908;transition:border-color .18s;}
+.about-grammar-card:hover{border-color:rgba(196,154,69,.45);}
+.about-grammar-abbr{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--text2);margin-bottom:6px;}
+.about-grammar-desc{font-family:var(--serif);font-size:17px;color:var(--text);line-height:1.62;}
+.about-source-rows{margin-top:4px;}
+.about-source-row{display:grid;grid-template-columns:140px 1fr;gap:14px;padding:13px 0;border-bottom:1px solid var(--line);}
+.about-source-rows .about-source-row:first-child{border-top:1px solid var(--line);}
+.about-source-key{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted);line-height:1.65;}
+.about-source-val{font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.65;}
+.about-source-val a{color:var(--text2);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px;}
+.about-source-val a:hover,.about-source-val a:focus-visible{color:var(--amber2);text-decoration-color:var(--amber2);outline:none;}
+@media (max-width:860px){
+  .map-about-btn{display:block;position:absolute;right:18px;top:20px;pointer-events:auto;background:transparent;border:0;color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:.14em;padding:4px;cursor:pointer;z-index:8;}
+  .map-about-btn:hover,.map-about-btn:focus-visible{color:var(--text);outline:none;}
+  .phase-threshold .map-about-btn,.phase-onboarding .map-about-btn{display:none!important;}
+  .th-about-link{width:100%;min-width:0;}
+  .about-panel{left:0;right:0;bottom:calc(56px + env(safe-area-inset-bottom,0px));width:100%;max-width:100vw;overflow:hidden;border-left:none;border-top:1px solid var(--line2);z-index:42;transform:translateX(100%);}
+  .about-panel.from-threshold{bottom:0;z-index:65;}
+  .about-tiles{grid-template-columns:1fr;}
+  .about-tile.span-2{grid-column:span 1;}
+  .about-body{padding:28px 22px 48px;overflow-x:hidden;}
+  .about-nav{min-width:0;}
+  .about-tile,.about-grammar-card,.about-source-row{min-width:0;}
+  .about-source-row{grid-template-columns:110px 1fr;gap:10px;}
+}
+</style>
+</head>
+<body>
+<div id="app" class="phase-threshold">
+  <div id="threshold" class="threshold">
+    <div class="threshold-card">
+      <h1>THE BLACK BIRD</h1>
+      <div class="sub">A HYPERGRAPH RESEARCH POEM</div>
+      <div class="author">Mohammad Zare</div>
+      <div class="th-actions"><button data-enter="map">Enter the field</button></div>
+      <button id="thAboutBtn" class="th-about-link">About the work</button>
+    </div>
+  </div>
+  <div class="app-frame">
+    <nav class="rail">
+      <button class="rail-btn" data-action="field">FIELD</button>
+      <button class="rail-btn" data-action="view">VIEW</button>
+      <button class="rail-btn" data-action="index">INDEX</button>
+      <button class="rail-btn" data-action="about">ABOUT</button>
+    </nav>
+    <main class="main" id="mainLayout">
+      <section id="mapWrap" class="map-wrap" aria-label="map">
+        <div class="map-title"><h1>THE BLACK BIRD</h1><div>HYPERGRAPH POEM</div></div>
+        <div class="map-tools">
+          <button class="tool-btn" id="fieldBtn">Field</button>
+          <button class="tool-btn" data-action="view">View</button>
+        </div>
+        <svg id="graphSvg" role="img" aria-label="hypergraph map"></svg>
+        <div id="fieldPrompt" class="field-prompt" aria-live="polite"></div>
+        <button id="mobileAboutBtn" class="map-about-btn" aria-label="About the work">ABOUT</button>
+      </section>
+      <section class="panel">
+        <div id="route" class="route"></div>
+        <div id="reader" class="reader"></div>
+      </section>
+    </main>
+  </div>
+  <aside id="fieldViewDrawer" class="drawer" aria-hidden="true" inert>
+    <div class="drawer-head"><span>Field View</span><button class="drawer-close" data-close="fieldViewDrawer">×</button></div>
+    <div class="drawer-body">
+      <div class="section-label">Object groups</div>
+      <div id="typeToggles"></div>
+      <div class="section-label">View</div>
+      <div id="viewToggles"></div>
+    </div>
+    <div class="drawer-foot">
+      <button class="tool-btn" id="restoreField">Restore Field</button>
+      <button class="tool-btn" data-close="fieldViewDrawer">Done</button>
+    </div>
+  </aside>
+  <aside id="objectDrawer" class="drawer" aria-hidden="true" inert>
+    <div class="drawer-head"><span id="objectDrawerTitle">Index</span><button class="drawer-close" data-close="objectDrawer">×</button></div>
+    <div class="drawer-body"><input id="objectSearch" class="search" placeholder="search objects" /><div id="objectList"></div></div>
+    <div class="drawer-foot"><button class="tool-btn" id="showAllObjects">Show All</button><button class="tool-btn" data-close="objectDrawer">Done</button></div>
+  </aside>
+  <aside id="routeDrawer" class="drawer" aria-hidden="true" inert>
+    <div class="drawer-head"><span>Route</span><button class="drawer-close" data-close="routeDrawer">×</button></div>
+    <div class="drawer-body"><div id="routeList" class="route-list"></div></div>
+    <div class="drawer-foot"><button class="tool-btn" id="clearRouteDrawer">Clear Route</button><button class="tool-btn" data-close="routeDrawer">Done</button></div>
+  </aside>
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+  <div id="sheet" class="sheet"><div class="sheet-handle"></div><div id="sheetBody" class="sheet-body"></div></div>
+  <div id="microPreview" class="micro-preview" role="tooltip" aria-hidden="true"></div>
+  <div id="routeLive" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  <div id="aboutPanel" class="about-panel" role="dialog" aria-label="About the Work" aria-hidden="true" inert>
+    <div class="about-head">
+      <span>About the Work</span>
+      <button id="aboutClose" class="about-close" aria-label="Close About the Work">×</button>
+    </div>
+    <nav class="about-nav" aria-label="About sections">
+      <button class="about-nav-btn" data-about-section="about-statement">Statement</button>
+      <span class="about-nav-sep" aria-hidden="true">·</span>
+      <button class="about-nav-btn" data-about-section="about-how">Read</button>
+      <span class="about-nav-sep" aria-hidden="true">·</span>
+      <button class="about-nav-btn" data-about-section="about-grammar">Grammar</button>
+      <span class="about-nav-sep" aria-hidden="true">·</span>
+      <button class="about-nav-btn" data-about-section="about-source">Source</button>
+      <span class="about-nav-sep" aria-hidden="true">·</span>
+      <button class="about-nav-btn" data-about-section="about-author">Author</button>
+    </nav>
+    <div class="about-body" id="aboutBody">
+      <section class="about-section" id="about-statement">
+        <div class="about-section-label">Statement</div>
+        <div class="prose">
+          <p>A black bird appears beside a body. The scene opens a field.</p>
+          <p>The Black Bird is a hypergraph research poem by Mohammad Zare. It gives the materials of inquiry a spatial and textual form. A source can return as a scene. A name can keep its pressure. A relation can remain visible before explanation. A mapping note can condense a charged part of the field.</p>
+          <p>The poem appears as the reader moves among these surfaces. The graph gives contact a place. The Reader gives one pressure duration. The route lets movement leave a trace. Research enters as returnable material; poetry emerges as the arrangement through which that material becomes felt, delayed, and followed.</p>
+        </div>
+      </section>
+      <section class="about-section" id="about-how">
+        <div class="about-section-label">How to Read</div>
+        <div class="about-tiles">
+          <div class="about-tile"><div class="about-tile-key">FIELD</div><div class="about-tile-desc">Interact with objects. Follow relations.</div></div>
+          <div class="about-tile"><div class="about-tile-key">READ</div><div class="about-tile-desc">The selected object takes textual form here.</div></div>
+          <div class="about-tile"><div class="about-tile-key">INDEX</div><div class="about-tile-desc">The object field appears as an ordered inventory.</div></div>
+          <div class="about-tile"><div class="about-tile-key">VIEW</div><div class="about-tile-desc">Govern what remains visible.</div></div>
+          <div class="about-tile"><div class="about-tile-key">SOLO</div><div class="about-tile-desc">Narrow the graph around the selected object and the relations it participates in.</div></div>
+          <div class="about-tile"><div class="about-tile-key">HIDE</div><div class="about-tile-desc">Quiet selected objects from the visible surface. Their attached lines leave with them until restored.</div></div>
+          <div class="about-tile span-2"><div class="about-tile-key">ROUTE</div><div class="about-tile-desc">Keep the trace of movement.</div></div>
+        </div>
+      </section>
+      <section class="about-section" id="about-grammar">
+        <div class="about-section-label">Object Grammar</div>
+        <p class="about-grammar-intro">The object types in The Black Bird are engineered metaphors. Each type gives a pressure a working form inside the field.</p>
+        <div class="about-grammar-cards">
+          <div class="about-grammar-card"><div class="about-grammar-abbr">RNO · Research Note Object</div><div class="about-grammar-desc">A Research Note Object gives source pressure a returnable body. It lets inquiry remain inside the poem's movement.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">MNO · Mapping Note Object</div><div class="about-grammar-desc">A Mapping Note Object is a partial map made inside the poem. It condenses a dense region of relation into a local surface.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">FO · Field Object</div><div class="about-grammar-desc">A Field Object gives recurrence an address. It lets something that returns through the work remain followable.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">NameO · Name Object</div><div class="about-grammar-desc">A Name Object treats a name as a field event. It gives linguistic pressure a place when a word changes how an object can be approached.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">RefO · Reference Object</div><div class="about-grammar-desc">A Reference Object makes source support traceable. It gives citation and source location an active place in the poem's structure.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">RelO · Relation Object</div><div class="about-grammar-desc">A Relation Object gives relation a body before explanation. It lets contact remain visible, returnable, and open to reading.</div></div>
+        </div>
+      </section>
+      <section class="about-section" id="about-source">
+        <div class="about-section-label">Source and Code</div>
+        <div class="prose"><p>The source code is available because The Black Bird is a born-digital poem. Its data model, graph behavior, reader surface, route memory, and interface states belong to the form of the work.</p></div>
+        <div class="about-source-rows">
+          <div class="about-source-row"><div class="about-source-key">Live work</div><div class="about-source-val"><a href="https://mozareeduge.github.io/the-black-bird/" target="_blank" rel="noopener">mozareeduge.github.io/the-black-bird/ ↗</a></div></div>
+          <div class="about-source-row"><div class="about-source-key">GitHub repository</div><div class="about-source-val"><a href="https://github.com/mozareeduge/the-black-bird" target="_blank" rel="noopener">github.com/mozareeduge/the-black-bird ↗</a></div></div>
+          <div class="about-source-row"><div class="about-source-key">Citation</div><div class="about-source-val"><a href="https://github.com/mozareeduge/the-black-bird/blob/main/CITATION.cff" target="_blank" rel="noopener">CITATION.cff ↗</a> — Mohammad Zare. The Black Bird: A Hypergraph Research Poem. Born-digital web work, 2026.</div></div>
+          <div class="about-source-row"><div class="about-source-key">Version</div><div class="about-source-val">Public source archive, v1.0.0</div></div>
+        </div>
+      </section>
+      <section class="about-section" id="about-author">
+        <div class="about-section-label">Author</div>
+        <div class="prose"><p>Mohammad Zare is an Iranian poet, researcher, and product/interface practitioner working between dramatic literature, speculative research poetry, curatorial writing, and digital systems. He holds an MA in Dramatic Literature from the University of Art, Tehran, and a BSc in Industrial Engineering from Sharif University of Technology. His work moves between theatre, genetic criticism, artist-book and exhibition frameworks, data/product architecture, and born-digital literary forms. The Black Bird continues this practice as a poem built through field, source, relation, and interface.</p></div>
+      </section>
+    </div>
+  </div>
+  <nav class="bottom-nav">
+    <button data-mobile="field">Field</button>
+    <button data-mobile="read">Read</button>
+    <button data-mobile="view">View</button>
+    <button data-mobile="index">Index</button>
+  </nav>
+</div>
+<script>
+const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "label": "Cain, Ghurāb, and the First Burial", "shortLabel": "Cain / Ghurāb", "cluster": "quran"}, {"id": "RNO.HUGINN_MUNINN_RETURN__E0CB0303", "type": "RNO", "label": "Huginn and Muninn: Return from the Field", "shortLabel": "Huginn / Muninn", "cluster": "norse"}, {"id": "RNO.SCALD_CROW_SHOULDER__92F6BD37", "type": "RNO", "label": "The Scald-crow on the Shoulder", "shortLabel": "Scald-crow", "cluster": "irish"}, {"id": "RNO.AMERICAN_CROWS_CORPSE__9FFB70D1", "type": "RNO", "label": "American Crows Around the Corpse", "shortLabel": "American Crows", "cluster": "american"}, {"id": "MNO.WINDOW_DARKNESS__F488DD0A", "type": "MNO", "label": "Until It Saw Through My Window", "shortLabel": "Window", "cluster": "lyric"}, {"id": "MNO.BLACK_RING_FORENSIC__A84A665E", "type": "MNO", "label": "A Black Ring Around the Corpse", "shortLabel": "Black Ring", "cluster": "lyric"}, {"id": "FO.BLACK_BIRD_FIELD", "type": "FO", "label": "Crow / Raven / Black Bird", "shortLabel": "Black Bird", "central": true, "cluster": "central"}, {"id": "FO.ALLAH", "type": "FO", "label": "Allah", "shortLabel": "Allah", "cluster": "quran"}, {"id": "FO.GOD", "type": "FO", "label": "God", "shortLabel": "God", "cluster": "central"}, {"id": "FO.CAIN", "type": "FO", "label": "Cain", "shortLabel": "Cain", "cluster": "quran"}, {"id": "FO.ABEL", "type": "FO", "label": "Abel", "shortLabel": "Abel", "cluster": "quran"}, {"id": "FO.CORPSE", "type": "FO", "label": "Corpse", "shortLabel": "Corpse", "cluster": "central"}, {"id": "FO.BURIAL", "type": "FO", "label": "Burial", "shortLabel": "Burial", "cluster": "quran"}, {"id": "FO.ODIN", "type": "FO", "label": "Odin", "shortLabel": "Odin", "cluster": "norse"}, {"id": "FO.HUGINN", "type": "FO", "label": "Huginn", "shortLabel": "Huginn", "cluster": "norse"}, {"id": "FO.MUNINN", "type": "FO", "label": "Muninn", "shortLabel": "Muninn", "cluster": "norse"}, {"id": "FO.BATTLEFIELD", "type": "FO", "label": "Battlefield", "shortLabel": "Battlefield", "cluster": "norse"}, {"id": "FO.CU_CHULAINN", "type": "FO", "label": "Cú Chulainn", "shortLabel": "Cú Chulainn", "cluster": "irish"}, {"id": "FO.WARNING_CALL", "type": "FO", "label": "Warning Call", "shortLabel": "Warning Call", "cluster": "american"}, {"id": "FO.ASSEMBLED_CROWS", "type": "FO", "label": "Assembled Crows", "shortLabel": "Assembled Crows", "cluster": "american"}, {"id": "FO.FORENSIC_PATHOLOGY", "type": "FO", "label": "Forensic Pathology", "shortLabel": "Forensic", "cluster": "american"}, {"id": "FO.DARKNESS", "type": "FO", "label": "Darkness", "shortLabel": "Darkness", "cluster": "lyric"}, {"id": "FO.WINDOW", "type": "FO", "label": "Window", "shortLabel": "Window", "cluster": "lyric"}, {"id": "FO.ALLEY_LIGHT", "type": "FO", "label": "Alley's Light", "shortLabel": "Alley Light", "cluster": "lyric"}, {"id": "NameO.AR.GHURAB", "type": "NameO", "label": "ghurāb / غراب", "shortLabel": "ghurāb", "cluster": "quran"}, {"id": "NameO.ON.HRAFN", "type": "NameO", "label": "hrafn / hrafnar", "shortLabel": "hrafn", "cluster": "norse"}, {"id": "NameO.OI.SCALD_CROW", "type": "NameO", "label": "scald-crow / ennach", "shortLabel": "scald-crow", "cluster": "irish"}, {"id": "NameO.EN.AMERICAN_CROW", "type": "NameO", "label": "American crow / Corvus brachyrhynchos", "shortLabel": "American crow", "cluster": "american"}, {"id": "RefO.QURAN_5_31_GHURAB__5DEBFDBC", "type": "RefO", "label": "Qurʾān 5:31", "shortLabel": "Q 5:31", "cluster": "quran"}, {"id": "RefO.TABARI_GHURAB__AB38B33E", "type": "RefO", "label": "al-Ṭabarī", "shortLabel": "al-Ṭabarī", "cluster": "quran"}, {"id": "RefO.ZAMAKHSHARI_KASHSHAF__B3384AD9", "type": "RefO", "label": "al-Zamakhsharī, al-Kashshāf", "shortLabel": "al-Zamakhsharī", "cluster": "quran"}, {"id": "RefO.RAZI_GHURAB__C8F19C23", "type": "RefO", "label": "al-Rāzī", "shortLabel": "al-Rāzī", "cluster": "quran"}, {"id": "RefO.GRIMNISMAL_RAVENS__C41C85E5", "type": "RefO", "label": "Larrington, The Poetic Edda", "shortLabel": "Larrington", "cluster": "norse"}, {"id": "RefO.PROSE_EDDA_ODIN_RAVENS__D7323D91", "type": "RefO", "label": "Sturluson / Byock, The Prose Edda", "shortLabel": "Byock", "cluster": "norse"}, {"id": "RefO.CUCHULAINN_DEATH__349BB1D6", "type": "RefO", "label": "Stokes, “Cuchulainn’s Death”", "shortLabel": "Stokes", "cluster": "irish"}, {"id": "RefO.SWIFT_MARZLUFF_CROWS__D1A36FC1", "type": "RefO", "label": "Swift and Marzluff, American Crows", "shortLabel": "Swift / Marzluff", "cluster": "american"}, {"id": "RelO.R7080EA25", "type": "RelO", "label": "RelO.R7080EA25", "shortLabel": "rel·7080", "cluster": "quran"}, {"id": "RelO.R4CB4A8D8", "type": "RelO", "label": "RelO.R4CB4A8D8", "shortLabel": "rel·4CB4", "cluster": "quran"}, {"id": "RelO.R2DA6BB75", "type": "RelO", "label": "RelO.R2DA6BB75", "shortLabel": "rel·2DA6", "cluster": "norse"}, {"id": "RelO.R07B06A90", "type": "RelO", "label": "RelO.R07B06A90", "shortLabel": "rel·07B0", "cluster": "norse"}, {"id": "RelO.R847178B0", "type": "RelO", "label": "RelO.R847178B0", "shortLabel": "rel·8471", "cluster": "irish"}, {"id": "RelO.RE251AD04", "type": "RelO", "label": "RelO.RE251AD04", "shortLabel": "rel·E251", "cluster": "american"}, {"id": "RelO.R6501E02B", "type": "RelO", "label": "RelO.R6501E02B", "shortLabel": "rel·6501", "cluster": "american"}, {"id": "RelO.R2D2CBF08", "type": "RelO", "label": "RelO.R2D2CBF08", "shortLabel": "rel·2D2C", "cluster": "american"}, {"id": "RelO.RD025AA43", "type": "RelO", "label": "RelO.RD025AA43", "shortLabel": "rel·D025", "cluster": "lyric"}, {"id": "RelO.RFD0A719E", "type": "RelO", "label": "RelO.RFD0A719E", "shortLabel": "rel·FD0A", "cluster": "lyric"}, {"id": "RefO.SAYERS_HUGINN_MUNINN_CORPSE__C003F76E", "type": "RefO", "label": "Sayers, Huginn and Muninn", "shortLabel": "Sayers", "cluster": "norse"}, {"id": "RefO.NI_MHAOLDOMHNAIGH_SCALD_CROW__694164EE", "type": "RefO", "label": "Ní Mhaoildomhnaigh, Scald-crow", "shortLabel": "Ní Mhaoildomhnaigh", "cluster": "irish"}, {"id": "RelO.R9C3F1A62", "type": "RelO", "label": "RelO.R9C3F1A62", "shortLabel": "rel·9C3F", "cluster": "central"}, {"id": "RelO.RB6E74D1A", "type": "RelO", "label": "RelO.RB6E74D1A", "shortLabel": "rel·B6E7", "cluster": "central"}], "texts": {"RNO.GHURAB_BURIAL__424A0ECF": {"body": "<span class=\"fl\" data-id=\"FO.CAIN\">Cain</span> kills <span class=\"fl\" data-id=\"FO.ABEL\">Abel</span>, and the <span class=\"fl\" data-id=\"FO.CORPSE\">body</span> remains before him.\nIn Quran 5:31, <span class=\"fl\" data-id=\"FO.ALLAH\">Allah</span> sends a <span class=\"fl\" data-id=\"NameO.AR.GHURAB\">ghurāb (crow)</span> scratching in the earth, so Cain sees how to cover the body of his brother.\nIn tafsīr reports, the scene sometimes passes through one bird covering another.\nThe first <span class=\"fl\" data-id=\"FO.BURIAL\">burial</span> lesson arrives through a <span class=\"fl\" data-id=\"FO.BLACK_BIRD_FIELD\">black bird</span>.", "refs": ["RefO.QURAN_5_31_GHURAB__5DEBFDBC", "RefO.TABARI_GHURAB__AB38B33E", "RefO.ZAMAKHSHARI_KASHSHAF__B3384AD9", "RefO.RAZI_GHURAB__C8F19C23"], "objects": ["FO.CAIN", "FO.ABEL", "FO.CORPSE", "FO.BURIAL", "FO.BLACK_BIRD_FIELD", "FO.ALLAH", "NameO.AR.GHURAB", "FO.GOD"]}, "RNO.HUGINN_MUNINN_RETURN__E0CB0303": {"body": "<span class=\"fl\" data-id=\"FO.HUGINN\">Huginn</span> and <span class=\"fl\" data-id=\"FO.MUNINN\">Muninn</span>, <span class=\"fl\" data-id=\"FO.ODIN\">Odin</span>’s ravens, leave him each day, cross the world, and return with what they have seen and heard.\nTheir flight passes over the hanged, the slain, the <span class=\"fl\" data-id=\"FO.BATTLEFIELD\">battlefield</span>, the <span class=\"fl\" data-id=\"FO.CORPSE\">body</span> opened to weather.\nThought and memory come back as <span class=\"fl\" data-id=\"FO.BLACK_BIRD_FIELD\">black birds</span>.", "refs": ["RefO.GRIMNISMAL_RAVENS__C41C85E5", "RefO.PROSE_EDDA_ODIN_RAVENS__D7323D91", "RefO.SAYERS_HUGINN_MUNINN_CORPSE__C003F76E"], "objects": ["FO.ODIN", "FO.HUGINN", "FO.MUNINN", "FO.BATTLEFIELD", "FO.CORPSE", "FO.BLACK_BIRD_FIELD", "NameO.ON.HRAFN", "FO.GOD"]}, "RNO.SCALD_CROW_SHOULDER__92F6BD37": {"body": "<span class=\"fl\" data-id=\"FO.CU_CHULAINN\">Cú Chulainn</span> dies standing in the Ulster Cycle.\nHis enemies wait before the body.\nIn the Irish death-tale, the <span class=\"fl\" data-id=\"NameO.OI.SCALD_CROW\">scald-crow</span> comes down and sits on his shoulder.\nThe standing body is marked as <span class=\"fl\" data-id=\"FO.CORPSE\">corpse</span>.", "refs": ["RefO.CUCHULAINN_DEATH__349BB1D6", "RefO.NI_MHAOLDOMHNAIGH_SCALD_CROW__694164EE"], "objects": ["FO.CU_CHULAINN", "FO.CORPSE", "FO.BLACK_BIRD_FIELD", "FO.FORENSIC_PATHOLOGY", "NameO.OI.SCALD_CROW"]}, "RNO.AMERICAN_CROWS_CORPSE__9FFB70D1": {"body": "An <span class=\"fl\" data-id=\"NameO.EN.AMERICAN_CROW\">American crow</span> encounters a dead crow and calls others toward the body.\nThey gather, watch, and memorize the danger around the <span class=\"fl\" data-id=\"FO.CORPSE\">corpse</span>.\nThe <span class=\"fl\" data-id=\"FO.BLACK_BIRD_FIELD\">black birds</span> leave with a knowledge of where death has come near.", "refs": ["RefO.SWIFT_MARZLUFF_CROWS__D1A36FC1"], "objects": ["FO.BLACK_BIRD_FIELD", "FO.CORPSE", "FO.WARNING_CALL", "FO.ASSEMBLED_CROWS", "FO.FORENSIC_PATHOLOGY", "NameO.EN.AMERICAN_CROW"]}, "MNO.WINDOW_DARKNESS__F488DD0A": {"body": "<div class=\"poem\"><span>until it saw through my <span class=\"fl\" data-id=\"FO.WINDOW\">window</span>, locked</span><span>spread its wings and went to the <span class=\"fl\" data-id=\"FO.DARKNESS\">dark</span></span><span>when the sound of <span class=\"fl\" data-id=\"FO.ASSEMBLED_CROWS\">assembled crows</span> rose</span><span>as if the <span class=\"fl\" data-id=\"FO.ALLEY_LIGHT\">alley's light</span> flickered</span></div>", "refs": [], "objects": ["FO.WINDOW", "FO.DARKNESS", "FO.ASSEMBLED_CROWS", "FO.ALLEY_LIGHT", "FO.BLACK_BIRD_FIELD"]}, "MNO.BLACK_RING_FORENSIC__A84A665E": {"body": "<div class=\"poem\"><span>a black <span class=\"fl\" data-id=\"FO.ASSEMBLED_CROWS\">ring</span></span><span>around the <span class=\"fl\" data-id=\"FO.CORPSE\">corpse</span></span><span>in thought and counsel</span><span><span class=\"fl\" data-id=\"FO.FORENSIC_PATHOLOGY\">forensic pathology</span></span></div>", "refs": [], "objects": ["FO.ASSEMBLED_CROWS", "FO.CORPSE", "FO.FORENSIC_PATHOLOGY", "FO.BLACK_BIRD_FIELD"]}}, "nameos": {"NameO.AR.GHURAB": {"sourceLayer": "Quranic Arabic / tafsīr Arabic", "attached": ["RNO.GHURAB_BURIAL__424A0ECF", "FO.BLACK_BIRD_FIELD"], "gloss": "ghurāb / غراب. A source-language black-bird name conventionally translated as crow or raven."}, "NameO.ON.HRAFN": {"sourceLayer": "Old Norse", "attached": ["RNO.HUGINN_MUNINN_RETURN__E0CB0303", "FO.BLACK_BIRD_FIELD"], "gloss": "hrafn / hrafnar. Raven / ravens."}, "NameO.OI.SCALD_CROW": {"sourceLayer": "Irish death-tale transmission", "attached": ["RNO.SCALD_CROW_SHOULDER__92F6BD37", "FO.BLACK_BIRD_FIELD"], "gloss": "scald-crow / ennach."}, "NameO.EN.AMERICAN_CROW": {"sourceLayer": "Modern behavioral science", "attached": ["RNO.AMERICAN_CROWS_CORPSE__9FFB70D1", "FO.BLACK_BIRD_FIELD"], "gloss": "American crow / Corvus brachyrhynchos."}}, "refs": {"RefO.QURAN_5_31_GHURAB__5DEBFDBC": {"citation": "Qurʾān 5:31, Sūrat al-Māʾida.", "url": "https://corpus.quran.com/wordbyword.jsp?chapter=5&verse=31", "status": "word-by-word corpus page"}, "RefO.TABARI_GHURAB__AB38B33E": {"citation": "Muḥammad ibn Jarīr al-Ṭabarī. Jāmiʿ al-Bayān ʿan Taʾwīl Āy al-Qurʾān. Commentary on Q 5:31.", "url": "https://quran.com/5:31/tafsirs/ar-tafsir-al-tabari", "status": "verse-level tafsīr page"}, "RefO.ZAMAKHSHARI_KASHSHAF__B3384AD9": {"citation": "Jār Allāh al-Zamakhsharī. al-Kashshāf ʿan Ḥaqāʾiq al-Tanzīl. Commentary on Q 5:31.", "status": "digitized edition; not verse-level page", "statusNote": "Catalogue and digitized edition paths; not a verse-level tafsīr page.", "sources": [{"label": "catalogue record", "url": "https://openlibrary.org/books/OL22877205M/Al-_Qur%27an_ma%27a_tafsir_al-kashshaf_%27an_haqa%27iq_al-tanzil"}, {"label": "digitized scan, vol. 1", "url": "https://archive.org/details/alquranmaatafsir01zamauoft"}, {"label": "digitized scan, vol. 2", "url": "https://archive.org/details/alquranmaatafsir02zamauoft"}]}, "RefO.RAZI_GHURAB__C8F19C23": {"citation": "Fakhr al-Dīn al-Rāzī. Mafātīḥ al-Ghayb. Commentary on Q 5:31.", "url": "https://www.altafsir.com/Tafasir.asp?tMadhNo=1&tTafsirNo=4&tSoraNo=5&tAyahNo=31&tDisplay=yes&UserProfile=0&LanguageId=1", "status": "verse-level tafsīr page"}, "RefO.GRIMNISMAL_RAVENS__C41C85E5": {"citation": "Carolyne Larrington, trans. The Poetic Edda. Oxford University Press, revised edition, 2014.", "url": "https://www.germanicmythology.com/PoeticEdda/GRM20.html", "status": "online text"}, "RefO.PROSE_EDDA_ODIN_RAVENS__D7323D91": {"citation": "Snorri Sturluson. The Prose Edda. Translated by Jesse L. Byock. Penguin Classics, 2005.", "url": "https://www.penguinrandomhouse.com/books/297973/the-prose-edda-by-snorri-sturluson-translated-with-an-introduction-and-notes-by-jesse-l-byock/", "status": "publisher page"}, "RefO.CUCHULAINN_DEATH__349BB1D6": {"citation": "Whitley Stokes, ed. and trans. “Cuchulainn’s Death.” Revue Celtique 3: 175–185.", "url": "https://celt.ucc.ie/published/G800011B/text010.html", "status": "CELT digital edition"}, "RefO.SWIFT_MARZLUFF_CROWS__D1A36FC1": {"citation": "Kaeli N. Swift and John M. Marzluff. “Wild American Crows Gather Around Their Dead to Learn About Danger.” Animal Behaviour 109 (2015): 187–197. DOI: 10.1016/j.anbehav.2015.08.021.", "url": "https://doi.org/10.1016/j.anbehav.2015.08.021", "status": "DOI"}, "RefO.SAYERS_HUGINN_MUNINN_CORPSE__C003F76E": {"citation": "William Sayers. \"Huginn and Muninn, Memory and Thought.\" Arkiv för nordisk filologi 117 (2002).", "url": "https://ejournals.eu/pliki_artykulu_czasopisma/pelny_tekst/60fa115a-2304-4014-b96c-3f3ea23d02d0/pobierz", "status": "journal article PDF"}, "RefO.NI_MHAOLDOMHNAIGH_SCALD_CROW__694164EE": {"citation": "Síle Ní Mhaoildomhnaigh. \"Satirical Narrative in Early Irish Literature.\" MA thesis, Maynooth University.", "url": "https://mural.maynoothuniversity.ie/id/eprint/1333/1/Satirical_Narrative_in_Early_Irish_Literature.pdf", "status": "institutional repository PDF"}}, "relations": {"RelO.R7080EA25": ["FO.CAIN", "FO.ABEL", "FO.CORPSE"], "RelO.R4CB4A8D8": ["FO.BLACK_BIRD_FIELD", "NameO.AR.GHURAB", "FO.ALLAH", "FO.CAIN", "FO.CORPSE", "FO.BURIAL"], "RelO.R2DA6BB75": ["FO.BLACK_BIRD_FIELD", "NameO.ON.HRAFN", "FO.ODIN", "FO.HUGINN", "FO.MUNINN"], "RelO.R07B06A90": ["FO.HUGINN", "FO.MUNINN", "FO.BATTLEFIELD", "FO.CORPSE"], "RelO.R847178B0": ["FO.BLACK_BIRD_FIELD", "NameO.OI.SCALD_CROW", "FO.CU_CHULAINN", "FO.CORPSE", "FO.FORENSIC_PATHOLOGY"], "RelO.RE251AD04": ["FO.BLACK_BIRD_FIELD", "NameO.EN.AMERICAN_CROW", "FO.WARNING_CALL", "FO.ASSEMBLED_CROWS"], "RelO.R6501E02B": ["FO.CORPSE", "FO.ASSEMBLED_CROWS", "FO.WARNING_CALL"], "RelO.R2D2CBF08": ["FO.FORENSIC_PATHOLOGY", "FO.ASSEMBLED_CROWS", "FO.CORPSE"], "RelO.RD025AA43": ["MNO.WINDOW_DARKNESS__F488DD0A", "FO.BLACK_BIRD_FIELD", "FO.WINDOW", "FO.DARKNESS", "FO.ASSEMBLED_CROWS", "FO.ALLEY_LIGHT"], "RelO.RFD0A719E": ["MNO.BLACK_RING_FORENSIC__A84A665E", "FO.BLACK_BIRD_FIELD", "FO.ASSEMBLED_CROWS", "FO.CORPSE", "FO.FORENSIC_PATHOLOGY"], "RelO.R9C3F1A62": ["FO.GOD", "FO.ALLAH", "FO.BLACK_BIRD_FIELD", "NameO.AR.GHURAB", "FO.CAIN", "FO.CORPSE", "FO.BURIAL"], "RelO.RB6E74D1A": ["FO.GOD", "FO.ODIN", "FO.BLACK_BIRD_FIELD", "NameO.ON.HRAFN", "FO.HUGINN", "FO.MUNINN", "FO.BATTLEFIELD", "FO.CORPSE"]}, "meta": {"title": "The Black Bird", "subtitle": "A Hypergraph Speculative Research Poem", "author": "Mohammad Zare", "version": "v5.6-nightly", "notes": "V5.6-nightly: governed phase/surface state, mobile Field/Read separation, local aperture for dense focus areas, safer overlay stack, improved field fitting and onboarding-to-focus transition."}, "docs": {"statement": "The Black Bird is a hypergraph speculative research poem.\n\nIt gathers a small number of black-bird appearances: a bird scratching the earth beside the first unburied body; ravens returning with thought, memory, and news; a crow-like bird settling where death has to become certain; American crows gathering around a dead one; and two compressed poems where window, alley, corpse, ring, counsel, and forensic attention enter the same field.\n\nThe poem is not a conclusion drawn from these materials. It is the field made after them.\n\nEach object remains partial. Each source keeps its own pressure. The reader enters by node, word, relation, source, or name, and leaves with a route rather than an answer.", "how": "Enter through a node, a linked word, a relation, a source, or a name.\n\nDrag the map. Pinch or wheel to zoom. Tap or click any object to open its index. A relation object shows only the objects it holds. A projected edge shows which relation objects generated that visible link.\n\nUse Field View to change which object groups and view elements are visible. These changes alter field visibility, not the ontology of the work. Use Objects to show, hide, or solo individual objects. The route records changes of focus; it is not an argument.", "types": "RNO — Research Note Object. A compact sourced note.\n\nMNO — Mapping Note Object. The poem-node: compressed mapping in poetic form.\n\nFO — Field Object. A thing, body, figure, place, action, motif, or force.\n\nNameO — Name Object. A source-language or source-specific name surface.\n\nRefO — Reference Object. A citation object with an external source when available.\n\nRelO — Relation Object. A relation as an index node. It shows a list of objects, not an explanation.", "sources": "References are internal objects. External links appear as source rows inside each reference panel, never as detached buttons.\n\nThe Quranic node keeps ghurāb / غراب in view. The Norse node keeps hrafn / hrafnar in view. The Irish death-tale node keeps scald-crow / ennach in view. The scientific node keeps American crow / Corvus brachyrhynchos in view."}, "ui": {"objectTypes": ["RNO", "MNO", "FO", "NameO", "RefO", "RelO"]}};
+
+// ── Core data ──────────────────────────────────────────────────────────────
+const nodes = DATA.nodes.map(d=>({...d}));
+const byId = Object.fromEntries(nodes.map(n=>[n.id,n]));
+const typeOrder = DATA.ui.objectTypes;
+const defaultVisibility = Object.fromEntries(nodes.map(n=>[n.id,true]));
+
+// ── State ──────────────────────────────────────────────────────────────────
+let S = {
+  phase:'threshold', viewport:isMobile()?'mobile':'desktop', surface:'field', overlay:null,
+  activeId:null, touchedId:null, activeEdge:null, activeRelos:[],
+  routeEvents:[], maxRouteEvents:11, maxVisibleRouteSegments:10,
+  objectGroups:{RNO:true,MNO:true,FO:true,NameO:true,RefO:true,RelO:true},
+  viewOptions:{projected:true,labels:true,sourceNames:false},
+  objectVisibility:{...defaultVisibility},
+  soloSet:null, transform:d3.zoomIdentity,
+  readerOpen:false, onboardingActive:false, cameraInFlight:false,
+  previewTarget:null, previewTimer:null, showSheet:false, indexFilter:'all',
+  aboutOpen:false, aboutOrigin:null
+};
+
+// Expose state for testing (S is let, not on window automatically)
+window.__bbState = S;
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function prefersReducedMotion(){return window.matchMedia('(prefers-reduced-motion:reduce)').matches;}
+function isMobile(){return matchMedia('(max-width:860px)').matches;}
+function countType(t){return nodes.filter(n=>n.type===t).length;}
+function labelOf(id){return byId[id]?.label||id;}
+function shortOf(id){return byId[id]?.shortLabel||byId[id]?.label||id;}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function updatePhaseClass(){
+  const app=document.getElementById('app');
+  S.viewport=isMobile()?'mobile':'desktop';
+  app.classList.remove('phase-threshold','phase-onboarding','phase-focused','phase-field','surface-field','surface-read');
+  app.classList.add('phase-'+S.phase,'surface-'+S.surface);
+  document.querySelectorAll('[data-mobile]').forEach(b=>b.classList.toggle('active',b.dataset.mobile===S.surface));
+}
+async function setSurface(surface,opts={}){
+  S.surface=surface;
+  updatePhaseClass();
+  await nextFrame();
+  if(surface==='field' && opts.measure!==false) measureGraph();
+}
+function setOverlay(name){
+  S.overlay=name;
+}
+function nextFrame(){return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));}
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function measureGraph(){
+  width=mapWrap.clientWidth;
+  height=mapWrap.clientHeight;
+  if(width<10||height<10) return;
+  svg.attr('viewBox',`0 0 ${width} ${height}`);
+  sim.force('center',d3.forceCenter(width/2,height/2));
+  sim.alpha(0.08).restart();
+}
+async function setReaderOpen(open,opts={}){
+  S.readerOpen=open;
+  document.getElementById('mainLayout').classList.toggle('reader-open',open);
+  await nextFrame();
+  if(opts.measure!==false) measureGraph();
+  if(opts.waitTransition){
+    await sleep(opts.transitionMs??680);
+    if(opts.measure!==false) measureGraph();
+  }
+}
+
+// ── Edge data ──────────────────────────────────────────────────────────────
+const relParticipant=[];
+Object.entries(DATA.relations).forEach(([rid,parts])=>{parts.forEach(pid=>relParticipant.push({source:rid,target:pid,kind:'rel'}));});
+const citationEdges=[];
+Object.entries(DATA.texts).forEach(([tid,t])=>{
+  (t.refs||[]).forEach(rid=>citationEdges.push({source:tid,target:rid,kind:'citation'}));
+  (t.objects||[]).forEach(oid=>citationEdges.push({source:tid,target:oid,kind:'appears'}));
+});
+Object.entries(DATA.nameos).forEach(([nid,no])=>{(no.attached||[]).forEach(a=>citationEdges.push({source:nid,target:a,kind:'name'}));});
+const baseEdgesRaw=[...relParticipant,...citationEdges];
+
+function buildProjected(){
+  const map=new Map();
+  Object.entries(DATA.relations).forEach(([rid,parts])=>{
+    const usable=parts.filter(id=>byId[id]&&byId[id].type!=='RefO');
+    for(let i=0;i<usable.length;i++) for(let j=i+1;j<usable.length;j++){
+      const a=usable[i],b=usable[j],key=[a,b].sort().join('||');
+      if(!map.has(key)) map.set(key,{source:a,target:b,relos:[],kind:'projected'});
+      map.get(key).relos.push(rid);
+    }
+  });
+  return [...map.values()].map(e=>({...e,weight:e.relos.length}));
+}
+const projectedRaw=buildProjected();
+
+const adj={};nodes.forEach(n=>adj[n.id]=new Set());
+baseEdgesRaw.forEach(e=>{if(adj[e.source]&&adj[e.target]){adj[e.source].add(e.target);adj[e.target].add(e.source);}});
+projectedRaw.forEach(e=>{if(adj[e.source]&&adj[e.target]){adj[e.source].add(e.target);adj[e.target].add(e.source);}});
+
+// ── Graph setup ────────────────────────────────────────────────────────────
+const svg=d3.select('#graphSvg');
+const mapWrap=document.getElementById('mapWrap');
+let width=0,height=0;
+const root=svg.append('g');
+const routeMemoryLayer=root.append('g').attr('class','route-memory-layer');
+const projectedLayer=root.append('g');
+const baseLayer=root.append('g');
+const nodeLayer=root.append('g');
+
+const zoom=d3.zoom().scaleExtent([0.55,2.4]).on('zoom',ev=>{
+  S.transform=ev.transform;
+  root.attr('transform',ev.transform);
+  updateLabelVisibility();
+});
+svg.call(zoom).on('dblclick.zoom',null);
+svg.on('click',()=>{if(S.activeId) returnToField();});
+
+function nodeX(d){return d.x+(d.apDx||0);}
+function nodeY(d){return d.y+(d.apDy||0);}
+function updateGraphGeometry(){
+  function applyLine(sel){
+    sel.each(function(d){
+      const x1=nodeX(d.source),y1=nodeY(d.source),x2=nodeX(d.target),y2=nodeY(d.target);
+      if(Number.isFinite(x1)&&Number.isFinite(y1)&&Number.isFinite(x2)&&Number.isFinite(y2))
+        d3.select(this).attr('x1',x1).attr('y1',y1).attr('x2',x2).attr('y2',y2);
+    });
+  }
+  applyLine(baseSel);applyLine(projSel);applyLine(projHitSel);
+  nodeSel.each(function(d){const x=nodeX(d),y=nodeY(d);if(Number.isFinite(x)&&Number.isFinite(y))d3.select(this).attr('transform',`translate(${x},${y})`);});
+  routeMemoryLayer.selectAll('line.route-segment').each(function(d){
+    const x1=d.source.x,y1=d.source.y,x2=d.target.x,y2=d.target.y;
+    if(Number.isFinite(x1)&&Number.isFinite(y1)&&Number.isFinite(x2)&&Number.isFinite(y2))
+      d3.select(this).attr('x1',x1).attr('y1',y1).attr('x2',x2).attr('y2',y2);
+  });
+}
+function clearLocalAperture(){
+  simNodes.forEach(d=>{d.apDx=0;d.apDy=0;});
+  updateGraphGeometry();
+}
+function applyLocalAperture(focus){
+  clearLocalAperture();
+  if(!focus||!focus.coreId) return;
+  const core=byId[focus.coreId];
+  if(!core||core.x==null||core.y==null) return;
+  const neighbors=focus.neighborIds.map(id=>byId[id]).filter(d=>d&&nodeVisible(d.id)&&d.x!=null&&d.y!=null);
+  if(neighbors.length<4){updateGraphGeometry();return;}
+  const near=neighbors
+    .map(d=>({d,dist:Math.hypot(d.x-core.x,d.y-core.y),ang:Math.atan2(d.y-core.y,d.x-core.x)}))
+    .sort((a,b)=>a.ang-b.ang)
+    .slice(0,14);
+  const radiusA=isMobile()?54:62;
+  const radiusB=isMobile()?82:92;
+  near.forEach((item,i)=>{
+    const r=i<8?radiusA:radiusB;
+    const angle=item.ang || (Math.PI*2*i/near.length);
+    const targetX=core.x+Math.cos(angle)*r;
+    const targetY=core.y+Math.sin(angle)*r;
+    const maxShift=isMobile()?56:74;
+    let dx=targetX-item.d.x;
+    let dy=targetY-item.d.y;
+    const mag=Math.hypot(dx,dy);
+    if(mag>maxShift){dx=dx/mag*maxShift;dy=dy/mag*maxShift;}
+    item.d.apDx=dx;
+    item.d.apDy=dy;
+  });
+  updateGraphGeometry();
+}
+
+function clusterCenter(cluster){
+  const cx=width/2,cy=height/2,c=isMobile();
+  const rX=c?width*.29:width*.28,rY=c?height*.25:height*.28;
+  return ({central:[cx,cy],quran:[cx-rX,cy-rY*.65],norse:[cx+rX*.8,cy-rY*.7],irish:[cx-rX*.95,cy+rY*.7],american:[cx+rX,cy+rY*.55],lyric:[cx,cy+rY*1.08]})[cluster]||[cx,cy];
+}
+
+function nodeR(d){return d.id==='FO.BLACK_BIRD_FIELD'?8.5:6.2;}
+function nodeFill(d){return d.id==='FO.BLACK_BIRD_FIELD'?'#d5d2ca':'#9c9b97';}
+function nodeShape(g,d){
+  g.append('circle').attr('class','node-route-halo').attr('r',nodeR(d)+6).attr('fill','none').attr('stroke','transparent').attr('stroke-width',1);
+  g.append('circle').attr('class','node-focus-ring').attr('r',nodeR(d)+8).attr('fill','none').attr('stroke','transparent').attr('stroke-width',1.5);
+  g.append('circle').attr('class','node-core').attr('r',nodeR(d)).attr('fill',nodeFill(d));
+  g.append('circle').attr('class','node-hit').attr('r',Math.max(18,nodeR(d)+10));
+}
+
+const simNodes=nodes;
+const baseLinks=baseEdgesRaw.map(e=>({...e}));
+const projectedLinks=projectedRaw.map(e=>({...e}));
+const allForceLinks=[...baseLinks,...projectedLinks.map(e=>({...e,forceOnly:true}))];
+
+const sim=d3.forceSimulation(simNodes)
+  .force('link',d3.forceLink(allForceLinks).id(d=>d.id).distance(d=>d.kind==='projected'?42:34).strength(d=>d.kind==='projected'?0.08:0.42))
+  .force('charge',d3.forceManyBody().strength(d=>d.id==='FO.BLACK_BIRD_FIELD'?-380:d.type==='RelO'?-18:d.type==='RefO'?-35:-95))
+  .force('collide',d3.forceCollide().radius(d=>nodeR(d)+9))
+  .force('cluster',alpha=>{simNodes.forEach(d=>{const[cx,cy]=clusterCenter(d.cluster);d.vx+=(cx-d.x)*0.035*alpha;d.vy+=(cy-d.y)*0.035*alpha;});});
+
+let baseSel=baseLayer.selectAll('line').data(baseLinks).join('line').attr('class','link-base').attr('stroke','#5d503c').attr('stroke-opacity',.18).attr('stroke-width',.65);
+let projSel=projectedLayer.selectAll('line').data(projectedLinks).join('line').attr('class','link-proj').attr('stroke','#b79045').attr('stroke-opacity',.14).attr('stroke-width',d=>Math.min(3,.55+d.weight*.32));
+let projHitSel=projectedLayer.selectAll('line.hit').data(projectedLinks).join('line').attr('class','hit').attr('stroke','transparent').attr('stroke-width',16).attr('pointer-events','stroke');
+let nodeSel=nodeLayer.selectAll('g.node').data(simNodes).join('g').attr('class',d=>'node '+d.type)
+  .call(d3.drag()
+    .on('start',(ev,d)=>{if(!ev.active) sim.alphaTarget(.25).restart();d.fx=d.x;d.fy=d.y;})
+    .on('drag',(ev,d)=>{d.fx=ev.x;d.fy=ev.y;})
+    .on('end',(ev,d)=>{if(!ev.active) sim.alphaTarget(0);d.fx=null;d.fy=null;}));
+nodeSel.each(function(d){nodeShape(d3.select(this),d);});
+nodeSel.append('text').attr('class','node-label').attr('text-anchor','middle').attr('y',d=>nodeR(d)+13).text(d=>d.shortLabel||d.label);
+
+// Node events
+nodeSel.attr('tabindex',0).attr('role','button').attr('aria-label',d=>`${d.type}: ${d.label}`)
+  .on('mouseenter',(ev,d)=>{
+    if(isMobile()) return;
+    clearTimeout(S.previewTimer);
+    S.previewTimer=setTimeout(()=>touchObject(d.id,{source:'graph-hover'}),200);
+  })
+  .on('mouseleave',()=>{if(isMobile()) return; clearTimeout(S.previewTimer); clearTouch();})
+  .on('click',(ev,d)=>{
+    ev.stopPropagation(); hidePreview();
+    if(S.onboardingActive){S.onboardingActive=false;hideFieldPrompt();return focusObject(d.id,{source:'onboarding-interrupt'});}
+    if(isMobile()) return selectInField(d.id,{source:'graph-mobile'});
+    focusObject(d.id,{source:'graph'});
+  })
+  .on('keydown',(ev,d)=>{
+    if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();focusObject(d.id,{source:'keyboard'});}
+    if(ev.key==='Escape'){clearTouch();closeSheet();}
+  });
+
+// Edge events
+projSel.on('mouseenter',(ev,d)=>{if(isMobile()) return; showEdgePreview(d,ev);})
+  .on('mouseleave',hidePreview);
+projHitSel.on('mouseenter',(ev,d)=>{if(isMobile()) return; showEdgePreview(d,ev);})
+  .on('mouseleave',hidePreview)
+  .on('click',(ev,d)=>{ev.stopPropagation();openProjectedEdge(d);});
+
+sim.on('tick',()=>{updateGraphGeometry();});
+
+// ── Resize ─────────────────────────────────────────────────────────────────
+let simInitialized=false;
+function resize(){
+  S.viewport=isMobile()?'mobile':'desktop';
+  updatePhaseClass();
+  if(isMobile()&&S.surface==='read') {renderRoute(); return;}
+  measureGraph();
+  if(!simInitialized){sim.alpha(.45).restart();simInitialized=true;}
+  else {if(S.activeId) {applyLocalAperture(buildFocusSet(S.activeId));fitFocusFrame(buildFocusSet(S.activeId),{duration:0});} else fitVisibleField({duration:0});}
+}
+window.addEventListener('resize',()=>{resize();renderRoute();}); resize();
+
+// ── Visibility ─────────────────────────────────────────────────────────────
+function getEdgeSourceId(e){return e.source.id||e.source;}
+function getEdgeTargetId(e){return e.target.id||e.target;}
+function nodeVisible(id){
+  const n=byId[id]; if(!n) return false;
+  if(S.soloSet) return S.soloSet.has(id);
+  if(S.objectVisibility[id]===false) return false;
+  return !!S.objectGroups[n.type];
+}
+function edgeVisible(e){return nodeVisible(getEdgeSourceId(e))&&nodeVisible(getEdgeTargetId(e));}
+function projectedVisible(e){
+  if(!S.viewOptions.projected) return false;
+  const a=byId[getEdgeSourceId(e)],b=byId[getEdgeTargetId(e)];
+  if(!a||!b) return false;
+  if((a.type==='NameO'||b.type==='NameO')&&!S.viewOptions.sourceNames) return false;
+  return nodeVisible(a.id)&&nodeVisible(b.id);
+}
+function updateLabelVisibility(context={}){
+  const k=S.transform.k;
+  const focus=context.focus;
+  const focusIds=focus?new Set(focus.ids):null;
+  nodeSel.selectAll('text')
+    .attr('font-size',`${Math.max(6.5,Math.min(8,8/Math.max(1,k)))}px`)
+    .attr('display',d=>{
+      if(!S.viewOptions.labels) return 'none';
+      if(!nodeVisible(d.id)) return 'none';
+      if(d.id===S.activeId) return null;
+      if(focusIds&&focusIds.has(d.id)) return null;
+      if(k<0.85) return 'none';
+      if(d.type==='RefO'||d.type==='RelO'){if(isMobile()||k<1.15) return 'none';}
+      if(d.type==='NameO'&&!S.viewOptions.sourceNames) return 'none';
+      return null;
+    }).classed('quiet',d=>d.type==='NameO'||d.type==='RefO');
+}
+function updateVisibility(){
+  nodeSel.attr('display',d=>nodeVisible(d.id)?null:'none');
+  baseSel.attr('display',d=>edgeVisible(d)?null:'none');
+  projSel.attr('display',d=>projectedVisible(d)?null:'none');
+  projHitSel.attr('display',d=>projectedVisible(d)?null:'none');
+  if(!S.activeId) transitionToFieldLighting({duration:0});
+  else transitionFieldLight(buildFocusSet(S.activeId),{duration:0});
+  updateLabelVisibility();
+  drawRouteMemory({duration:0});
+}
+
+// ── Camera ─────────────────────────────────────────────────────────────────
+function setCamera(t){svg.interrupt();zoom.transform(svg,t);S.cameraInFlight=false;}
+async function beginGraphHandoff(opts={}){
+  const e=svg.node();
+  const fade=opts.fade===true&&!prefersReducedMotion();
+  svg.interrupt();
+  if(!fade){e.style.transition='none';e.style.opacity='0';await nextFrame();return;}
+  e.style.transition=`opacity ${opts.duration??180}ms ease`;
+  e.style.opacity='0';
+  await sleep((opts.duration??180)+40);
+  e.style.transition='none';
+}
+async function endGraphHandoff(opts={}){
+  const e=svg.node();
+  const fade=opts.fade===true&&!prefersReducedMotion();
+  if(!fade){
+    if(prefersReducedMotion()){e.style.opacity='';e.style.transition='';}
+    else{e.style.transition='opacity 240ms ease';requestAnimationFrame(()=>{e.style.opacity='';setTimeout(()=>{e.style.transition='';},260);});}
+    await nextFrame();
+    return;
+  }
+  e.style.opacity='0';
+  e.style.transition=`opacity ${opts.duration??260}ms ease`;
+  await nextFrame();
+  e.style.opacity='';
+  await sleep((opts.duration??260)+40);
+  e.style.transition='';
+}
+function animateCamera(transform,opts={}){
+  const dur=prefersReducedMotion()?0:(opts.duration??760);
+  S.cameraInFlight=true;
+  svg.transition().duration(dur).ease(d3.easeCubicInOut)
+    .call(zoom.transform,transform)
+    .on('end',()=>{S.cameraInFlight=false;});
+}
+function getNodeBounds(items,padNode=34){
+  const minX=d3.min(items,d=>nodeX(d)-padNode),maxX=d3.max(items,d=>nodeX(d)+padNode);
+  const minY=d3.min(items,d=>nodeY(d)-padNode),maxY=d3.max(items,d=>nodeY(d)+padNode);
+  return {minX,maxX,minY,maxY,width:Math.max(1,maxX-minX),height:Math.max(1,maxY-minY),cx:(minX+maxX)/2,cy:(minY+maxY)/2};
+}
+function getFocusBiasX(){return isMobile()?0.50:window.innerWidth<1100?0.50:0.48;}
+function getFocusBiasY(){return isMobile()&&S.showSheet?0.40:isMobile()?0.48:0.56;}
+function fitFocusFrame(focus,opts={}){
+  const visible=focus.ids.map(id=>byId[id]).filter(d=>d&&d.x!=null&&d.y!=null&&nodeVisible(d.id));
+  if(!visible.length||width<10||height<10) return;
+  const bounds=getNodeBounds(visible,isMobile()?42:56);
+  const padX=opts.padX??(isMobile()?42:72),padY=opts.padY??(isMobile()?44:72);
+  const usableW=Math.max(1,width-padX*2),usableH=Math.max(1,height-padY*2);
+  let k=Math.min(usableW/bounds.width,usableH/bounds.height);
+  k=Math.max(isMobile()?0.62:0.72,Math.min(isMobile()?1.55:1.35,k));
+  const tx=width*getFocusBiasX()-k*bounds.cx,ty=height*getFocusBiasY()-k*bounds.cy;
+  animateCamera(d3.zoomIdentity.translate(tx,ty).scale(k),{duration:opts.duration??760});
+}
+function fitVisibleField(opts={}){
+  const visible=simNodes.filter(d=>nodeVisible(d.id));
+  if(!visible.length||width<10||height<10) return;
+  const bounds=getNodeBounds(visible,isMobile()?44:88);
+  const pad=isMobile()?44:88;
+  const k=Math.max(0.55,Math.min((width-pad*2)/bounds.width,(height-pad*2)/bounds.height,0.92));
+  const cy=(isMobile()&&S.soloSet)?height*0.42:height/2;
+  const tx=width/2-k*bounds.cx,ty=cy-k*bounds.cy;
+  animateCamera(d3.zoomIdentity.translate(tx,ty).scale(k),{duration:opts.duration??850});
+}
+function fitGraph(dur){return fitVisibleField({duration:dur});}
+
+// ── Field lighting ──────────────────────────────────────────────────────────
+function isRouteObject(id){return S.routeEvents.some(ev=>ev.id===id);}
+function updateFocusRing(coreId,duration=420){
+  nodeSel.select('.node-focus-ring').transition().duration(prefersReducedMotion()?0:duration)
+    .attr('stroke',d=>d.id===coreId?'#e2bc69':'transparent')
+    .attr('stroke-opacity',d=>d.id===coreId?0.82:0)
+    .attr('stroke-width',d=>d.id===coreId?1.35:1);
+}
+function transitionFieldLight(focus,opts={}){
+  const dur=prefersReducedMotion()?0:(opts.duration??420);
+  const focusIds=new Set(focus.ids),neighborIds=new Set(focus.neighborIds);
+  nodeSel.transition().duration(dur).attr('opacity',d=>{
+    if(!nodeVisible(d.id)) return 0;
+    if(d.id===focus.coreId) return 1;
+    if(neighborIds.has(d.id)) return 0.82;
+    if(isRouteObject(d.id)) return 0.45;
+    return 0.18;
+  });
+  baseSel.transition().duration(dur).attr('stroke-opacity',d=>{
+    if(!edgeVisible(d)) return 0;
+    const s=getEdgeSourceId(d),t=getEdgeTargetId(d);
+    if(s===focus.coreId||t===focus.coreId) return 0.34;
+    if(focusIds.has(s)&&focusIds.has(t)) return 0.22;
+    return 0.04;
+  });
+  projSel.transition().duration(dur).attr('stroke-opacity',d=>{
+    if(!projectedVisible(d)) return 0;
+    const s=getEdgeSourceId(d),t=getEdgeTargetId(d);
+    if(s===focus.coreId||t===focus.coreId) return 0.28;
+    if(focusIds.has(s)&&focusIds.has(t)) return 0.14;
+    return 0.025;
+  });
+  projHitSel.attr('display',d=>projectedVisible(d)?null:'none');
+  updateFocusRing(focus.coreId,dur);
+  updateLabelVisibility();
+}
+function transitionToFieldLighting(opts={}){
+  const dur=prefersReducedMotion()?0:(opts.duration??520);
+  nodeSel.transition().duration(dur).attr('opacity',d=>{
+    if(!nodeVisible(d.id)) return 0;
+    if(d.type==='NameO'&&!S.viewOptions.sourceNames) return 0.28;
+    return 1;
+  });
+  baseSel.transition().duration(dur).attr('stroke-opacity',d=>edgeVisible(d)?(d.kind==='rel'?0.24:0.10):0);
+  projSel.transition().duration(dur).attr('stroke-opacity',d=>projectedVisible(d)?0.14:0);
+  nodeSel.select('.node-focus-ring').transition().duration(dur).attr('stroke-opacity',0).attr('stroke','transparent');
+  updateLabelVisibility();
+  drawRouteMemory({duration:dur});
+}
+
+// ── Route ──────────────────────────────────────────────────────────────────
+function makeRouteEvent(id,meta={}){
+  return {id,type:byId[id]?.type||'',label:shortOf(id),from:meta.from||null,source:meta.source||'unknown',index:S.routeEvents.length+1};
+}
+function registerRouteEvent(id,meta={}){
+  const ev=makeRouteEvent(id,meta);
+  S.routeEvents.push(ev);
+  if(S.routeEvents.length>S.maxRouteEvents) S.routeEvents=S.routeEvents.slice(-S.maxRouteEvents);
+  renderRoute();
+}
+function routeApertureEvents(){
+  const events=S.routeEvents;
+  const maxTail=isMobile()?2:(window.innerWidth<1180?3:4);
+  if(events.length<=maxTail+1) return {leading:[],tail:events,collapsed:false};
+  const first=events[0];
+  const tail=events.slice(-maxTail);
+  const tailHasFirst=tail.some(ev=>ev.index===first.index);
+  return {leading:tailHasFirst?[]:[first],tail,collapsed:true};
+}
+function renderRoute(){
+  const r=document.getElementById('route');
+  if(!S.routeEvents.length){r.innerHTML='<span class="route-empty">route is empty</span>';updateRouteLiveRegion();drawRouteMemory({duration:0});renderRouteDrawer();return;}
+  const ap=routeApertureEvents();
+  const parts=[];
+  const addEv=(ev, cls='')=>parts.push(`<button class="route-item ${cls}" data-route-index="${ev.index}" data-id="${ev.id}" title="${esc(labelOf(ev.id))}">${esc(shortOf(ev.id))}</button>`);
+  ap.leading.forEach(ev=>addEv(ev));
+  if(ap.collapsed){
+    if(parts.length) parts.push('<span class="sep">·</span>');
+    parts.push('<button class="route-ellipsis" data-route-open="1" title="show route">···</button>');
+  }
+  ap.tail.forEach((ev,i)=>{
+    if(parts.length) parts.push('<span class="sep">·</span>');
+    addEv(ev, i===ap.tail.length-1?'current':'');
+  });
+  r.innerHTML=parts.join('')+'<button class="clear-route">clear</button>';
+  r.querySelectorAll('.route-item').forEach(el=>{
+    el.onmouseenter=()=>touchObject(el.dataset.id,{source:'route-hover'});
+    el.onmouseleave=()=>clearTouch();
+    el.onclick=()=>focusObject(el.dataset.id,{source:'route'});
+  });
+  const ell=r.querySelector('[data-route-open]');
+  if(ell) ell.onclick=()=>{renderRouteDrawer();openDrawer('routeDrawer');};
+  r.querySelector('.clear-route').onclick=()=>{S.routeEvents=[];renderRoute();drawRouteMemory({duration:260});};
+  updateRouteLiveRegion();
+  renderRouteDrawer();
+}
+function renderRouteDrawer(){
+  const box=document.getElementById('routeList');
+  if(!box) return;
+  if(!S.routeEvents.length){box.innerHTML='<div class="route-empty" style="padding:18px 0">route is empty</div>';return;}
+  box.innerHTML=S.routeEvents.map((ev,i)=>`<div class="route-row" data-id="${ev.id}"><div class="route-row-index">${String(i+1).padStart(2,'0')}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`).join('');
+  box.querySelectorAll('.route-row').forEach(row=>row.onclick=()=>{focusObject(row.dataset.id,{source:'route-drawer'});closeAllDrawers();});
+}
+function updateRouteLiveRegion(){
+  const el=document.getElementById('routeLive'); if(!el) return;
+  const labels=S.routeEvents.map(ev=>ev.label).join(', ');
+  el.textContent=labels?`Route: ${labels}.`:'Route is empty.';
+}
+
+// ── Route memory ────────────────────────────────────────────────────────────
+function routeStats(){
+  const recent=S.routeEvents.slice(-S.maxRouteEvents);
+  const stats=new Map();
+  recent.forEach((ev,i)=>{
+    const age=recent.length-1-i;
+    const existing=stats.get(ev.id)||{count:0,minAge:age};
+    existing.count+=1; existing.minAge=Math.min(existing.minAge,age);
+    stats.set(ev.id,existing);
+  });
+  return stats;
+}
+function updateRouteHalos(duration=420){
+  const stats=routeStats();
+  nodeSel.select('.node-route-halo').transition().duration(prefersReducedMotion()?0:duration)
+    .attr('stroke',d=>stats.has(d.id)?'#c49a45':'transparent')
+    .attr('stroke-opacity',d=>{const s=stats.get(d.id);if(!s) return 0;return Math.max(0.06,0.28-s.minAge*0.025)+Math.min(0.12,(s.count-1)*0.04);})
+    .attr('stroke-width',d=>{const s=stats.get(d.id);return s?Math.min(2.2,1+(s.count-1)*0.25):1;});
+}
+function routeSegments(){
+  const events=S.routeEvents.slice(-S.maxRouteEvents);
+  const segs=[];
+  for(let i=1;i<events.length;i++){
+    const a=events[i-1],b=events[i];
+    if(!byId[a.id]||!byId[b.id]||!nodeVisible(a.id)||!nodeVisible(b.id)) continue;
+    // In solo state: only draw segments where both endpoints are in the solo set
+    if(S.soloSet&&(!S.soloSet.has(a.id)||!S.soloSet.has(b.id))) continue;
+    segs.push({key:`${a.index}-${b.index}`,source:byId[a.id],target:byId[b.id],age:events.length-1-i});
+  }
+  return segs.slice(-S.maxVisibleRouteSegments);
+}
+function drawRouteMemory(opts={}){
+  const dur=opts.duration??420;
+  updateRouteHalos(dur);
+  const data=routeSegments();
+  const seg=routeMemoryLayer.selectAll('line.route-segment').data(data,d=>d.key);
+  seg.exit().transition().duration(prefersReducedMotion()?0:260).attr('stroke-opacity',0).remove();
+  const enter=seg.enter().append('line').attr('class','route-segment')
+    .attr('stroke','#c49a45').attr('stroke-width',0.55).attr('stroke-linecap','round')
+    .attr('pointer-events','none').attr('stroke-opacity',0);
+  enter.merge(seg).each(function(d){
+    const x1=d.source.x,y1=d.source.y,x2=d.target.x,y2=d.target.y;
+    if(Number.isFinite(x1)&&Number.isFinite(y1)&&Number.isFinite(x2)&&Number.isFinite(y2))
+      d3.select(this).attr('x1',x1).attr('y1',y1).attr('x2',x2).attr('y2',y2);
+  }).transition().duration(prefersReducedMotion()?0:dur)
+    .attr('stroke-opacity',d=>Math.max(0.06,0.42-d.age*0.055));
+}
+
+// ── Solo computation ───────────────────────────────────────────────────────
+function computeSoloSet(id){
+  // Solo = object + its RelOs + all participants in those RelOs
+  const relationIds=relosFor(id);
+  const soloIds=new Set([id]);
+  for(const rid of relationIds){
+    soloIds.add(rid);
+    const parts=DATA.relations[rid]||[];
+    for(const pid of parts) if(byId[pid]) soloIds.add(pid);
+  }
+  return soloIds;
+}
+
+// ── Focus set ──────────────────────────────────────────────────────────────
+function appearingIn(id){return Object.entries(DATA.texts).filter(([,t])=>(t.objects||[]).includes(id)).map(([tid])=>tid);}
+function relosFor(id){return Object.entries(DATA.relations).filter(([,parts])=>parts.includes(id)).map(([rid])=>rid);}
+function linkedNotesForRef(id){return Object.entries(DATA.texts).filter(([,t])=>(t.refs||[]).includes(id)).map(([tid])=>tid);}
+function buildFocusSet(id){
+  const core=byId[id];
+  const ids=new Set([id]);
+  (adj[id]?[...adj[id]]:[]).forEach(x=>ids.add(x));
+  relosFor(id).forEach(x=>ids.add(x));
+  if(core.type==='FO'||core.type==='NameO') appearingIn(id).forEach(x=>ids.add(x));
+  if(core.type==='FO') nodes.filter(x=>x.type==='NameO'&&(DATA.nameos[x.id]?.attached||[]).includes(id)).forEach(x=>ids.add(x.id));
+  if(core.type==='RelO') (DATA.relations[id]||[]).forEach(x=>ids.add(x));
+  if(core.type==='RNO'||core.type==='MNO'){const t=DATA.texts[id];(t?.objects||[]).forEach(x=>ids.add(x));(t?.refs||[]).forEach(x=>ids.add(x));}
+  if(core.type==='RefO') linkedNotesForRef(id).forEach(x=>ids.add(x));
+  const visibleIds=[...ids].filter(nodeVisible);
+  return {id,coreId:id,ids:visibleIds,neighborIds:visibleIds.filter(x=>x!==id),relationIds:relosFor(id).filter(nodeVisible)};
+}
+
+// ── Focus object ───────────────────────────────────────────────────────────
+async function focusObject(id,opts={}){
+  const n=byId[id]; if(!n) return;
+  const source=opts.source||opts.from||'unknown';
+  const previousId=S.activeId;
+  S.phase='focused';
+  if(isMobile()&&opts.openReader!==false) S.surface='read';
+  updatePhaseClass();
+  S.activeId=id; S.activeEdge=null; S.activeRelos=[]; S.previewTarget=null;
+  closeAllDrawers(); hidePreview();
+  registerRouteEvent(id,{from:previousId,source});
+  if(!S.readerOpen&&opts.openReader!==false){await setReaderOpen(true,{measure:!(isMobile()&&S.surface==='read')});}
+  const focus=buildFocusSet(id);
+  applyLocalAperture(focus);
+  transitionFieldLight(focus,{duration:opts.lightDuration??420});
+  if(!(isMobile()&&S.surface==='read') && opts.camera!==false) fitFocusFrame(focus,{duration:opts.cameraDuration??760});
+  const readerEl=document.getElementById('reader');
+  if(readerEl){readerEl.innerHTML='';readerEl.scrollTop=0;}
+  if(opts.readerDelay!==false) setTimeout(()=>renderNodePanel(id),prefersReducedMotion()?0:(opts.readerDelay??160));
+  drawRouteMemory({duration:opts.routeDuration??420});
+  updateRouteLiveRegion();
+}
+function selectNode(id,opts={}){return focusObject(id,{source:opts.from||'legacy',openReader:true});}
+async function returnToField(opts={}){
+  S.phase='field';
+  S.surface='field';
+  S.activeId=null; S.activeEdge=null; S.activeRelos=[]; S.previewTarget=null;
+  closeAllDrawers(); closeSheet(); hidePreview();
+  updatePhaseClass();
+  if(isMobile()) await setReaderOpen(true,{measure:true});
+  else {await nextFrame(); width=mapWrap.clientWidth; height=mapWrap.clientHeight; if(width>10&&height>10){svg.attr('viewBox',`0 0 ${width} ${height}`);sim.force('center',d3.forceCenter(width/2,height/2));}}
+  clearLocalAperture();
+  transitionToFieldLighting({duration:opts.duration??520});
+  await nextFrame();
+  fitVisibleField({duration:opts.duration??850});
+}
+function deselectAll(){returnToField();}
+
+// Mobile: select/focus in Field without opening Read
+async function selectInField(id,opts={}){
+  const n=byId[id]; if(!n) return;
+  const source=opts.source||'mobile-field';
+  const previousId=S.activeId;
+  S.phase='focused'; S.surface='field';
+  updatePhaseClass();
+  S.activeId=id; S.activeEdge=null; S.activeRelos=[]; S.previewTarget=null;
+  closeAllDrawers(); hidePreview();
+  registerRouteEvent(id,{from:previousId,source});
+  await setReaderOpen(true,{measure:true});
+  const focus=buildFocusSet(id);
+  applyLocalAperture(focus);
+  transitionFieldLight(focus,{duration:opts.lightDuration??420});
+  fitFocusFrame(focus,{duration:opts.cameraDuration??680});
+  drawRouteMemory({duration:opts.routeDuration??420});
+  updateRouteLiveRegion();
+}
+
+// ── Micro-preview ──────────────────────────────────────────────────────────
+function graphPointToScreen(x,y){
+  const p=S.transform.apply([x,y]);
+  const rect=mapWrap.getBoundingClientRect();
+  return {x:rect.left+p[0],y:rect.top+p[1]};
+}
+function previewLineForObject(id){
+  const n=byId[id]; if(!n) return '';
+  if(n.type==='FO'){const terms=[...appearingIn(id).map(shortOf).slice(0,3),...relosFor(id).map(shortOf).slice(0,3)].slice(0,4);return terms.length?`held with ${terms.join(', ')}`:'field object';}
+  if(n.type==='NameO') return DATA.nameos[id]?.sourceLayer||'name object';
+  if(n.type==='RefO') return DATA.refs[id]?.status||'reference object';
+  if(n.type==='RelO') return `holds ${(DATA.relations[id]||[]).map(shortOf).slice(0,4).join(', ')}`;
+  if(n.type==='RNO'||n.type==='MNO'){const objs=(DATA.texts[id]?.objects||[]).map(shortOf).slice(0,4);return objs.length?`opens toward ${objs.join(', ')}`:'note object';}
+  return '';
+}
+function placePreviewNearPoint(x,y){const w=260,h=120,m=16;let left=x+18,top=y+18;if(left+w>window.innerWidth-m) left=x-w-18;if(top+h>window.innerHeight-m) top=y-h-18;return {left:Math.max(m,left),top:Math.max(m,top)};}
+function showObjectPreview(id,pos={}){
+  const n=byId[id]; if(!n) return;
+  const el=document.getElementById('microPreview');
+  el.innerHTML=`<div class="micro-preview-title">${esc(n.label)}</div><div class="micro-preview-meta">${esc(n.type)}</div><div class="micro-preview-line">${esc(previewLineForObject(id))}</div>`;
+  const x=pos.x??width/2,y=pos.y??80;
+  const pp=placePreviewNearPoint(x,y);
+  el.style.left=`${pp.left}px`;
+  el.style.top=`${pp.top}px`;
+  el.classList.add('visible'); el.setAttribute('aria-hidden','false');
+}
+function hidePreview(){const el=document.getElementById('microPreview');if(el){el.classList.remove('visible');el.setAttribute('aria-hidden','true');}}
+function touchObject(id,opts={}){
+  S.touchedId=id;
+  nodeSel.select('.node-focus-ring')
+    .attr('stroke',n=>n.id===id?'#c49a45':(n.id===S.activeId?'#e2bc69':'transparent'))
+    .attr('stroke-opacity',n=>n.id===id?0.42:(n.id===S.activeId?0.95:0));
+  if(opts.showPreview!==false&&byId[id]){
+    const d=byId[id];
+    const pt=d.x!=null?graphPointToScreen(d.x,d.y):{x:120,y:80};
+    showObjectPreview(id,pt);
+  }
+}
+function clearTouch(){S.touchedId=null;hidePreview();if(S.activeId) updateFocusRing(S.activeId,120);}
+
+function showEdgePreview(e,ev){
+  const relos=e.relos||[];
+  const el=document.getElementById('microPreview');
+  el.innerHTML=`<div class="micro-preview-title">Projected edge</div><div class="micro-preview-meta">${relos.length} relation object${relos.length===1?'':'s'}</div><div class="micro-preview-line">generated by ${relos.map(shortOf).slice(0,3).join(', ')}</div>`;
+  const pp=placePreviewNearPoint(ev.clientX,ev.clientY);
+  el.style.left=`${pp.left}px`;
+  el.style.top=`${pp.top}px`;
+  el.classList.add('visible'); el.setAttribute('aria-hidden','false');
+}
+
+// ── Mobile preview sheet ────────────────────────────────────────────────────
+function showNodePreviewSheet(id){
+  const n=byId[id]; if(!n) return;
+  closeAllDrawers(); hidePreview();
+  S.previewTarget={kind:'object',id,source:'mobile-sheet'}; S.showSheet=true; setOverlay('nodeSheet');
+  document.getElementById('sheetBody').innerHTML=`<div class="sheet-title">${esc(n.label)}</div><div class="meta">${esc(n.type)} · ${esc(n.id)}</div><div class="prose"><p>${esc(previewLineForObject(id))}</p></div><div class="sheet-actions"><button class="tool-btn" id="sheetEnter">Enter</button><button class="tool-btn" id="sheetHold">Hold in field</button><button class="tool-btn" id="sheetClose">Keep reading</button></div>`;
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('sheetEnter').onclick=()=>{closeSheet();focusObject(id,{source:'graph-mobile'});};
+  document.getElementById('sheetHold').onclick=()=>{const focus=buildFocusSet(id);applyLocalAperture(focus);transitionFieldLight(focus,{duration:320});fitFocusFrame(focus,{openReader:false,duration:620});};
+  document.getElementById('sheetClose').onclick=closeSheet;
+}
+function closeSheet(){document.getElementById('sheet').classList.remove('open');S.showSheet=false;S.previewTarget=null;if(S.overlay==='nodeSheet'||S.overlay==='edgeSheet')setOverlay(null);}
+
+// ── Reader functions ────────────────────────────────────────────────────────
+function reader(html){document.getElementById('reader').innerHTML=html;inlineHandlers(document.getElementById('reader'));}
+function meta(n){return `<div class="meta">${n.type} · ${n.id}</div><div class="title">${n.label}</div>`;}
+function renderIndexList(ids){return `<div class="index-list">${ids.map(id=>`<div class="index-item" data-id="${id}"><div class="idx-type">${byId[id]?.type||''}</div><div class="idx-title">${labelOf(id)}</div></div>`).join('')}</div>`;}
+function bindIndexItems(){
+  document.querySelectorAll('.index-item').forEach(el=>{
+    el.onmouseenter=()=>!isMobile()&&touchObject(el.dataset.id,{source:'index-hover'});
+    el.onmouseleave=()=>!isMobile()&&clearTouch();
+    el.onclick=()=>focusObject(el.dataset.id,{source:'index-item'});
+  });
+}
+function renderNodePanel(id){
+  closeSheet();
+  const n=byId[id];
+  if(['RNO','MNO'].includes(n.type)) return renderTextNode(n);
+  if(n.type==='FO') return renderFO(n);
+  if(n.type==='NameO') return renderNameO(n);
+  if(n.type==='RefO') return renderRefO(n);
+  if(n.type==='RelO') return renderRelO(n);
+}
+function renderTextNode(n){
+  const t=DATA.texts[n.id];
+  const objectChips=(t.objects||[]).map(id=>`<span class="chip" data-id="${id}">${shortOf(id)}</span>`).join('');
+  const refChips=(t.refs||[]).map(id=>`<span class="chip" data-id="${id}">${shortOf(id)}</span>`).join('');
+  const body=n.type==='MNO'
+    ?`<div style="margin-bottom:8px">${t.body}</div><div class="disclosure"><button id="toggleObjects" style="font-size:10px;letter-spacing:.18em">objects ${(t.objects||[]).length}</button><div id="mnoObjects" class="chip-row" style="display:none">${objectChips}</div></div>`
+    :`<div class="prose"><p>${t.body}</p></div>${refChips?'<div class="section-label">references</div><div class="chip-row">'+refChips+'</div>':''}<div class="section-label">objects</div><div class="chip-row">${objectChips}</div>`;
+  if(n.type==='MNO'&&!prefersReducedMotion()){
+    const rEl=document.getElementById('reader');
+    if(rEl) rEl.style.opacity='0';
+    reader(`${meta(n)}${body}`);
+    document.fonts.ready.then(()=>{if(rEl){rEl.style.transition='opacity 0.12s';rEl.style.opacity='';setTimeout(()=>{if(rEl) rEl.style.transition='';},140);}});
+  } else {
+    reader(`${meta(n)}${body}`);
+  }
+  document.querySelectorAll('.chip').forEach(c=>{
+    c.onmouseenter=()=>!isMobile()&&touchObject(c.dataset.id,{source:'chip-hover'});
+    c.onmouseleave=()=>!isMobile()&&clearTouch();
+    c.onclick=()=>focusObject(c.dataset.id,{source:'chip'});
+  });
+  const to=document.getElementById('toggleObjects');if(to) to.onclick=()=>{const box=document.getElementById('mnoObjects');box.style.display=box.style.display==='none'?'flex':'none';};
+}
+function renderFO(n){
+  let html=`${meta(n)}`;
+  if(n.id==='FO.BLACK_BIRD_FIELD') html+=`<div class="prose"><p>central black-bird field</p></div>`;
+  const appears=appearingIn(n.id),relos=relosFor(n.id),names=nodes.filter(x=>x.type==='NameO'&&(DATA.nameos[x.id]?.attached||[]).includes(n.id)).map(x=>x.id);
+  if(appears.length) html+=`<div class="section-label">appears in</div>${renderIndexList(appears)}`;
+  if(names.length) html+=`<div class="section-label">source names</div>${renderIndexList(names)}`;
+  if(relos.length) html+=`<div class="section-label">relation objects</div>${renderIndexList(relos)}`;
+  reader(html); bindIndexItems();
+}
+function renderNameO(n){
+  const no=DATA.nameos[n.id];
+  reader(`${meta(n)}<div class="prose"><p>${no.sourceLayer}</p><p>${no.gloss}</p></div><div class="section-label">attached objects</div>${renderIndexList(no.attached||[])}`); bindIndexItems();
+}
+function renderRefO(n){
+  const r=DATA.refs[n.id];
+  const linked=Object.entries(DATA.texts).filter(([,t])=>(t.refs||[]).includes(n.id)).map(([tid])=>tid);
+  let sourceBlock='';
+  if(r.sources&&r.sources.length){
+    sourceBlock=r.sources.map(s=>s.url?`<a class="source-row" href="${s.url}" target="_blank" rel="noopener">${s.label} ↗</a>`:`<span class="source-row" style="opacity:.5;cursor:default">${s.label}</span>`).join('');
+    if(r.statusNote) sourceBlock+=`<div style="font-family:var(--mono);font-size:10px;color:var(--ghost);margin-top:10px;letter-spacing:.08em">${r.statusNote}</div>`;
+  } else if(r.url){
+    sourceBlock=`<a class="source-row" href="${r.url}" target="_blank" rel="noopener">${r.status||'source'} ↗</a>`;
+  } else {
+    sourceBlock=`<span class="source-row" style="opacity:.45;cursor:default;border-bottom:0">${r.status||'bibliographic reference'}</span>`;
+  }
+  reader(`${meta(n)}<div class="ref-citation">${r.citation}</div>${sourceBlock}${linked.length?'<div class="section-label">linked notes</div>'+renderIndexList(linked):''}`); bindIndexItems();
+}
+function renderRelO(n){
+  const parts=DATA.relations[n.id]||[];
+  reader(`<div class="meta">RelO · ${n.id}</div><div class="section-label">objects</div>${renderIndexList(parts)}`); bindIndexItems();
+}
+function openProjectedEdge(e){
+  const s=getEdgeSourceId(e),t=getEdgeTargetId(e);
+  S.activeEdge={source:s,target:t}; S.activeRelos=e.relos||[]; S.previewTarget=null;
+  if(isMobile()) return showEdgeSheet(s,t,S.activeRelos);
+  renderEdgePanel(s,t,S.activeRelos);
+}
+function renderEdgePanel(s,t,relos){
+  reader(`<div class="meta">Projected edge</div><div class="edge-head">${labelOf(s)} ↔ ${labelOf(t)}</div><div class="section-label">generated by</div>${renderIndexList(relos)}`); bindIndexItems();
+}
+function showEdgeSheet(s,t,relos){
+  closeAllDrawers(); hidePreview(); setOverlay('edgeSheet'); S.showSheet=true;
+  document.getElementById('sheetBody').innerHTML=`<div class="sheet-title">${shortOf(s)} ↔ ${shortOf(t)}</div><div class="meta">Projected edge</div><div class="section-label">generated by</div>${renderIndexList(relos)}<div class="sheet-actions"><button class="tool-btn" id="sheetEdgeOpen">Open</button><button class="tool-btn" id="sheetClose2">Keep reading</button></div>`;
+  document.getElementById('sheet').classList.add('open'); bindIndexItems();
+  document.getElementById('sheetEdgeOpen').onclick=()=>{closeSheet();renderEdgePanel(s,t,relos);};
+  document.getElementById('sheetClose2').onclick=closeSheet;
+}
+function renderDoc(kind='statement'){
+  const title={statement:'Statement',how:'How to read',types:'Object types',sources:'Sources'}[kind]||'Index';
+  const text=DATA.docs[kind]||DATA.docs.statement;
+  const paras=text.split('\n\n').map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
+  reader(`<div class="meta">Index</div><div class="title">${title}</div><div class="prose">${paras}</div>`);
+}
+function inlineHandlers(root=document){
+  root.querySelectorAll('.fl').forEach(el=>{
+    el.addEventListener('mouseenter',()=>{if(!isMobile()) touchObject(el.dataset.id,{source:'inline-hover'});});
+    el.addEventListener('mouseleave',()=>{if(!isMobile()) clearTouch();});
+    el.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      if(isMobile()&&S.surface==='read') return focusObject(el.dataset.id,{source:'text-link-mobile',openReader:true});
+      focusObject(el.dataset.id,{source:'text-link'});
+    });
+  });
+}
+
+// ── Drawers ────────────────────────────────────────────────────────────────
+const backdrop=document.getElementById('drawerBackdrop');
+function openDrawer(id){
+  closeSheet(); hidePreview();
+  ['fieldViewDrawer','objectDrawer','routeDrawer'].forEach(other=>{
+    if(other!==id){
+      const d=document.getElementById(other);
+      d.classList.remove('open'); d.setAttribute('aria-hidden','true'); d.setAttribute('inert','');
+    }
+  });
+  const drawer=document.getElementById(id);
+  drawer.classList.add('open');
+  drawer.setAttribute('aria-hidden','false');
+  drawer.removeAttribute('inert');
+  backdrop.classList.add('open');
+  setOverlay(id);
+  document.body.style.overflow='hidden';
+}
+function closeDrawer(id){
+  const drawer=document.getElementById(id);
+  drawer.classList.remove('open');
+  drawer.setAttribute('aria-hidden','true');
+  drawer.setAttribute('inert','');
+  if(!document.querySelector('.drawer.open')){backdrop.classList.remove('open');document.body.style.overflow='';setOverlay(null);}
+}
+function closeAllDrawers(){
+  ['fieldViewDrawer','objectDrawer','routeDrawer'].forEach(id=>{
+    const drawer=document.getElementById(id);
+    drawer.classList.remove('open');
+    drawer.setAttribute('aria-hidden','true');
+    drawer.setAttribute('inert','');
+  });
+  backdrop.classList.remove('open'); document.body.style.overflow=''; setOverlay(null);
+}
+backdrop.addEventListener('click',closeAllDrawers);
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeDrawer(b.dataset.close));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAbout();closeAllDrawers();closeSheet();clearTouch();}});
+
+// ── Field view controls ─────────────────────────────────────────────────────
+function renderFieldViewControls(){
+  const typeBox=document.getElementById('typeToggles');
+  const viewBox=document.getElementById('viewToggles');
+  typeBox.innerHTML=typeOrder.map(type=>`<div class="toggle-row"><span>${type} <span style="color:var(--ghost)">(${countType(type)})</span></span><button class="switch ${S.objectGroups[type]?'on':''}" data-type="${type}" aria-label="toggle ${type}"></button></div>`).join('');
+  viewBox.innerHTML=[['projected','Projected edges'],['labels','Labels'],['sourceNames','Source names']].map(([key,label])=>`<div class="toggle-row"><span>${label}</span><button class="switch ${S.viewOptions[key]?'on':''}" data-view="${key}" aria-label="toggle ${label}"></button></div>`).join('');
+  typeBox.querySelectorAll('[data-type]').forEach(btn=>btn.onclick=()=>setObjectGroup(btn.dataset.type,!S.objectGroups[btn.dataset.type]));
+  viewBox.querySelectorAll('[data-view]').forEach(btn=>btn.onclick=()=>{S.viewOptions[btn.dataset.view]=!S.viewOptions[btn.dataset.view];renderFieldViewControls();updateVisibility();if(S.activeId) fitFocusFrame(buildFocusSet(S.activeId)); else fitVisibleField();});
+}
+function setObjectGroup(type,value){
+  S.objectGroups[type]=value; renderFieldViewControls(); updateVisibility();
+  if(S.activeId) fitFocusFrame(buildFocusSet(S.activeId)); else fitVisibleField();
+  if(S.activeId&&!nodeVisible(S.activeId)) returnToField({reason:'active-hidden-by-filter'});
+}
+function renderObjectRows(container,filter='',typeFilter=null){
+  const q=filter.toLowerCase();
+  const rows=nodes.filter(n=>(!typeFilter||n.type===typeFilter) && (!q||n.label.toLowerCase().includes(q)||n.id.toLowerCase().includes(q)))
+    .map(n=>`<div class="object-row"><div class="otype">${n.type}</div><div class="olabel" data-open="${n.id}">${n.label}</div><button class="icon-small" data-eye="${n.id}">${S.objectVisibility[n.id]===false?'show':'hide'}</button><button class="icon-small" data-solo="${n.id}">solo</button></div>`).join('');
+  container.innerHTML=rows;
+  container.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>{focusObject(el.dataset.open,{source:'object-drawer'});closeAllDrawers();});
+  container.querySelectorAll('[data-eye]').forEach(el=>el.onclick=()=>{const id=el.dataset.eye;S.objectVisibility[id]=S.objectVisibility[id]===false;renderFieldViewControls();updateVisibility();});
+  container.querySelectorAll('[data-solo]').forEach(el=>el.onclick=async()=>{
+    const id=el.dataset.solo;
+    const previousId=S.activeId;
+    S.soloSet=computeSoloSet(id);
+    S.activeId=id; S.phase='focused'; S.surface='field';
+    updatePhaseClass();
+    updateVisibility();
+    closeAllDrawers();
+    registerRouteEvent(id,{from:previousId,source:'index-solo'});
+    await nextFrame();
+    if(isMobile()) await setReaderOpen(true,{measure:true});
+    const focus=buildFocusSet(id);
+    applyLocalAperture(focus);
+    transitionFieldLight(focus,{duration:420});
+    fitVisibleField({duration:760});
+    drawRouteMemory({duration:420});
+  });
+}
+function renderObjectLists(){
+  const objectList=document.getElementById('objectList');
+  const title=document.getElementById('objectDrawerTitle');
+  const typeFilter=S.indexFilter==='sources'?'RefO':null;
+  if(title) title.textContent=S.indexFilter==='sources'?'Sources':'Index';
+  if(objectList) renderObjectRows(objectList,document.getElementById('objectSearch')?.value||'',typeFilter);
+}
+function openIndex(filter='all'){S.indexFilter=filter;const search=document.getElementById('objectSearch');if(search) search.value='';renderObjectLists();openDrawer('objectDrawer');}
+document.getElementById('objectSearch').oninput=renderObjectLists;
+document.getElementById('restoreField').onclick=()=>{S.objectVisibility={...defaultVisibility};S.soloSet=null;Object.keys(S.objectGroups).forEach(k=>S.objectGroups[k]=true);renderFieldViewControls();updateVisibility();closeAllDrawers();returnToField({source:'restore-field'});};
+document.getElementById('showAllObjects').onclick=()=>{S.objectVisibility={...defaultVisibility};S.soloSet=null;renderObjectLists();updateVisibility();closeAllDrawers();returnToField({source:'show-all'});};
+document.getElementById('clearRouteDrawer').onclick=()=>{S.routeEvents=[];renderRoute();drawRouteMemory({duration:260});};
+
+// ── Action bindings ─────────────────────────────────────────────────────────
+document.querySelectorAll('[data-action]').forEach(b=>b.onclick=async()=>{
+  const a=b.dataset.action;
+  if(a==='field') returnToField({source:'rail'});
+  else if(a==='view') openDrawer('fieldViewDrawer');
+  else if(a==='index') openIndex('all');
+  else if(a==='sources') openIndex('sources');
+  else if(a==='about'){ if(S.aboutOpen) closeAbout(); else openAbout('rail'); }
+});
+document.querySelectorAll('[data-mobile]').forEach(b=>b.onclick=async()=>{
+  const a=b.dataset.mobile;
+  if(a==='field'){
+    if(S.aboutOpen) closeAbout();
+    if(isMobile()&&S.activeId){
+      const fid=S.activeId;
+      beginGraphHandoff();
+      S.surface='field'; updatePhaseClass();
+      closeAllDrawers(); closeSheet(); hidePreview();
+      await nextFrame(); measureGraph(); await nextFrame();
+      const focus=buildFocusSet(fid);
+      applyLocalAperture(focus);
+      fitFocusFrame(focus,{duration:0,padX:56,padY:72});
+      endGraphHandoff();
+    } else { returnToField({source:'mobile-nav'}); }
+    return;
+  }
+  if(a==='read'){
+    const readTarget=S.activeId||'FO.BLACK_BIRD_FIELD';
+    S.phase='focused'; S.surface='read'; updatePhaseClass();
+    await setReaderOpen(true,{measure:false});
+    if(!S.activeId){S.activeId=readTarget;registerRouteEvent(readTarget,{source:'read-btn'});}
+    renderNodePanel(readTarget);
+    return;
+  }
+  if(a==='view') openDrawer('fieldViewDrawer');
+  if(a==='index') openIndex('all');
+});
+document.getElementById('fieldBtn').onclick=()=>returnToField({source:'field-button'});
+
+// ── Onboarding ─────────────────────────────────────────────────────────────
+const onboardingStages=[
+  {text:'Enter from anywhere.',groups:['RNO','MNO','FO','NameO','RefO','RelO'],projected:false},
+  {text:'Objects appear with sources, names, notes, and relations.',groups:['RNO','MNO','FO','NameO','RefO','RelO'],projected:true},
+  {text:'The route begins where focus begins.',groups:['RNO','MNO','FO','NameO','RefO','RelO'],projected:true}
+];
+function showFieldPrompt(text){const el=document.getElementById('fieldPrompt');el.textContent=text;el.classList.add('visible');}
+function hideFieldPrompt(){document.getElementById('fieldPrompt').classList.remove('visible');}
+function applyOnboardingLight(stage){
+  const groupSet=new Set(stage.groups||[]),emphasis=new Set(stage.emphasis||[]);
+  const dur=prefersReducedMotion()?0:520;
+  nodeSel.transition().duration(dur).attr('opacity',d=>{if(emphasis.has(d.id)) return 1;if(groupSet.has(d.type)) return 0.82;return 0.16;});
+  baseSel.transition().duration(dur).attr('stroke-opacity',d=>{const s=byId[getEdgeSourceId(d)],t=byId[getEdgeTargetId(d)];if(!s||!t) return 0;return groupSet.has(s.type)||groupSet.has(t.type)?0.16:0.035;});
+  projSel.transition().duration(dur).attr('stroke-opacity',stage.projected?0.16:0);
+}
+function runOnboardingStage(i){
+  if(!S.onboardingActive) return;
+  if(i>=onboardingStages.length) return finishOnboarding();
+  const stage=onboardingStages[i];
+  showFieldPrompt(stage.text); applyOnboardingLight(stage);
+  const hold=prefersReducedMotion()?400:2600;
+  setTimeout(()=>{hideFieldPrompt();setTimeout(()=>runOnboardingStage(i+1),prefersReducedMotion()?0:520);},hold);
+}
+async function startTacitOnboarding(){
+  S.phase='onboarding'; S.surface='field'; updatePhaseClass();
+  S.onboardingActive=true;
+  await setReaderOpen(false);
+  reader('');
+  transitionToFieldLighting({duration:0});
+  await nextFrame(); measureGraph(); await nextFrame();
+  fitVisibleField({duration:0});
+  endGraphHandoff();
+  await nextFrame();
+  runOnboardingStage(0);
+}
+async function finishOnboarding(){
+  S.onboardingActive=false;
+  hideFieldPrompt();
+  await sleep(prefersReducedMotion()?0:260);
+
+  const id='FO.BLACK_BIRD_FIELD';
+
+  if(isMobile()){
+    // Mobile: animate aperture/light/camera on full-width map, then commit focus.
+    S.activeId=id;
+    const focus=buildFocusSet(id);
+    applyLocalAperture(focus);
+    transitionFieldLight(focus,{duration:prefersReducedMotion()?0:520});
+    fitFocusFrame(focus,{duration:prefersReducedMotion()?0:780});
+    await sleep(prefersReducedMotion()?0:420);
+    S.phase='focused'; S.surface='field'; updatePhaseClass();
+    await focusObject(id,{source:'onboarding',openReader:false,cameraDuration:prefersReducedMotion()?0:680,lightDuration:prefersReducedMotion()?0:180,readerDelay:0});
+    return;
+  }
+
+  // Desktop: fade graph out, open reader and apply all focus/aperture/camera under the mask,
+  // then fade graph back in once the complete final Black Bird state is ready.
+  S.phase='focused'; S.surface='field'; updatePhaseClass();
+  await beginGraphHandoff({fade:true,duration:180});
+  await setReaderOpen(true,{waitTransition:true,transitionMs:680,measure:true});
+  await nextFrame();
+  measureGraph();
+  await nextFrame();
+  // All focus effects (aperture, lighting, route, reader) run under the mask at duration:0.
+  await focusObject(id,{source:'onboarding',openReader:true,camera:false,cameraDuration:0,lightDuration:0,routeDuration:0,readerDelay:0});
+  // Wait for readerDelay:0 setTimeout to fire, then re-measure and place camera.
+  await nextFrame();
+  measureGraph();
+  await nextFrame();
+  fitVisibleField({duration:0});
+  await nextFrame();
+  await endGraphHandoff({fade:true,duration:260});
+}
+
+// ── Entry ──────────────────────────────────────────────────────────────────
+async function enter(opts={}){
+  const th=document.getElementById('threshold');
+  beginGraphHandoff();
+  th.classList.add('leaving');
+  await sleep(prefersReducedMotion()?0:520);
+  th.style.display='none';
+  if(opts.skipOnboarding){
+    S.phase='focused';S.surface='field';updatePhaseClass();
+    if(!isMobile()){await setReaderOpen(true,{waitTransition:true,transitionMs:520,measure:true});}
+    await nextFrame(); measureGraph(); await nextFrame();
+    const fid='FO.BLACK_BIRD_FIELD';
+    const ff=buildFocusSet(fid);
+    fitFocusFrame(ff,{duration:0});
+    endGraphHandoff();
+    await focusObject(fid,{source:'direct-enter',openReader:!isMobile(),camera:false});
+    return;
+  }
+  startTacitOnboarding();
+}
+document.querySelectorAll('[data-enter]').forEach(b=>b.onclick=()=>enter());
+
+// ── About chamber ──────────────────────────────────────────────────────────
+function jumpAboutSection(id){
+  const body=document.getElementById('aboutBody');
+  const target=document.getElementById(id);
+  if(!body||!target) return;
+  const pad=isMobile()?24:28;
+  const bodyRect=body.getBoundingClientRect();
+  const targetRect=target.getBoundingClientRect();
+  const nextTop=body.scrollTop+(targetRect.top-bodyRect.top)-pad;
+  body.scrollTo({top:Math.max(0,nextTop),behavior:prefersReducedMotion()?'auto':'smooth'});
+}
+function openAbout(origin){
+  S.aboutOpen=true; S.aboutOrigin=origin;
+  closeAllDrawers(); closeSheet(); hidePreview();
+  const panel=document.getElementById('aboutPanel');
+  panel.classList.toggle('from-threshold',origin==='threshold');
+  panel.classList.add('open');
+  panel.removeAttribute('inert');
+  panel.setAttribute('aria-hidden','false');
+  document.getElementById('aboutBody').scrollTop=0;
+  document.querySelectorAll('.rail-btn[data-action="about"]').forEach(b=>b.classList.add('active'));
+}
+function closeAbout(){
+  if(!S.aboutOpen) return;
+  S.aboutOpen=false; S.aboutOrigin=null;
+  const panel=document.getElementById('aboutPanel');
+  panel.classList.remove('open','from-threshold');
+  panel.setAttribute('inert','');
+  panel.setAttribute('aria-hidden','true');
+  document.querySelectorAll('.rail-btn[data-action="about"]').forEach(b=>b.classList.remove('active'));
+}
+document.getElementById('aboutClose').onclick=closeAbout;
+document.querySelectorAll('[data-about-section]').forEach(b=>b.onclick=()=>jumpAboutSection(b.dataset.aboutSection));
+document.getElementById('thAboutBtn').onclick=()=>openAbout('threshold');
+document.getElementById('mobileAboutBtn').onclick=()=>openAbout('mobile-field');
+
+// ── Threshold font-ready gate ──────────────────────────────────────────────
+(function(){
+  const card=document.querySelector('.threshold-card');
+  if(!card) return;
+  const reveal=()=>{card.style.opacity='1';};
+  const t=setTimeout(reveal,1600);
+  (typeof document.fonts!=='undefined'?document.fonts.ready:Promise.resolve()).then(()=>{clearTimeout(t);reveal();}).catch(()=>{clearTimeout(t);reveal();});
+})();
+
+// ── Init ───────────────────────────────────────────────────────────────────
+renderFieldViewControls(); renderRoute(); updateVisibility(); reader(''); updatePhaseClass();
+if(location.search.includes('enter=1')) setTimeout(()=>enter(),200);
+if(location.search.includes('skipIntro=1')) setTimeout(()=>enter({skipOnboarding:true}),200);
+let fitted=false;
+sim.on('end',()=>{if(!fitted&&!(isMobile()&&S.surface==='read')){fitted=true;fitVisibleField();}});
+setTimeout(()=>{if(!fitted&&!(isMobile()&&S.surface==='read')){fitted=true;fitVisibleField();}},5000);
+</script>
+</body>
+</html>

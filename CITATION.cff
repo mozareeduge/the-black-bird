@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you cite this work, please cite it as below."
+title: "The Black Bird: A Hypergraph Research Poem"
+authors:
+  - family-names: "Zare"
+    given-names: "Mohammad"
+type: software
+date-released: 2026-06-29
+version: "1.0.0"
+url: "https://mozareeduge.github.io/the-black-bird/"
+repository-code: "https://github.com/mozareeduge/the-black-bird"
+abstract: "A born-digital hypergraph research poem that stages black-bird appearances across source, name, relation, graph, reader, route, and interface."
+keywords:
+  - "electronic literature"
+  - "digital poetry"
+  - "hypergraph"
+  - "research poetry"
+  - "speculative research poetry"
+  - "born-digital artwork"
