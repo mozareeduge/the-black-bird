@@ -2,6 +2,24 @@
 
 This file is the canonical project log. Keep it in the repository root. Update it after every Claude Code round.
 
+## 2026-07-03 — Update Author section text
+
+Branch: `production/update-author-section`
+Base file: `index.html`
+
+### Decision
+
+Replace the About chamber Author body paragraph with the new approved author text. The existing section structure, id (`about-author`), heading label, layout, and navigation are unchanged.
+
+### Changed files
+
+- `index.html`: Author prose paragraph replaced in `#about-author` section
+- `BLACK_BIRD_DECISIONS_CHANGELOG.md`: this entry added
+
+### Known risks
+
+None.
+
 ## 2026-06-29 — Fix mobile About Field return
 
 Branch: `claude/mobile-about-field-return`
