@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Research Annex — The Black Bird</title>
+<style>
+:root {
+  --bg: #070706;
+  --line: #2a2621;
+  --line2: #3a342b;
+  --text: #e7e1d7;
+  --text2: #b3aa9d;
+  --muted: #867d72;
+  --ghost: #554e45;
+  --amber: #c49a45;
+  --amber2: #e2bc69;
+  --bone: #e4dbc9;
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --serif: 'Crimson Pro', Georgia, serif;
+  --max: 620px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+  font-size: 18px;
+  line-height: 1.78;
+}
+
+body { background: var(--bg); min-height: 100vh; }
+
+/* ── header ── */
+.site-header {
+  border-bottom: 1px solid var(--line);
+  padding: 22px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.back-link {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: var(--muted);
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.back-link:hover { color: var(--amber2); }
+
+.site-wordmark {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .22em;
+  color: var(--ghost);
+}
+
+/* ── main ── */
+main {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 64px 24px 120px;
+}
+
+.annex-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+h1 {
+  font-family: var(--mono);
+  font-size: clamp(15px, 3vw, 20px);
+  font-weight: 400;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 40px;
+}
+
+.intro {
+  max-width: var(--max);
+  margin-bottom: 52px;
+}
+
+.intro p {
+  color: var(--text2);
+  margin-bottom: 1em;
+}
+.intro p:last-child { margin-bottom: 0; }
+
+/* ── annex list ── */
+.annex-list {
+  border-top: 1px solid var(--line);
+  margin-bottom: 64px;
+}
+
+.annex-item {
+  display: block;
+  border-bottom: 1px solid var(--line);
+  padding: 28px 0;
+  text-decoration: none;
+  color: var(--text);
+  transition: padding-left .2s;
+}
+
+.annex-item:hover {
+  padding-left: 8px;
+}
+
+.annex-item-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.annex-item-title {
+  font-family: var(--serif);
+  font-size: clamp(20px, 3vw, 26px);
+  color: var(--text);
+  line-height: 1.3;
+  margin-bottom: 10px;
+}
+
+.annex-item:hover .annex-item-title { color: var(--amber2); }
+
+.annex-item-desc {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--text2);
+  line-height: 1.6;
+  max-width: var(--max);
+}
+
+.annex-item-arrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ghost);
+  margin-top: 12px;
+  display: block;
+  letter-spacing: .12em;
+}
+.annex-item:hover .annex-item-arrow { color: var(--amber2); }
+
+/* ── poem note ── */
+.poem-note {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .16em;
+  color: var(--ghost);
+  max-width: var(--max);
+}
+
+/* ── footer ── */
+.site-footer {
+  border-top: 1px solid var(--line);
+  padding: 24px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--ghost);
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.site-footer a { color: var(--ghost); text-decoration: none; }
+.site-footer a:hover { color: var(--muted); }
+
+@media (max-width: 600px) {
+  main { padding: 40px 18px 80px; }
+  .site-header { padding: 16px 18px; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="../" class="back-link">← The Black Bird</a>
+  <span class="site-wordmark">Research Annex</span>
+</header>
+
+<main>
+  <p class="annex-label">Research Annex</p>
+  <h1>Research Annex</h1>
+
+  <div class="intro">
+    <p>The Research Annex gathers methodological companions to <em>The Black Bird</em>.</p>
+    <p>These materials document selected structures behind the work: object grammar, source-field construction, relation-making, and the procedures through which the poem can return to its own field.</p>
+    <p>The first annex introduces speculative indices for the research-field.</p>
+  </div>
+
+  <div class="annex-list">
+    <a href="speculative-indices/" class="annex-item">
+      <div class="annex-item-label">First Annex</div>
+      <div class="annex-item-title">Speculative Indices for a Research-Field</div>
+      <div class="annex-item-desc">Object Incidence, Relational Thickness, and Mediational Incidence derived from the object grammar of <em>The Black Bird</em>. Includes data package.</div>
+      <span class="annex-item-arrow">Speculative Indices for a Research-Field →</span>
+    </a>
+  </div>
+
+  <p class="poem-note">The primary work remains the poem itself.</p>
+</main>
+
+<footer class="site-footer">
+  <a href="../">The Black Bird</a>
+  <span>Mohammad Zare</span>
+</footer>
+
+</body>
+</html>
