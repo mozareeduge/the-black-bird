@@ -305,7 +305,74 @@ td.shared {
 }
 .site-footer a:hover { color: var(--muted); }
 
+/* ── ledger cards ── */
+.ledger-section-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+
+.ledger-intro {
+  font-family: var(--serif);
+  font-size: 16px;
+  color: var(--text2);
+  margin-bottom: 18px;
+  max-width: var(--max);
+}
+
+.ledger-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0 0 32px;
+}
+
+.ledger-card {
+  border: 1px solid var(--line);
+  background: rgba(13,12,11,.72);
+  padding: 18px 20px;
+}
+
+.ledger-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--amber2);
+  margin-bottom: 14px;
+}
+
+.ledger-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255,255,255,.06);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.ledger-row:first-of-type {
+  border-top: 0;
+}
+
+.ledger-value {
+  color: var(--bone);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
 /* ── responsive ── */
+@media (max-width: 760px) {
+  .ledger-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 600px) {
   main { padding: 40px 18px 80px; }
   .site-header { padding: 16px 18px; }
@@ -328,6 +395,11 @@ td.shared {
   thead th { background: #f8f8f6; }
   .analysis-bar { background: #8a6b1e; }
   .download-link { background: #f8f8f6; }
+  .ledger-card { background: #f8f8f6; border-color: #ccc; }
+  .ledger-title { color: #6b520e; }
+  .ledger-row { color: #333; border-top-color: #ddd; }
+  .ledger-value { color: #111; }
+  .ledger-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>
 </head>
@@ -357,13 +429,13 @@ td.shared {
   <section class="section">
     <div class="section-label">Method</div>
 
-    <p>Two matrices underlie the indices.</p>
+    <p>Two matrices structure the calculation.</p>
 
-    <p><strong>A</strong> is the RNO–FO incidence matrix. It records which Field Objects appear in each Research Note Object. A has dimensions 4 × 18: four Research Note Objects against eighteen Field Objects. A cell is 1 if the Field Object is present in that note, 0 otherwise.</p>
+    <p>The first matrix, A, records the contact between Research Note Objects and Field Objects. Its rows are the four Research Note Objects. Its columns are the eighteen Field Objects. A cell is active when a Field Object appears inside that source-bearing note.</p>
 
-    <p><strong>B</strong> is the FO–RelO incidence matrix. It records which Field Objects participate in each Relation Object. B has dimensions 18 × 12.</p>
+    <p>The second matrix, B, records the contact between Field Objects and Relation Objects. Its rows are the eighteen Field Objects. Its columns are the twelve Relation Objects. A cell is active when a Field Object participates in that Relation Object.</p>
 
-    <p>From these two matrices, six indices follow:</p>
+    <p>The indices do not interpret the work from outside. They give recurrence, overlap, and mediation a small surface, so the reader can return to the field with a more precise sense of where the work has already thickened.</p>
 
     <div class="formula-grid">
       <div class="formula-row">
@@ -392,7 +464,6 @@ td.shared {
       </div>
     </div>
 
-    <p>A gives research recurrence. B gives mediational participation. A Aᵀ gives RNO–RNO field overlap. Aᵀ A gives FO–FO research co-incidence. B Bᵀ gives FO–FO RelO-mediated thickness.</p>
   </section>
 
   <!-- ── Key Finding ── -->
@@ -456,36 +527,34 @@ td.shared {
       </table>
     </div>
 
-    <p>Field Object Research Recurrence and Mediational Incidence, for objects with Mediational Incidence greater than 1:</p>
+    <div class="ledger-section-title">Field Object ledgers</div>
+    <p class="ledger-intro">The public ledgers show only values greater than 1. Complete values remain available in the data package.</p>
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Field Object</th>
-            <th style="text-align:right">Research Recurrence (OI_F)</th>
-            <th style="text-align:right">Mediational Incidence (MI_R)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td class="fo-name">Black Bird</td><td class="num">4</td><td class="num">8</td></tr>
-          <tr><td class="fo-name">Corpse</td><td class="num">4</td><td class="num">9</td></tr>
-          <tr><td class="fo-name">God</td><td class="num">2</td><td class="num">2</td></tr>
-          <tr><td class="fo-name">Forensic</td><td class="num">2</td><td class="num">3</td></tr>
-          <tr><td class="fo-name">Allah</td><td class="num">1</td><td class="num">2</td></tr>
-          <tr><td class="fo-name">Cain</td><td class="num">1</td><td class="num">3</td></tr>
-          <tr><td class="fo-name">Burial</td><td class="num">1</td><td class="num">2</td></tr>
-          <tr><td class="fo-name">Odin</td><td class="num">1</td><td class="num">2</td></tr>
-          <tr><td class="fo-name">Huginn</td><td class="num">1</td><td class="num">3</td></tr>
-          <tr><td class="fo-name">Muninn</td><td class="num">1</td><td class="num">3</td></tr>
-          <tr><td class="fo-name">Battlefield</td><td class="num">1</td><td class="num">2</td></tr>
-          <tr><td class="fo-name">Warning Call</td><td class="num">1</td><td class="num">2</td></tr>
-          <tr><td class="fo-name">Assembled Crows</td><td class="num">1</td><td class="num">5</td></tr>
-        </tbody>
-      </table>
+    <div class="ledger-grid">
+      <div class="ledger-card">
+        <div class="ledger-title">Research recurrence · OI_F &gt; 1</div>
+        <div class="ledger-row"><span>Black Bird</span><span class="ledger-value">4</span></div>
+        <div class="ledger-row"><span>Corpse</span><span class="ledger-value">4</span></div>
+        <div class="ledger-row"><span>God</span><span class="ledger-value">2</span></div>
+        <div class="ledger-row"><span>Forensic</span><span class="ledger-value">2</span></div>
+      </div>
+      <div class="ledger-card">
+        <div class="ledger-title">Mediational incidence · MI_R &gt; 1</div>
+        <div class="ledger-row"><span>Corpse</span><span class="ledger-value">9</span></div>
+        <div class="ledger-row"><span>Black Bird</span><span class="ledger-value">8</span></div>
+        <div class="ledger-row"><span>Assembled Crows</span><span class="ledger-value">5</span></div>
+        <div class="ledger-row"><span>Cain</span><span class="ledger-value">3</span></div>
+        <div class="ledger-row"><span>Huginn</span><span class="ledger-value">3</span></div>
+        <div class="ledger-row"><span>Muninn</span><span class="ledger-value">3</span></div>
+        <div class="ledger-row"><span>Forensic</span><span class="ledger-value">3</span></div>
+        <div class="ledger-row"><span>Allah</span><span class="ledger-value">2</span></div>
+        <div class="ledger-row"><span>God</span><span class="ledger-value">2</span></div>
+        <div class="ledger-row"><span>Burial</span><span class="ledger-value">2</span></div>
+        <div class="ledger-row"><span>Odin</span><span class="ledger-value">2</span></div>
+        <div class="ledger-row"><span>Battlefield</span><span class="ledger-value">2</span></div>
+        <div class="ledger-row"><span>Warning Call</span><span class="ledger-value">2</span></div>
+      </div>
     </div>
-
-    <p>Complete values are available in the data package.</p>
   </section>
 
   <!-- ── Graph Analysis ── -->
@@ -494,27 +563,27 @@ td.shared {
 
     <div class="analysis-item">
       <div class="analysis-bar"></div>
-      <div class="analysis-text">Black Bird and Corpse form the universal research spine. They are the only Field Objects appearing in all four Research Note Objects, giving both a research co-incidence of 4 and a RelO-mediated thickness of 5 — the highest in the field.</div>
+      <div class="analysis-text">Black Bird and Corpse form the universal research spine. They are the only Field Objects appearing in all four Research Note Objects, giving both a research co-incidence of 4 and a RelO-mediated thickness of 5 — the highest pair value in the field.</div>
     </div>
 
     <div class="analysis-item">
       <div class="analysis-bar"></div>
-      <div class="analysis-text">Cain / Ghurāb and Huginn / Muninn form a Black Bird / God / Corpse corridor, sharing three Field Objects across their separate traditions. This is the field's densest cross-tradition overlap.</div>
+      <div class="analysis-text">Cain / Ghurāb and Huginn / Muninn form a Black Bird / God / Corpse corridor. The Qurʾānic and Norse notes do not become the same tradition; they share a narrow passage of recurrence through bird, divinity, and corpse.</div>
     </div>
 
     <div class="analysis-item">
       <div class="analysis-bar"></div>
-      <div class="analysis-text">Scald-crow and American Crows form a Black Bird / Corpse / Forensic corridor, pairing the Irish death-marking and the behavioral science notes through Forensic as their distinctive shared object.</div>
+      <div class="analysis-text">Scald-crow and American Crows form a Black Bird / Corpse / Forensic corridor. The Irish death-marking scene and the behavioral-science note meet through corpse-attention and forensic pressure.</div>
     </div>
 
     <div class="analysis-item">
       <div class="analysis-bar"></div>
-      <div class="analysis-text">Corpse has the highest Mediational Incidence in the field (9), appearing in nine of the twelve Relation Objects. It exceeds Black Bird by one mediating site, making it the densest relation-body despite identical research recurrence.</div>
+      <div class="analysis-text">Corpse has the highest Mediational Incidence in the field: 9 of the 12 Relation Objects hold it. Black Bird remains the entry-object, but Corpse becomes the densest relation-body.</div>
     </div>
 
     <div class="analysis-item">
       <div class="analysis-bar"></div>
-      <div class="analysis-text">Zero is not ontological absence. Zero is absence from the current profile.</div>
+      <div class="analysis-text">Zero is not ontological absence. Zero is absence from the current profile. The visible ledgers therefore show only values greater than 1, while the complete data package preserves the full calculation.</div>
     </div>
   </section>
 
@@ -523,12 +592,12 @@ td.shared {
     <div class="section-label">Downloads</div>
 
     <div class="downloads">
-      <a href="the-black-bird-speculative-indices-v1_0.pdf" class="download-link">
-        <span class="dl-label">PDF version</span>
+      <a href="the-black-bird-speculative-indices-v1_0.pdf" download="the-black-bird-speculative-indices-v1_0.pdf" type="application/pdf" class="download-link">
+        <span class="dl-label">PDF version — download</span>
         <span class="dl-arrow">↓</span>
       </a>
-      <a href="the-black-bird-speculative-indices-data-v1_0.zip" class="download-link">
-        <span class="dl-label">Data package — CSV, JSON, checksums</span>
+      <a href="the-black-bird-speculative-indices-data-v1_0.zip" download="the-black-bird-speculative-indices-data-v1_0.zip" type="application/zip" class="download-link">
+        <span class="dl-label">Data package — CSV, JSON, checksums — download</span>
         <span class="dl-arrow">↓</span>
       </a>
     </div>
