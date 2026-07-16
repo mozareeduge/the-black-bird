@@ -109,6 +109,10 @@ h1 {
   margin-bottom: 52px;
 }
 
+.export-byline {
+  display: none;
+}
+
 /* ── sections ── */
 .section {
   margin-bottom: 60px;
@@ -389,6 +393,15 @@ td.shared {
 
 @media print {
   .site-header, .site-footer { display: none; }
+  .export-byline {
+    display: block;
+    margin: 18px 0 48px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: #666;
+  }
   body { background: #fff; color: #111; }
   :root {
     --bg: #fff; --text: #111; --text2: #333; --muted: #555;
@@ -422,6 +435,8 @@ td.shared {
   <h1>Speculative Indices<br>for a Research-Field</h1>
 
   <p class="subtitle">Object Incidence, Relational Thickness, and further ontography in <em>The Black Bird</em></p>
+
+  <p class="export-byline">Mohammad Zare · 2026</p>
 
   <!-- ── Opening ── -->
   <section class="section">

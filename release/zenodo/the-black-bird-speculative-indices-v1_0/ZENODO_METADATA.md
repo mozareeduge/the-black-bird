@@ -4,7 +4,10 @@
 ---
 
 **Title:**  
-Speculative Indices for a Research-Field: Object Incidence, Relational Thickness, and Mediational Incidence in The Black Bird
+Speculative Indices for a Research-Field — The Black Bird
+
+**Creator:**  
+Mohammad Zare
 
 **Creators:**  
 Mohammad Zare

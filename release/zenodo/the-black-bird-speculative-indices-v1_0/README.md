@@ -6,6 +6,7 @@
 **Project URL:** https://theblackbirdfield.com/  
 **Research Annex URL:** https://theblackbirdfield.com/research/speculative-indices/  
 **Author:** Mohammad Zare  
+**Creator:** Mohammad Zare  
 **DOI:** pending
 
 ---
@@ -71,7 +72,7 @@ Six indices are derived:
 
 ## Citation Note
 
-Mohammad Zare. *Speculative Indices for a Research-Field: Object Incidence, Relational Thickness, and Mediational Incidence in The Black Bird.* Research Annex, First Annex. 2026. DOI: pending.
+Zare, Mohammad. *Speculative Indices for a Research-Field: Object Incidence, Relational Thickness, and Further Ontography in The Black Bird.* 2026.
 
 If citing the primary work: Mohammad Zare. *The Black Bird: A Hypergraph Research Poem.* Born-digital web work, 2026. https://theblackbirdfield.com/
 
