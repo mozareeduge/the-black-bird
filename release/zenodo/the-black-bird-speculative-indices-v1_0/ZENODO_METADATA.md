@@ -30,8 +30,8 @@ hypergraph poem, research poetry, object grammar, incidence matrix, relational t
 
 | Relation | URL |
 |---|---|
-| Is supplement to | https://theblackbirdfield.com/ |
-| Is documented by | https://theblackbirdfield.com/research/speculative-indices/ |
+| Is supplement to | https://poem.theblackbirdfield.com/ |
+| Is documented by | https://poem.theblackbirdfield.com/research/speculative-indices/ |
 | Source code | https://github.com/mozareeduge/the-black-bird |
 
 **DOI:** pending

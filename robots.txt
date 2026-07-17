@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://theblackbirdfield.com/sitemap.xml
+Sitemap: https://poem.theblackbirdfield.com/sitemap.xml

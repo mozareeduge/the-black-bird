@@ -3,8 +3,8 @@
 
 **Version:** 1.0  
 **Project:** The Black Bird: A Hypergraph Research Poem  
-**Project URL:** https://theblackbirdfield.com/  
-**Research Annex URL:** https://theblackbirdfield.com/research/speculative-indices/  
+**Project URL:** https://poem.theblackbirdfield.com/  
+**Research Annex URL:** https://poem.theblackbirdfield.com/research/speculative-indices/  
 **Author:** Mohammad Zare  
 **Creator:** Mohammad Zare  
 **DOI:** pending
@@ -74,7 +74,7 @@ Six indices are derived:
 
 Zare, Mohammad. *Speculative Indices for a Research-Field: Object Incidence, Relational Thickness, and Further Ontography in The Black Bird.* 2026.
 
-If citing the primary work: Mohammad Zare. *The Black Bird: A Hypergraph Research Poem.* Born-digital web work, 2026. https://theblackbirdfield.com/
+If citing the primary work: Mohammad Zare. *The Black Bird: A Hypergraph Research Poem.* Born-digital web work, 2026. https://poem.theblackbirdfield.com/
 
 ---
 
