@@ -4,7 +4,7 @@ A hypergraph research poem by Mohammad Zare.
 
 ## Live work
 
-[The Black Bird](https://mozareeduge.github.io/the-black-bird/)
+[The Black Bird](https://poem.theblackbirdfield.com/)
 
 ## About
 
