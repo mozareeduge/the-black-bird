@@ -796,6 +796,101 @@ Known risks / next step:
 
 ---
 
+## 2026-08-01 — Sonnet 5 one-pass field recomposition
+
+Base file:
+- `index.html` (baseline `283ce5bf5d17600f1d35457d4f84786187abe446`)
+
+Goal:
+- Implement the decided typed, light-responsive, session-wearing hypergraph
+  field recomposition: canonical object morphology (including the Black
+  Bird aperture), local self-hosted typography, warm/cold focus attention
+  with a live RelO relation clearing, bounded afterglow + deterministic
+  inferred wear, and a desktop focus readout — while preserving ontology,
+  poem, RelO opacity, mobile Field/Read separation, and public records.
+
+Files changed:
+- `index.html` — vendored `@font-face` (IBM Plex Mono, Crimson Pro,
+  Scheherazade New) replacing Google Fonts; merged `--bb-*` design tokens;
+  new `nodeMetrics`/`nodeShape` morphology system (FO/RNO/MNO/NameO/RefO/RelO
+  + aperture render role for `FO.BLACK_BIRD_FIELD`); script-aware NameO
+  labels with a touch-accessible romanization gloss; `presentFocus`
+  warm-cold/clearing branch replacing the single `transitionFieldLight`;
+  new `bb-clearing-layer`/`bb-wear-layer`/`bb-afterglow-layer` SVG layers and
+  `#bbFocusReadout` overlay; `presentDesignTransition` as the single
+  committed-focus memory transaction (afterglow + stable-BFS inferred wear);
+  `clearFieldTrace()` wired into both Route "clear" controls; deterministic
+  minimum-separation pass added to `applyLocalAperture`'s neighbor ring
+  placement; new read-only `window.__bbDesign` diagnostic adapter.
+- `.gitignore` — new; excludes `node_modules/`, `test-results/`,
+  `playwright-report/`.
+- `package.json`, `package-lock.json`, `playwright.config.cjs` — new;
+  pin `@playwright/test@1.62.0`.
+- `.github/workflows/black-bird-validation.yml` — new candidate-validation CI.
+- `scripts/capture-canonical-baseline.cjs`, `tests/*` — new supplied
+  validation harness (baseline/design/evidence Playwright specs, data
+  integrity, legacy-surface, traceability, documentation-contract checks).
+- `tests/fixtures/canonical-baseline.json` — new; deterministic fixture
+  captured from the immutable baseline git object `283ce5b:index.html`.
+- `assets/fonts/*.woff2`, `assets/fonts/FONT_PROVENANCE.json` — new; pinned
+  OFL-1.1 font binaries with checksummed provenance.
+- `TESTING.md` — new; this candidate's test/evidence contract.
+
+Commands run:
+- `python tools/validate_head_contract.py .`
+- `python tools/prepare_execution.py --package . --repo <repo>`
+- `npm install`
+- `node materials/fonts/fetch-fonts.cjs <repo>`
+- `npm run baseline:capture`
+- `npm run test:legacy && npm run test:traceability && npm run test:data`
+- `npx playwright test tests/black-bird-baseline.spec.js`
+- `npx playwright test tests/black-bird-design.spec.js`
+- `npx playwright test tests/black-bird-evidence.spec.js`
+
+Decisions:
+- Followed `materials/implementation/DOM_CONTRACT.json`'s literal SVG layer
+  order (clearing < projected < wear < node < afterglow) over the looser
+  prose order in `authority/head/01_FINAL_DESIGN_AUTHORITY.md` §9, per the
+  package's rank-1/rank-2 authority ordering.
+- Kept `focusObject`/`selectInField` as the entry points (per
+  `materials/implementation/INTEGRATION_MAP.json`'s named anchors) rather
+  than the fuller `commitFocus` rewrite sketched in
+  `authority/head/02_TECHNICAL_INTEGRATION_SPEC.md` §6, to minimize blast
+  radius on already-verified baseline behavior.
+- Hardened the supplied `tests/bb-helpers.cjs` `gotoField` wait condition
+  (wait for `phase==='focused' && activeId`, not `phase` alone) to close a
+  genuine race between the deferred onboarding-skip chain and the first
+  test interaction; no assertions were changed.
+- Added a deterministic pairwise-separation pass inside the existing,
+  unmodified `applyLocalAperture` ring placement after discovering (and
+  confirming against the pristine baseline commit) that two structurally
+  close neighbors can otherwise be placed within each other's hit radius
+  and become mutually unclickable.
+
+Results:
+- `test:legacy`, `test:traceability`, `test:data` — pass.
+- `test:baseline` — 5/5 pass.
+- `test:design` — 13/14 pass; see Known risks below for the one failure.
+- `test:visual` — evidence matrix generated for all 10 named scenarios.
+
+Known risks / next step:
+- `materials/harness/tests/black-bird-design.spec.js`'s "canonical
+  morphology and aperture role" test resolves its representative FO id via
+  `nodes.find(n=>n.type==='FO')`, which in canonical `DATA` document order
+  is `FO.BLACK_BIRD_FIELD` itself — the same id the test already asserts as
+  `'aperture'`. The test then also expects that id to report `'fo'`, which
+  no pure `morphologyFor(id)` can do. Confirmed independent of this
+  implementation by running the identical click/assert sequence against the
+  pristine `283ce5bf5d17600f1d35457d4f84786187abe446` baseline. Left
+  unmodified per instruction not to weaken/rewrite supplied acceptance
+  conditions or the protected `DATA` block; flagged here for GPT/human
+  review rather than silently worked around.
+- Body-only cold-distance blur and the desktop wear "pulse" are implemented
+  but are secondary/cosmetic; not exhaustively evidenced beyond the
+  generated screenshot matrix.
+
+---
+
 ## Changelog template
 
 Use this for future entries:

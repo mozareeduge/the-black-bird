@@ -10,11 +10,13 @@
 <meta property="og:url" content="https://poem.theblackbirdfield.com/" />
 <meta property="og:title" content="The Black Bird — Hypergraph Poem" />
 <meta property="og:description" content="The Black Bird is a born-digital hypergraph research poem by Mohammad Zare, built from a black bird beside a body into a field of sources, names, relations, and routes." />
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Crimson+Pro:ital,wght@0,350;0,450;1,350;1,450&display=swap" rel="stylesheet">
 <script src="vendor/d3.v7.9.0.min.js"></script>
 <style>
+@font-face{font-family:'IBM Plex Mono';src:url('assets/fonts/IBMPlexMono-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'IBM Plex Mono';src:url('assets/fonts/IBMPlexMono-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap;}
+@font-face{font-family:'Crimson Pro';src:url('assets/fonts/crimson-pro-latin-ext-400-normal.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'Crimson Pro';src:url('assets/fonts/crimson-pro-latin-ext-400-italic.woff2') format('woff2');font-weight:400;font-style:italic;font-display:swap;}
+@font-face{font-family:'Scheherazade New';src:url('assets/fonts/scheherazade-new-arabic-400-normal.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
 :root {
   --bg:#070706;--bg2:#0b0a09;--panel:#0d0c0b;--panel2:#11100e;
   --line:#2a2621;--line2:#3a342b;--text:#e7e1d7;--text2:#b3aa9d;
@@ -23,6 +25,18 @@
   --shadow:0 22px 80px rgba(0,0,0,.55);
   --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   --serif:'Crimson Pro',Georgia,serif;
+  --bb-field:#070706; --bb-field-deep:#050505; --bb-panel:#0d0c0b;
+  --bb-text:#e7e1d7; --bb-text-2:#b3aa9d; --bb-muted:#867d72; --bb-bone:#e4dbc9;
+  --bb-warm:#c49a45; --bb-warm-focus:#e2bc69; --bb-cold:#839cac;
+  --bb-cold-body:#777b7e; --bb-cold-text:#6f7a81; --bb-cold-edge:#242a2e;
+  --bb-aperture-core:#020202; --bb-aperture-rim:#d5d2ca;
+  --bb-clearing-fill:rgba(228,219,201,.16); --bb-clearing-member:#c4bfb2;
+  --bb-node-fill:#9c9b97; --bb-rno-ring:#6b6258; --bb-refo-fill:#8a8378; --bb-relo-stroke:#8f8a83;
+  --bb-label-min:9px; --bb-label-max:10.5px; --bb-label-halo:2.25px;
+  --bb-dof-max:.6px; --bb-afterglow-ms:10000; --bb-afterglow-max:8; --bb-wear-max:7;
+  --bb-ease:cubic-bezier(.22,.8,.36,1); --bb-dur-micro:260ms; --bb-dur-structural:620ms;
+  --bb-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --bb-serif:'Crimson Pro',Georgia,serif; --bb-arabic:'Scheherazade New',serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;overflow:hidden;background:#070706;color:var(--text);font-family:var(--serif);-webkit-font-smoothing:antialiased;}
@@ -272,6 +286,27 @@ button,input{font:inherit}
   .about-tile,.about-grammar-card,.about-source-row{min-width:0;}
   .about-source-row{grid-template-columns:110px 1fr;gap:10px;}
 }
+
+/* ── Decided visual-system components (typed morphology, lighting, trace) ──── */
+.bb-aperture-core{fill:var(--bb-aperture-core)!important;}
+.bb-clearing{fill:var(--bb-clearing-fill);pointer-events:none;}
+.bb-clearing-spoke{pointer-events:none;fill:none;}
+.bb-wear,.bb-afterglow,.bb-focus-readout{pointer-events:none;}
+.bb-body,.bb-rno-ring{transition:opacity .35s ease,fill .35s ease,stroke-opacity .35s ease;}
+.bb-cold-rest{filter:blur(var(--bb-dof-max));}
+.bb-arabic{font-family:var(--bb-arabic);}
+.node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-width:var(--bb-label-halo);stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;}
+.node-label.quiet{fill:#92887a}
+.node-label.bb-arabic{font-family:var(--bb-arabic);}
+.bb-focus-readout{position:absolute;z-index:12;min-width:180px;max-width:240px;padding:10px 12px;border:1px solid var(--line2);background:rgba(11,10,9,.94);box-shadow:0 12px 32px rgba(0,0,0,.4);font-family:var(--bb-mono);display:none;}
+.bb-focus-readout-id{font-size:11px;letter-spacing:.06em;color:var(--bb-bone);margin-bottom:4px;word-break:break-word;}
+.bb-focus-readout-type{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--bb-muted);margin-bottom:6px;}
+.bb-focus-readout-line{font-family:var(--bb-serif);font-size:13px;line-height:1.4;color:var(--bb-text-2);}
+@media(max-width:720px){#bbFocusReadout{display:none!important;}}
+@media(prefers-reduced-motion:reduce){
+  .bb-node,.bb-edge,.bb-clearing,.bb-wear,.bb-afterglow,.bb-body,.bb-rno-ring{transition-duration:.01ms!important;animation:none!important;}
+  .bb-cold-rest{filter:none!important;}
+}
 </style>
 </head>
 <body>
@@ -301,6 +336,7 @@ button,input{font:inherit}
         </div>
         <svg id="graphSvg" role="img" aria-label="hypergraph map"></svg>
         <div id="fieldPrompt" class="field-prompt" aria-live="polite"></div>
+        <div id="bbFocusReadout" class="bb-focus-readout" aria-hidden="true"></div>
         <button id="mobileAboutBtn" class="map-about-btn" aria-label="About the work">ABOUT</button>
       </section>
       <section class="panel">
@@ -419,6 +455,13 @@ const byId = Object.fromEntries(nodes.map(n=>[n.id,n]));
 const typeOrder = DATA.ui.objectTypes;
 const defaultVisibility = Object.fromEntries(nodes.map(n=>[n.id,true]));
 
+// ── Reference algorithms (deterministic morphology + wear path) ────────────
+function stableHash(text){let h=2166136261>>>0;for(let i=0;i<text.length;i+=1){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function seededUnit(seed){let x=stableHash(seed)||1;return()=>{x^=x<<13;x^=x>>>17;x^=x<<5;return(x>>>0)/4294967296;};}
+function irregularCirclePath(id,radius=6.8,points=12){const rnd=seededUnit(id);const pts=Array.from({length:points},(_,i)=>{const a=Math.PI*2*i/points;const r=radius*(.955+rnd()*.09);return[Math.cos(a)*r,Math.sin(a)*r];});return pts.map((p,i)=>`${i?'L':'M'}${p[0].toFixed(3)},${p[1].toFixed(3)}`).join(' ')+' Z';}
+function stableBfsPath(start,goal,orderedEdges,visibleIds){if(!start||!goal||start===goal)return[];const visible=new Set(visibleIds);if(!visible.has(start)||!visible.has(goal))return[];const adj=new Map();for(const[a,b]of orderedEdges){if(!visible.has(a)||!visible.has(b))continue;if(!adj.has(a))adj.set(a,[]);if(!adj.has(b))adj.set(b,[]);adj.get(a).push(b);adj.get(b).push(a);}for(const v of adj.values())v.sort();const q=[start],prev=new Map([[start,null]]);while(q.length){const cur=q.shift();for(const next of adj.get(cur)||[]){if(prev.has(next))continue;prev.set(next,cur);if(next===goal){q.length=0;break;}q.push(next);}}if(!prev.has(goal))return[];const path=[];for(let at=goal;at!=null;at=prev.get(at))path.push(at);return path.reverse();}
+function canonicalEdgeKey(a,b){return a<b?`${a}::${b}`:`${b}::${a}`;}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let S = {
   phase:'threshold', viewport:isMobile()?'mobile':'desktop', surface:'field', overlay:null,
@@ -430,11 +473,97 @@ let S = {
   soloSet:null, transform:d3.zoomIdentity,
   readerOpen:false, onboardingActive:false, cameraInFlight:false,
   previewTarget:null, previewTimer:null, showSheet:false, indexFilter:'all',
-  aboutOpen:false, aboutOrigin:null
+  aboutOpen:false, aboutOrigin:null,
+  fieldTrace:{previousCommittedId:null, wear:Object.create(null), afterglows:[], activeClearingId:null, designContractVersion:'2.0.0'}
 };
 
 // Expose state for testing (S is let, not on window automatically)
 window.__bbState = S;
+
+// ── Design-response local runtime (not stored on S; not DOM nodes) ─────────
+const afterglowTimers = new Map();
+let pulseTimers = [];
+let travelPulseActive = false;
+let currentLightMode = 'field';
+let currentPenumbraVisible = false;
+let appliedBlurPx = 0;
+
+// ── Read-only diagnostic adapter (window.__bbDesign) ────────────────────────
+const FONT_SPECS = [
+  {family:'IBM Plex Mono',url:'assets/fonts/IBMPlexMono-Regular.woff2'},
+  {family:'IBM Plex Mono',url:'assets/fonts/IBMPlexMono-Medium.woff2'},
+  {family:'Crimson Pro',url:'assets/fonts/crimson-pro-latin-ext-400-normal.woff2'},
+  {family:'Crimson Pro',url:'assets/fonts/crimson-pro-latin-ext-400-italic.woff2'},
+  {family:'Scheherazade New',url:'assets/fonts/scheherazade-new-arabic-400-normal.woff2'}
+];
+window.__bbDesign = {
+  contractVersion:'2.0.0',
+  morphologyFor(id){
+    const n=byId[id]; if(!n) return null;
+    return {canonicalType:n.type, visualRole:renderRole(n), morphology:morphologyOf(n)};
+  },
+  snapshot(){
+    return {
+      contractVersion:'2.0.0',
+      activeId:S.activeId,
+      activeType:S.activeId?(byId[S.activeId]?.type||null):null,
+      lightMode:currentLightMode,
+      penumbraVisible:currentPenumbraVisible,
+      apertureCoreLit:false,
+      clearing:this.clearingSnapshot(),
+      afterglowIds:S.fieldTrace.afterglows.map(a=>a.id),
+      wearEntries:this.wearSnapshot().entries,
+      routeIds:S.routeEvents.map(e=>e.id),
+      reducedMotion:prefersReducedMotion(),
+      maxAppliedBlurPx:(isMobile()||prefersReducedMotion())?0:appliedBlurPx,
+      travelPulseActive,
+      layerCounts:{clearing:S.fieldTrace.activeClearingId?1:0,afterglow:S.fieldTrace.afterglows.length},
+      timerCount:afterglowTimers.size+pulseTimers.length
+    };
+  },
+  clearingSnapshot(){
+    const relOId=S.fieldTrace.activeClearingId;
+    if(!relOId) return {relOId:null,count:0,visibleMemberIds:[],pathD:'',finite:true,bounds:null};
+    const memberIds=clearingMemberIdsFor(relOId);
+    const allPts=[byId[relOId],...memberIds.map(id=>byId[id])].filter(Boolean);
+    const finitePts=allPts.filter(d=>Number.isFinite(nodeX(d))&&Number.isFinite(nodeY(d)));
+    const finite=allPts.length>0&&finitePts.length===allPts.length;
+    return {relOId,count:1,visibleMemberIds:memberIds,pathD:'',finite,bounds:finitePts.length?getNodeBounds(finitePts,20):null};
+  },
+  wearSnapshot(){
+    const entries=Object.entries(S.fieldTrace.wear).map(([edgeKey,passCount])=>({edgeKey,passCount}));
+    return {entries,maxPassCount:entries.reduce((m,e)=>Math.max(m,e.passCount),0)};
+  },
+  async fontSnapshot(){
+    try{ await document.fonts.ready; }catch(e){}
+    return {
+      faces:FONT_SPECS.map(s=>({family:s.family,status:document.fonts.check(`12px "${s.family}"`)?'loaded':'unloaded'})),
+      urls:FONT_SPECS.map(s=>s.url)
+    };
+  },
+  readoutSnapshot(){
+    const id=S.activeId;
+    const visible=!!(id&&!isMobile());
+    if(!visible) return {visible:false,id:null,type:null,line:'',bounds:null};
+    const n=byId[id];
+    return {visible:true,id,type:n.type,line:previewLineForObject(id),bounds:null};
+  },
+  performanceSnapshot(){
+    return {
+      nodeCount:simNodes.length,
+      edgeCount:baseLinks.length+projectedLinks.length,
+      clearingCount:S.fieldTrace.activeClearingId?1:0,
+      afterglowCount:S.fieldTrace.afterglows.length,
+      readoutCount:(S.activeId&&!isMobile())?1:0,
+      timerCount:afterglowTimers.size+pulseTimers.length
+    };
+  },
+  resetTrace(){
+    clearFieldTrace();
+    return this.snapshot();
+  }
+};
+['IBM Plex Mono','Crimson Pro','Scheherazade New'].forEach(f=>{try{document.fonts.load(`12px "${f}"`);}catch(e){}});
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function prefersReducedMotion(){return window.matchMedia('(prefers-reduced-motion:reduce)').matches;}
@@ -514,10 +643,13 @@ const svg=d3.select('#graphSvg');
 const mapWrap=document.getElementById('mapWrap');
 let width=0,height=0;
 const root=svg.append('g');
-const routeMemoryLayer=root.append('g').attr('class','route-memory-layer');
-const projectedLayer=root.append('g');
+const clearingLayer=root.append('g').attr('class','bb-clearing-layer');
 const baseLayer=root.append('g');
+const projectedLayer=root.append('g');
+const wearLayer=root.append('g').attr('class','bb-wear-layer').attr('pointer-events','none');
+const routeMemoryLayer=root.append('g').attr('class','route-memory-layer');
 const nodeLayer=root.append('g');
+const afterglowLayer=root.append('g').attr('class','bb-afterglow-layer').attr('pointer-events','none');
 
 const zoom=d3.zoom().scaleExtent([0.55,2.4]).on('zoom',ev=>{
   S.transform=ev.transform;
@@ -538,12 +670,21 @@ function updateGraphGeometry(){
     });
   }
   applyLine(baseSel);applyLine(projSel);applyLine(projHitSel);
+  if(typeof wearSel!=='undefined') applyLine(wearSel);
   nodeSel.each(function(d){const x=nodeX(d),y=nodeY(d);if(Number.isFinite(x)&&Number.isFinite(y))d3.select(this).attr('transform',`translate(${x},${y})`);});
   routeMemoryLayer.selectAll('line.route-segment').each(function(d){
     const x1=d.source.x,y1=d.source.y,x2=d.target.x,y2=d.target.y;
     if(Number.isFinite(x1)&&Number.isFinite(y1)&&Number.isFinite(x2)&&Number.isFinite(y2))
       d3.select(this).attr('x1',x1).attr('y1',y1).attr('x2',x2).attr('y2',y2);
   });
+  clearingLayer.selectAll('circle.bb-clearing').each(function(d){const x=nodeX(d.node),y=nodeY(d.node);if(Number.isFinite(x)&&Number.isFinite(y))d3.select(this).attr('cx',x).attr('cy',y);});
+  clearingLayer.selectAll('line.bb-clearing-spoke').each(function(d){
+    const x1=nodeX(d.source),y1=nodeY(d.source),x2=nodeX(d.target),y2=nodeY(d.target);
+    if(Number.isFinite(x1)&&Number.isFinite(y1)&&Number.isFinite(x2)&&Number.isFinite(y2))
+      d3.select(this).attr('x1',x1).attr('y1',y1).attr('x2',x2).attr('y2',y2);
+  });
+  afterglowLayer.selectAll('circle.bb-afterglow').each(function(d){const x=nodeX(d.node),y=nodeY(d.node);if(Number.isFinite(x)&&Number.isFinite(y))d3.select(this).attr('cx',x).attr('cy',y);});
+  if(S.activeId&&byId[S.activeId]) positionReadout(byId[S.activeId]);
 }
 function clearLocalAperture(){
   simNodes.forEach(d=>{d.apDx=0;d.apDy=0;});
@@ -562,11 +703,31 @@ function applyLocalAperture(focus){
     .slice(0,14);
   const radiusA=isMobile()?54:62;
   const radiusB=isMobile()?82:92;
-  near.forEach((item,i)=>{
+  const targets=near.map((item,i)=>{
     const r=i<8?radiusA:radiusB;
-    const angle=item.ang || (Math.PI*2*i/near.length);
-    const targetX=core.x+Math.cos(angle)*r;
-    const targetY=core.y+Math.sin(angle)*r;
+    const angle=item.ang||(Math.PI*2*i/near.length);
+    return {item,x:core.x+Math.cos(angle)*r,y:core.y+Math.sin(angle)*r};
+  });
+  // Deterministic minimum-separation pass: two structurally close neighbors
+  // (e.g. two participants of the same RelO) can otherwise land on nearly
+  // the same ring point and become mutually unreachable to hit-testing.
+  const minSep=40;
+  for(let pass=0;pass<3;pass++){
+    for(let i=0;i<targets.length;i++){
+      for(let j=i+1;j<targets.length;j++){
+        const a=targets[i],b=targets[j];
+        let dx=b.x-a.x,dy=b.y-a.y;
+        let dist=Math.hypot(dx,dy);
+        if(dist>=minSep) continue;
+        if(dist<1e-6){dx=1;dy=0;dist=1;}
+        const push=(minSep-dist)/2;
+        const ux=dx/dist,uy=dy/dist;
+        a.x-=ux*push; a.y-=uy*push;
+        b.x+=ux*push; b.y+=uy*push;
+      }
+    }
+  }
+  targets.forEach(({item,x:targetX,y:targetY})=>{
     const maxShift=isMobile()?56:74;
     let dx=targetX-item.d.x;
     let dy=targetY-item.d.y;
@@ -584,13 +745,44 @@ function clusterCenter(cluster){
   return ({central:[cx,cy],quran:[cx-rX,cy-rY*.65],norse:[cx+rX*.8,cy-rY*.7],irish:[cx-rX*.95,cy+rY*.7],american:[cx+rX,cy+rY*.55],lyric:[cx,cy+rY*1.08]})[cluster]||[cx,cy];
 }
 
-function nodeR(d){return d.id==='FO.BLACK_BIRD_FIELD'?8.5:6.2;}
-function nodeFill(d){return d.id==='FO.BLACK_BIRD_FIELD'?'#d5d2ca':'#9c9b97';}
+function isAperture(d){return d.id==='FO.BLACK_BIRD_FIELD';}
+function renderRole(d){return isAperture(d)?'APERTURE':d.type;}
+function morphologyOf(d){return isAperture(d)?'aperture':d.type.toLowerCase();}
+function nodeMetrics(d){
+  if(isAperture(d)) return {role:'aperture',coreR:8.5,outerR:9.6,hitR:18,collideR:9.6+9,labelOffset:9.6+9,haloR:9.6+6,focusR:9.6+8};
+  switch(d.type){
+    case 'RNO': return {role:'rno',coreR:6.2,outerR:10.4,hitR:18,collideR:10.4+9,labelOffset:10.4+9,haloR:10.4+6,focusR:10.4+8};
+    case 'MNO': return {role:'mno',coreR:6.8,outerR:7.0,hitR:18,collideR:7.0+9,labelOffset:7.0+9,haloR:7.0+6,focusR:7.0+8};
+    case 'NameO': return {role:'nameo',coreR:0,outerR:5,hitR:18,collideR:5+9,labelOffset:5+9,haloR:5+6,focusR:5+8};
+    case 'RefO': return {role:'refo',coreR:4,outerR:5.66,hitR:18,collideR:5.66+9,labelOffset:5.66+9,haloR:5.66+6,focusR:5.66+8};
+    case 'RelO': return {role:'relo',coreR:7.5,outerR:7.5,hitR:18,collideR:7.5+9,labelOffset:7.5+9,haloR:7.5+6,focusR:7.5+8};
+    default: return {role:'fo',coreR:6.2,outerR:6.2,hitR:18,collideR:6.2+9,labelOffset:6.2+9,haloR:6.2+6,focusR:6.2+8};
+  }
+}
+function nodeR(d){return nodeMetrics(d).outerR;}
 function nodeShape(g,d){
-  g.append('circle').attr('class','node-route-halo').attr('r',nodeR(d)+6).attr('fill','none').attr('stroke','transparent').attr('stroke-width',1);
-  g.append('circle').attr('class','node-focus-ring').attr('r',nodeR(d)+8).attr('fill','none').attr('stroke','transparent').attr('stroke-width',1.5);
-  g.append('circle').attr('class','node-core').attr('r',nodeR(d)).attr('fill',nodeFill(d));
-  g.append('circle').attr('class','node-hit').attr('r',Math.max(18,nodeR(d)+10));
+  const m=nodeMetrics(d);
+  g.append('circle').attr('class','node-route-halo').attr('r',m.haloR).attr('fill','none').attr('stroke','transparent').attr('stroke-width',1);
+  g.append('circle').attr('class','node-focus-ring').attr('r',m.focusR).attr('fill','none').attr('stroke','transparent').attr('stroke-width',1.5);
+  if(isAperture(d)){
+    g.append('circle').attr('class','bb-aperture-rim').attr('r',9.6).attr('fill','none').attr('stroke','var(--bb-aperture-rim)').attr('stroke-width',1.4).attr('stroke-opacity',.9);
+    g.append('circle').attr('class','bb-aperture-core').attr('r',8.5);
+  } else if(d.type==='RNO'){
+    g.append('circle').attr('class','bb-rno-ring').attr('r',10.4).attr('fill','none').attr('stroke','var(--bb-rno-ring)').attr('stroke-width',1.2);
+    g.append('circle').attr('class','bb-body').attr('r',6.2).attr('fill','var(--bb-node-fill)');
+  } else if(d.type==='MNO'){
+    g.append('path').attr('class','bb-body').attr('d',irregularCirclePath(d.id,6.8,14)).attr('fill','var(--bb-node-fill)');
+  } else if(d.type==='NameO'){
+    // textual body only: no visible geometric core, hit target still present via .node-hit below
+  } else if(d.type==='RefO'){
+    g.append('rect').attr('class','bb-body').attr('width',8).attr('height',8).attr('x',-4).attr('y',-4).attr('transform','rotate(45)').attr('fill','var(--bb-refo-fill)');
+  } else if(d.type==='RelO'){
+    g.append('circle').attr('class','bb-body').attr('r',7.5).attr('fill','none').attr('stroke','var(--bb-relo-stroke)').attr('stroke-width',1.3);
+  } else {
+    g.append('circle').attr('class','bb-body').attr('r',6.2).attr('fill','var(--bb-node-fill)');
+  }
+  g.append('circle').attr('class','node-hit').attr('r',m.hitR);
+  g.attr('data-bb-id',d.id).attr('data-bb-type',d.type).attr('data-bb-morphology',morphologyOf(d)).attr('data-bb-light','field').attr('data-bb-afterglow','0');
 }
 
 const simNodes=nodes;
@@ -601,19 +793,30 @@ const allForceLinks=[...baseLinks,...projectedLinks.map(e=>({...e,forceOnly:true
 const sim=d3.forceSimulation(simNodes)
   .force('link',d3.forceLink(allForceLinks).id(d=>d.id).distance(d=>d.kind==='projected'?42:34).strength(d=>d.kind==='projected'?0.08:0.42))
   .force('charge',d3.forceManyBody().strength(d=>d.id==='FO.BLACK_BIRD_FIELD'?-380:d.type==='RelO'?-18:d.type==='RefO'?-35:-95))
-  .force('collide',d3.forceCollide().radius(d=>nodeR(d)+9))
+  .force('collide',d3.forceCollide().radius(d=>nodeMetrics(d).collideR))
   .force('cluster',alpha=>{simNodes.forEach(d=>{const[cx,cy]=clusterCenter(d.cluster);d.vx+=(cx-d.x)*0.035*alpha;d.vy+=(cy-d.y)*0.035*alpha;});});
 
 let baseSel=baseLayer.selectAll('line').data(baseLinks).join('line').attr('class','link-base').attr('stroke','#5d503c').attr('stroke-opacity',.18).attr('stroke-width',.65);
 let projSel=projectedLayer.selectAll('line').data(projectedLinks).join('line').attr('class','link-proj').attr('stroke','#b79045').attr('stroke-opacity',.14).attr('stroke-width',d=>Math.min(3,.55+d.weight*.32));
 let projHitSel=projectedLayer.selectAll('line.hit').data(projectedLinks).join('line').attr('class','hit').attr('stroke','transparent').attr('stroke-width',16).attr('pointer-events','stroke');
+let wearSel=wearLayer.selectAll('line').data(baseLinks).join('line').attr('class','bb-wear').attr('stroke-linecap','round').attr('pointer-events','none').attr('stroke-opacity',0);
 let nodeSel=nodeLayer.selectAll('g.node').data(simNodes).join('g').attr('class',d=>'node '+d.type)
   .call(d3.drag()
     .on('start',(ev,d)=>{if(!ev.active) sim.alphaTarget(.25).restart();d.fx=d.x;d.fy=d.y;})
     .on('drag',(ev,d)=>{d.fx=ev.x;d.fy=ev.y;})
     .on('end',(ev,d)=>{if(!ev.active) sim.alphaTarget(0);d.fx=null;d.fy=null;}));
 nodeSel.each(function(d){nodeShape(d3.select(this),d);});
-nodeSel.append('text').attr('class','node-label').attr('text-anchor','middle').attr('y',d=>nodeR(d)+13).text(d=>d.shortLabel||d.label);
+function graphLabelFor(d){
+  if(d.type==='NameO'){const m=(d.label||'').match(/[؀-ۿ][؀-ۿ\s]*/);if(m) return m[0].trim();}
+  return d.shortLabel||d.label;
+}
+function isArabicScript(s){return /[؀-ۿ]/.test(s||'');}
+nodeSel.append('text').attr('class',d=>'node-label'+(d.type==='NameO'&&isArabicScript(graphLabelFor(d))?' bb-arabic':''))
+  .attr('text-anchor','middle').attr('y',d=>nodeMetrics(d).labelOffset)
+  .attr('lang',d=>d.type==='NameO'&&isArabicScript(graphLabelFor(d))?'ar':null)
+  .attr('dir',d=>d.type==='NameO'&&isArabicScript(graphLabelFor(d))?'rtl':null)
+  .text(d=>graphLabelFor(d));
+nodeSel.append('title').text(d=>d.type==='NameO'&&d.shortLabel!==d.label?`${d.shortLabel} — ${d.label}`:d.label);
 
 // Node events
 nodeSel.attr('tabindex',0).attr('role','button').attr('aria-label',d=>`${d.type}: ${d.label}`)
@@ -648,6 +851,7 @@ let simInitialized=false;
 function resize(){
   S.viewport=isMobile()?'mobile':'desktop';
   updatePhaseClass();
+  updateReadout(S.activeId);
   if(isMobile()&&S.surface==='read') {renderRoute(); return;}
   measureGraph();
   if(!simInitialized){sim.alpha(.45).restart();simInitialized=true;}
@@ -676,8 +880,8 @@ function updateLabelVisibility(context={}){
   const k=S.transform.k;
   const focus=context.focus;
   const focusIds=focus?new Set(focus.ids):null;
-  nodeSel.selectAll('text')
-    .attr('font-size',`${Math.max(6.5,Math.min(8,8/Math.max(1,k)))}px`)
+  nodeSel.selectAll('text.node-label')
+    .attr('font-size',`${Math.max(9,Math.min(10.5,10.5/Math.max(1,k)))}px`)
     .attr('display',d=>{
       if(!S.viewOptions.labels) return 'none';
       if(!nodeVisible(d.id)) return 'none';
@@ -695,8 +899,9 @@ function updateVisibility(){
   projSel.attr('display',d=>projectedVisible(d)?null:'none');
   projHitSel.attr('display',d=>projectedVisible(d)?null:'none');
   if(!S.activeId) transitionToFieldLighting({duration:0});
-  else transitionFieldLight(buildFocusSet(S.activeId),{duration:0});
+  else presentFocus(S.activeId,buildFocusSet(S.activeId),{lightDuration:0});
   updateLabelVisibility();
+  updateWearOverlay();
   drawRouteMemory({duration:0});
 }
 
@@ -765,7 +970,7 @@ function fitVisibleField(opts={}){
 }
 function fitGraph(dur){return fitVisibleField({duration:dur});}
 
-// ── Field lighting ──────────────────────────────────────────────────────────
+// ── Field lighting (warm/cold, RelO clearing) ───────────────────────────────
 function isRouteObject(id){return S.routeEvents.some(ev=>ev.id===id);}
 function updateFocusRing(coreId,duration=420){
   nodeSel.select('.node-focus-ring').transition().duration(prefersReducedMotion()?0:duration)
@@ -773,8 +978,29 @@ function updateFocusRing(coreId,duration=420){
     .attr('stroke-opacity',d=>d.id===coreId?0.82:0)
     .attr('stroke-width',d=>d.id===coreId?1.35:1);
 }
-function transitionFieldLight(focus,opts={}){
-  const dur=prefersReducedMotion()?0:(opts.duration??420);
+function clearingMemberIdsFor(relOId){return (DATA.relations[relOId]||[]).filter(nodeVisible);}
+function updateBodyBlur(mode){
+  const enable=!isMobile()&&!prefersReducedMotion()&&mode!=='field';
+  appliedBlurPx=enable?0.6:0;
+  nodeSel.selectAll('.bb-body,.bb-rno-ring').classed('bb-cold-rest',function(){
+    if(!enable) return false;
+    const parent=this.parentNode;
+    return parent&&parent.getAttribute('data-bb-light')==='cold-rest';
+  });
+}
+function setNodeLightAttrs(focus,mode){
+  const memberIds= mode==='clearing' ? new Set([focus.coreId,...clearingMemberIdsFor(focus.coreId)]) : new Set(focus.ids);
+  nodeSel.each(function(d){
+    let light='field';
+    if(nodeVisible(d.id)){
+      if(mode==='clearing') light=memberIds.has(d.id)?'clearing-member':'cold-rest';
+      else if(mode==='warm') light=(d.id===focus.coreId)?'warm-core':(memberIds.has(d.id)?'warm-related':'cold-rest');
+    }
+    d3.select(this).attr('data-bb-light',light);
+  });
+}
+function applyWarmColdStyling(focus,dur){
+  currentPenumbraVisible=true;
   const focusIds=new Set(focus.ids),neighborIds=new Set(focus.neighborIds);
   nodeSel.transition().duration(dur).attr('opacity',d=>{
     if(!nodeVisible(d.id)) return 0;
@@ -798,11 +1024,71 @@ function transitionFieldLight(focus,opts={}){
     return 0.025;
   });
   projHitSel.attr('display',d=>projectedVisible(d)?null:'none');
+  setNodeLightAttrs(focus,'warm');
+  updateBodyBlur('warm');
+}
+function applyClearingStyling(focus,dur){
+  currentPenumbraVisible=false;
+  const memberIds=new Set([focus.coreId,...clearingMemberIdsFor(focus.coreId)]);
+  nodeSel.transition().duration(dur).attr('opacity',d=>{
+    if(!nodeVisible(d.id)) return 0;
+    if(memberIds.has(d.id)) return 1;
+    return 0.16;
+  });
+  baseSel.transition().duration(dur).attr('stroke-opacity',d=>{
+    if(!edgeVisible(d)) return 0;
+    const s=getEdgeSourceId(d),t=getEdgeTargetId(d);
+    return (memberIds.has(s)&&memberIds.has(t))?0.22:0.035;
+  });
+  projSel.transition().duration(dur).attr('stroke-opacity',d=>{
+    if(!projectedVisible(d)) return 0;
+    const s=getEdgeSourceId(d),t=getEdgeTargetId(d);
+    return (memberIds.has(s)&&memberIds.has(t))?0.16:0.02;
+  });
+  projHitSel.attr('display',d=>projectedVisible(d)?null:'none');
+  setNodeLightAttrs(focus,'clearing');
+  updateBodyBlur('clearing');
+}
+function renderClearing(relOId){
+  const relNode=byId[relOId];
+  const memberIds=clearingMemberIdsFor(relOId);
+  const pool=[relOId,...memberIds].map(id=>byId[id]).filter(Boolean).map(node=>({id:node.id,node}));
+  const circles=clearingLayer.selectAll('circle.bb-clearing').data(pool,d=>d.id);
+  circles.exit().remove();
+  circles.enter().append('circle').attr('class','bb-clearing').attr('r',26)
+    .merge(circles);
+  const spokeData=memberIds.map(id=>byId[id]).filter(Boolean).map(target=>({source:relNode,target}));
+  const spokes=clearingLayer.selectAll('line.bb-clearing-spoke').data(spokeData,d=>d.target.id);
+  spokes.exit().remove();
+  spokes.enter().append('line').attr('class','bb-clearing-spoke').attr('stroke','var(--bb-clearing-member)').attr('stroke-opacity',.14).attr('pointer-events','none')
+    .merge(spokes);
+}
+function updateClearing(relOId){
+  S.fieldTrace.activeClearingId=relOId||null;
+  if(!relOId){ clearingLayer.selectAll('*').remove(); return; }
+  renderClearing(relOId);
+}
+function presentFocus(id,focus,opts={}){
+  const n=byId[id]; if(!n) return;
+  const dur=prefersReducedMotion()?0:(opts.lightDuration??420);
+  if(n.type==='RelO'){
+    currentLightMode='clearing';
+    updateClearing(id);
+    applyClearingStyling(focus,dur);
+  } else {
+    currentLightMode='warm-cold';
+    updateClearing(null);
+    applyWarmColdStyling(focus,dur);
+  }
   updateFocusRing(focus.coreId,dur);
   updateLabelVisibility();
+  updateReadout(id);
 }
 function transitionToFieldLighting(opts={}){
   const dur=prefersReducedMotion()?0:(opts.duration??520);
+  currentLightMode='field';
+  currentPenumbraVisible=false;
+  updateClearing(null);
   nodeSel.transition().duration(dur).attr('opacity',d=>{
     if(!nodeVisible(d.id)) return 0;
     if(d.type==='NameO'&&!S.viewOptions.sourceNames) return 0.28;
@@ -811,8 +1097,122 @@ function transitionToFieldLighting(opts={}){
   baseSel.transition().duration(dur).attr('stroke-opacity',d=>edgeVisible(d)?(d.kind==='rel'?0.24:0.10):0);
   projSel.transition().duration(dur).attr('stroke-opacity',d=>projectedVisible(d)?0.14:0);
   nodeSel.select('.node-focus-ring').transition().duration(dur).attr('stroke-opacity',0).attr('stroke','transparent');
+  nodeSel.attr('data-bb-light',d=>nodeVisible(d.id)?'field':'field');
+  updateBodyBlur('field');
   updateLabelVisibility();
+  updateReadout(null);
   drawRouteMemory({duration:dur});
+}
+
+// ── Wear (deterministic inferred passage) ───────────────────────────────────
+function baseLinkPairsOrdered(){return baseLinks.map(e=>[getEdgeSourceId(e),getEdgeTargetId(e)]);}
+function wearCountFor(e){return S.fieldTrace.wear[canonicalEdgeKey(getEdgeSourceId(e),getEdgeTargetId(e))]||0;}
+function wearOpacityFor(count){return count?Math.min(0.85,0.14+count*0.1):0;}
+const wearColorScale=d3.interpolateRgb('#6b6258','#c49a45');
+function recordInferredWear(fromId,toId){
+  if(!fromId||!toId||fromId===toId) return null;
+  const visibleIds=simNodes.filter(d=>nodeVisible(d.id)).map(d=>d.id);
+  const path=stableBfsPath(fromId,toId,baseLinkPairsOrdered(),visibleIds);
+  if(path.length<2) return null;
+  for(let i=1;i<path.length;i++){
+    const key=canonicalEdgeKey(path[i-1],path[i]);
+    S.fieldTrace.wear[key]=Math.min(7,(S.fieldTrace.wear[key]||0)+1);
+  }
+  return path;
+}
+function updateWearOverlay(){
+  wearSel.attr('display',d=>edgeVisible(d)?null:'none')
+    .attr('stroke',d=>wearColorScale(Math.min(1,wearCountFor(d)/7)))
+    .attr('stroke-opacity',d=>wearOpacityFor(wearCountFor(d)))
+    .attr('stroke-width',d=>{const c=wearCountFor(d);return c?Math.min(1.6,0.5+c*0.12):0.5;});
+}
+function clearPulseTimers(){pulseTimers.forEach(clearTimeout);pulseTimers=[];travelPulseActive=false;}
+function pulseWearPath(pathIds){
+  clearPulseTimers();
+  if(isMobile()||prefersReducedMotion()||pathIds.length<2){updateWearOverlay();return;}
+  travelPulseActive=true;
+  const segKeys=[];
+  for(let i=1;i<pathIds.length;i++) segKeys.push(canonicalEdgeKey(pathIds[i-1],pathIds[i]));
+  wearSel.each(function(d){
+    const key=canonicalEdgeKey(getEdgeSourceId(d),getEdgeTargetId(d));
+    const idx=segKeys.indexOf(key);
+    if(idx===-1) return;
+    d3.select(this).interrupt()
+      .transition().delay(idx*90).duration(220).attr('stroke-opacity',0.9)
+      .transition().duration(260).attr('stroke-opacity',wearOpacityFor(wearCountFor(d)));
+  });
+  const total=segKeys.length*90+480;
+  pulseTimers.push(setTimeout(()=>{travelPulseActive=false;updateWearOverlay();},total));
+}
+
+// ── Afterglow (bounded departure memory) ────────────────────────────────────
+function recordDepartureAfterglow(previousId,newId){
+  if(!previousId||previousId===newId) return;
+  if(isMobile()) return;
+  S.fieldTrace.afterglows=S.fieldTrace.afterglows.filter(a=>a.id!==previousId);
+  S.fieldTrace.afterglows.push({id:previousId,departedAt:Date.now()});
+  if(S.fieldTrace.afterglows.length>8) S.fieldTrace.afterglows=S.fieldTrace.afterglows.slice(-8);
+  const old=afterglowTimers.get(previousId); if(old) clearTimeout(old);
+  const t=setTimeout(()=>{
+    S.fieldTrace.afterglows=S.fieldTrace.afterglows.filter(a=>a.id!==previousId);
+    afterglowTimers.delete(previousId);
+    updateAfterglowOverlay();
+  },10000);
+  afterglowTimers.set(previousId,t);
+  updateAfterglowOverlay();
+}
+function updateAfterglowOverlay(){
+  const data=S.fieldTrace.afterglows.map(a=>({...a,node:byId[a.id]})).filter(a=>a.node);
+  const sel=afterglowLayer.selectAll('circle.bb-afterglow').data(data,d=>d.id);
+  sel.exit().remove();
+  sel.enter().append('circle').attr('class','bb-afterglow').attr('fill','none').attr('stroke','var(--bb-warm)').attr('stroke-width',1.2).attr('pointer-events','none')
+    .attr('stroke-opacity',0.5)
+    .attr('cx',d=>nodeX(d.node)).attr('cy',d=>nodeY(d.node))
+    .attr('r',d=>(d.node.id==='FO.BLACK_BIRD_FIELD'?9.6:nodeMetrics(d.node).outerR)+4)
+    .transition().duration(prefersReducedMotion()?0:10000).ease(d3.easeLinear).attr('stroke-opacity',0);
+  nodeSel.attr('data-bb-afterglow',d=>S.fieldTrace.afterglows.some(a=>a.id===d.id)?'1':'0');
+}
+function clearFieldTrace(){
+  afterglowTimers.forEach(t=>clearTimeout(t));
+  afterglowTimers.clear();
+  clearPulseTimers();
+  S.fieldTrace.afterglows=[];
+  S.fieldTrace.wear=Object.create(null);
+  updateAfterglowOverlay();
+  updateWearOverlay();
+}
+
+// ── Focus readout (desktop-only persistent specimen readout) ───────────────
+function positionReadout(n){
+  const el=document.getElementById('bbFocusReadout'); if(!el||el.style.display==='none') return;
+  const x=nodeX(n),y=nodeY(n);
+  if(!Number.isFinite(x)||!Number.isFinite(y)) return;
+  const pt=graphPointToScreen(x,y);
+  const wrapRect=mapWrap.getBoundingClientRect();
+  const w=220,h=90,m=14;
+  let left=pt.x-wrapRect.left+22,top=pt.y-wrapRect.top-h/2;
+  if(left+w>mapWrap.clientWidth-m) left=pt.x-wrapRect.left-w-22;
+  left=Math.max(m,Math.min(mapWrap.clientWidth-w-m,left));
+  top=Math.max(m,Math.min(mapWrap.clientHeight-h-m,top));
+  el.style.left=left+'px'; el.style.top=top+'px';
+}
+function updateReadout(id){
+  const el=document.getElementById('bbFocusReadout'); if(!el) return;
+  const n=id?byId[id]:null;
+  if(!n||isMobile()){el.style.display='none';el.removeAttribute('data-bb-id');return;}
+  const role=renderRole(n);
+  el.innerHTML=`<div class="bb-focus-readout-id">${esc(n.id)}</div><div class="bb-focus-readout-type">${esc(n.type)}${role!==n.type?` · ${esc(role)}`:''}</div><div class="bb-focus-readout-line">${esc(previewLineForObject(id))}</div>`;
+  el.style.display='block'; el.setAttribute('data-bb-id',id);
+  positionReadout(n);
+}
+
+// ── Committed-focus design transaction (afterglow + wear + presentation) ───
+function presentDesignTransition(id,previousId,focus,opts={}){
+  recordDepartureAfterglow(previousId,id);
+  const path=(previousId&&previousId!==id)?recordInferredWear(previousId,id):null;
+  presentFocus(id,focus,opts);
+  if(path&&path.length>1) pulseWearPath(path); else updateWearOverlay();
+  S.fieldTrace.previousCommittedId=id;
 }
 
 // ── Route ──────────────────────────────────────────────────────────────────
@@ -849,7 +1249,7 @@ function renderRoute(){
     if(parts.length) parts.push('<span class="sep">·</span>');
     addEv(ev, i===ap.tail.length-1?'current':'');
   });
-  r.innerHTML=parts.join('')+'<button class="clear-route">clear</button>';
+  r.innerHTML=parts.join('')+'<button class="clear-route" aria-label="clear route and field trace">clear</button>';
   r.querySelectorAll('.route-item').forEach(el=>{
     el.onmouseenter=()=>touchObject(el.dataset.id,{source:'route-hover'});
     el.onmouseleave=()=>clearTouch();
@@ -857,7 +1257,7 @@ function renderRoute(){
   });
   const ell=r.querySelector('[data-route-open]');
   if(ell) ell.onclick=()=>{renderRouteDrawer();openDrawer('routeDrawer');};
-  r.querySelector('.clear-route').onclick=()=>{S.routeEvents=[];renderRoute();drawRouteMemory({duration:260});};
+  r.querySelector('.clear-route').onclick=()=>{S.routeEvents=[];clearFieldTrace();renderRoute();drawRouteMemory({duration:260});};
   updateRouteLiveRegion();
   renderRouteDrawer();
 }
@@ -967,7 +1367,7 @@ async function focusObject(id,opts={}){
   if(!S.readerOpen&&opts.openReader!==false){await setReaderOpen(true,{measure:!(isMobile()&&S.surface==='read')});}
   const focus=buildFocusSet(id);
   applyLocalAperture(focus);
-  transitionFieldLight(focus,{duration:opts.lightDuration??420});
+  presentDesignTransition(id,previousId,focus,opts);
   if(!(isMobile()&&S.surface==='read') && opts.camera!==false) fitFocusFrame(focus,{duration:opts.cameraDuration??760});
   const readerEl=document.getElementById('reader');
   if(readerEl){readerEl.innerHTML='';readerEl.scrollTop=0;}
@@ -1004,7 +1404,7 @@ async function selectInField(id,opts={}){
   await setReaderOpen(true,{measure:true});
   const focus=buildFocusSet(id);
   applyLocalAperture(focus);
-  transitionFieldLight(focus,{duration:opts.lightDuration??420});
+  presentDesignTransition(id,previousId,focus,opts);
   fitFocusFrame(focus,{duration:opts.cameraDuration??680});
   drawRouteMemory({duration:opts.routeDuration??420});
   updateRouteLiveRegion();
@@ -1068,7 +1468,7 @@ function showNodePreviewSheet(id){
   document.getElementById('sheetBody').innerHTML=`<div class="sheet-title">${esc(n.label)}</div><div class="meta">${esc(n.type)} · ${esc(n.id)}</div><div class="prose"><p>${esc(previewLineForObject(id))}</p></div><div class="sheet-actions"><button class="tool-btn" id="sheetEnter">Enter</button><button class="tool-btn" id="sheetHold">Hold in field</button><button class="tool-btn" id="sheetClose">Keep reading</button></div>`;
   document.getElementById('sheet').classList.add('open');
   document.getElementById('sheetEnter').onclick=()=>{closeSheet();focusObject(id,{source:'graph-mobile'});};
-  document.getElementById('sheetHold').onclick=()=>{const focus=buildFocusSet(id);applyLocalAperture(focus);transitionFieldLight(focus,{duration:320});fitFocusFrame(focus,{openReader:false,duration:620});};
+  document.getElementById('sheetHold').onclick=()=>{const focus=buildFocusSet(id);applyLocalAperture(focus);presentFocus(id,focus,{lightDuration:320});fitFocusFrame(focus,{openReader:false,duration:620});};
   document.getElementById('sheetClose').onclick=closeSheet;
 }
 function closeSheet(){document.getElementById('sheet').classList.remove('open');S.showSheet=false;S.previewTarget=null;if(S.overlay==='nodeSheet'||S.overlay==='edgeSheet')setOverlay(null);}
@@ -1124,9 +1524,13 @@ function renderFO(n){
   if(relos.length) html+=`<div class="section-label">relation objects</div>${renderIndexList(relos)}`;
   reader(html); bindIndexItems();
 }
+function wrapScriptSpans(s){
+  return esc(s).replace(/[؀-ۿ]+/g,m=>`<span lang="ar" dir="rtl" class="bb-arabic">${m}</span>`);
+}
 function renderNameO(n){
   const no=DATA.nameos[n.id];
-  reader(`${meta(n)}<div class="prose"><p>${no.sourceLayer}</p><p>${no.gloss}</p></div><div class="section-label">attached objects</div>${renderIndexList(no.attached||[])}`); bindIndexItems();
+  const label=isArabicScript(n.label)?`<p class="bb-arabic" lang="ar" dir="rtl">${esc(n.label)}</p>`:'';
+  reader(`${meta(n)}${label}<div class="prose"><p>${wrapScriptSpans(no.sourceLayer)}</p><p>${wrapScriptSpans(no.gloss)}</p></div><div class="section-label">attached objects</div>${renderIndexList(no.attached||[])}`); bindIndexItems();
 }
 function renderRefO(n){
   const r=DATA.refs[n.id];
@@ -1252,7 +1656,7 @@ function renderObjectRows(container,filter='',typeFilter=null){
     if(isMobile()) await setReaderOpen(true,{measure:true});
     const focus=buildFocusSet(id);
     applyLocalAperture(focus);
-    transitionFieldLight(focus,{duration:420});
+    presentDesignTransition(id,previousId,focus,{lightDuration:420});
     fitVisibleField({duration:760});
     drawRouteMemory({duration:420});
   });
@@ -1268,7 +1672,7 @@ function openIndex(filter='all'){S.indexFilter=filter;const search=document.getE
 document.getElementById('objectSearch').oninput=renderObjectLists;
 document.getElementById('restoreField').onclick=()=>{S.objectVisibility={...defaultVisibility};S.soloSet=null;Object.keys(S.objectGroups).forEach(k=>S.objectGroups[k]=true);renderFieldViewControls();updateVisibility();closeAllDrawers();returnToField({source:'restore-field'});};
 document.getElementById('showAllObjects').onclick=()=>{S.objectVisibility={...defaultVisibility};S.soloSet=null;renderObjectLists();updateVisibility();closeAllDrawers();returnToField({source:'show-all'});};
-document.getElementById('clearRouteDrawer').onclick=()=>{S.routeEvents=[];renderRoute();drawRouteMemory({duration:260});};
+document.getElementById('clearRouteDrawer').onclick=()=>{S.routeEvents=[];clearFieldTrace();renderRoute();drawRouteMemory({duration:260});};
 
 // ── Action bindings ─────────────────────────────────────────────────────────
 document.querySelectorAll('[data-action]').forEach(b=>b.onclick=async()=>{
@@ -1356,7 +1760,7 @@ async function finishOnboarding(){
     S.activeId=id;
     const focus=buildFocusSet(id);
     applyLocalAperture(focus);
-    transitionFieldLight(focus,{duration:prefersReducedMotion()?0:520});
+    presentFocus(id,focus,{lightDuration:prefersReducedMotion()?0:520});
     fitFocusFrame(focus,{duration:prefersReducedMotion()?0:780});
     await sleep(prefersReducedMotion()?0:420);
     S.phase='focused'; S.surface='field'; updatePhaseClass();

@@ -40,6 +40,25 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 Source: https://github.com/d3/d3/blob/main/LICENSE
 
+This repository also includes vendored, self-hosted copies of three type
+families under `assets/fonts/`, each licensed under the SIL Open Font
+License, Version 1.1 (full license text accompanies each family in that
+directory):
+
+- **IBM Plex Mono** — Copyright © 2017 IBM Corp. with Reserved Font Name
+  "Plex". Source: https://github.com/IBM/plex (package `@ibm/plex-mono@2.5.0`).
+- **Crimson Pro** — Copyright 2018 The Crimson Pro Project Authors.
+  Source: https://github.com/Fonthausen/CrimsonPro
+  (package `@fontsource/crimson-pro@5.3.0`).
+- **Scheherazade New** — Copyright (c) 1994–2026, SIL Global, with Reserved
+  Font Names "Scheherazade" and "SIL". Source:
+  https://github.com/silnrsi/font-scheherazade
+  (package `@fontsource/scheherazade-new@5.3.0`).
+
+The SIL Open Font License permits use, study, modification, and
+redistribution provided the fonts are not sold by themselves; see
+http://scripts.sil.org/OFL for the full FAQ and license text.
+
 ## Sources cited in the artwork
 
 The artwork cites scriptural, scholarly, mythic, literary, and scientific sources through Reference Objects. Those sources remain under the rights and terms of their respective authors, publishers, archives, or institutions.
