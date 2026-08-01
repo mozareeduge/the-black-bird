@@ -1,0 +1,3 @@
+// @ts-check
+const {defineConfig}=require('@playwright/test');
+module.exports=defineConfig({testDir:'./tests',timeout:45_000,expect:{timeout:8_000},fullyParallel:false,workers:1,retries:0,reporter:[['list'],['html',{open:'never',outputFolder:'playwright-report'}]],outputDir:'test-results/playwright',use:{baseURL:'http://127.0.0.1:4173',browserName:'chromium',trace:'retain-on-failure',screenshot:'only-on-failure',launchOptions:process.env.CI?{}:{executablePath:'/opt/pw-browsers/chromium'}},webServer:{command:'node tests/static-server.cjs',url:'http://127.0.0.1:4173',reuseExistingServer:false,timeout:20_000}});

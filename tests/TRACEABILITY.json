@@ -1,0 +1,237 @@
+{
+  "schema_version": "1.0.0",
+  "rows": [
+    {
+      "requirement_id": "REQ-BB-001",
+      "decision_ids": [
+        "D-BB-001",
+        "D-BB-002"
+      ],
+      "scenario_ids": [
+        "SCN-01"
+      ],
+      "test_names": [
+        "base ancestor and canonical-domain checks"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-002",
+      "decision_ids": [
+        "D-BB-025"
+      ],
+      "scenario_ids": [
+        "SCN-01",
+        "SCN-24"
+      ],
+      "test_names": [
+        "head contract validator"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-003",
+      "decision_ids": [
+        "D-BB-003"
+      ],
+      "scenario_ids": [
+        "SCN-01"
+      ],
+      "test_names": [
+        "no-active-legacy.cjs"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-004",
+      "decision_ids": [
+        "D-BB-004",
+        "D-BB-005",
+        "D-BB-006",
+        "D-BB-014",
+        "D-BB-018",
+        "D-BB-019",
+        "D-BB-020"
+      ],
+      "scenario_ids": [
+        "SCN-01",
+        "SCN-10",
+        "SCN-11",
+        "SCN-13",
+        "SCN-14",
+        "SCN-15"
+      ],
+      "test_names": [
+        "black-bird-data-integrity.cjs",
+        "black-bird-baseline.spec.js"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-005",
+      "decision_ids": [
+        "D-BB-025"
+      ],
+      "scenario_ids": [
+        "SCN-01",
+        "SCN-24"
+      ],
+      "test_names": [
+        "npm run test:full"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-006",
+      "decision_ids": [
+        "D-BB-009",
+        "D-BB-010"
+      ],
+      "scenario_ids": [
+        "SCN-05",
+        "SCN-17",
+        "SCN-23"
+      ],
+      "test_names": [
+        "local fonts load with no external font requests"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-007",
+      "decision_ids": [
+        "D-BB-007",
+        "D-BB-008",
+        "D-BB-013"
+      ],
+      "scenario_ids": [
+        "SCN-01",
+        "SCN-02",
+        "SCN-03",
+        "SCN-04",
+        "SCN-05",
+        "SCN-06"
+      ],
+      "test_names": [
+        "canonical morphology and aperture role"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-008",
+      "decision_ids": [
+        "D-BB-011",
+        "D-BB-012"
+      ],
+      "scenario_ids": [
+        "SCN-02",
+        "SCN-07",
+        "SCN-12",
+        "SCN-20"
+      ],
+      "test_names": [
+        "ordinary focus is warm/cold",
+        "RelO focus creates one live bone clearing"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-009",
+      "decision_ids": [
+        "D-BB-014",
+        "D-BB-015",
+        "D-BB-016"
+      ],
+      "scenario_ids": [
+        "SCN-08",
+        "SCN-09",
+        "SCN-18",
+        "SCN-22"
+      ],
+      "test_names": [
+        "afterglow and wear are bounded"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-010",
+      "decision_ids": [
+        "D-BB-017",
+        "D-BB-018",
+        "D-BB-021",
+        "D-BB-023"
+      ],
+      "scenario_ids": [
+        "SCN-12",
+        "SCN-13",
+        "SCN-14",
+        "SCN-15",
+        "SCN-16",
+        "SCN-17",
+        "SCN-18",
+        "SCN-19",
+        "SCN-24"
+      ],
+      "test_names": [
+        "black-bird-baseline.spec.js",
+        "black-bird-design.spec.js"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-011",
+      "decision_ids": [
+        "D-BB-027"
+      ],
+      "scenario_ids": [
+        "SCN-01"
+      ],
+      "test_names": [
+        "readiness contract"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-012",
+      "decision_ids": [
+        "D-BB-025",
+        "D-BB-026"
+      ],
+      "scenario_ids": [
+        "SCN-01",
+        "SCN-24"
+      ],
+      "test_names": [
+        "runner ledger",
+        "evidence-index.json"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-013",
+      "decision_ids": [
+        "D-BB-028"
+      ],
+      "scenario_ids": [
+        "SCN-01"
+      ],
+      "test_names": [
+        "task route and finalization"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-014",
+      "decision_ids": [
+        "D-BB-025",
+        "D-BB-027"
+      ],
+      "scenario_ids": [
+        "SCN-01"
+      ],
+      "test_names": [
+        "documentation check"
+      ]
+    },
+    {
+      "requirement_id": "REQ-BB-015",
+      "decision_ids": [
+        "D-BB-029",
+        "D-BB-030"
+      ],
+      "scenario_ids": [
+        "SCN-01"
+      ],
+      "test_names": [
+        "action registry and manual acceptance"
+      ]
+    }
+  ]
+}
