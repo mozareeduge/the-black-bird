@@ -63,6 +63,8 @@ button,input{font:inherit}
 .node-label.quiet{fill:#92887a}
 .node-core{transition:opacity .35s ease,fill .35s ease;}
 .node-focus-ring,.node-route-halo{transition:stroke-opacity .35s ease,stroke-width .35s ease;}
+g.node{outline:none;}
+g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacity:.9;stroke-width:1.8px;}
 .node-hit{fill:transparent;stroke:transparent;cursor:pointer;}
 .link-base,.link-proj{cursor:pointer}
 .panel{min-width:0;overflow:hidden;opacity:0;pointer-events:none;transform:translateX(24px);background:linear-gradient(180deg,#0b0a09 0%,#070706 100%);display:flex;flex-direction:column;height:100%;transition:opacity 520ms ease,transform 620ms cubic-bezier(.22,.8,.36,1);}
@@ -359,7 +361,7 @@ button,input{font:inherit}
   <aside id="routeDrawer" class="drawer" aria-hidden="true" inert>
     <div class="drawer-head"><span>Route</span><button class="drawer-close" data-close="routeDrawer">×</button></div>
     <div class="drawer-body"><div id="routeList" class="route-list"></div></div>
-    <div class="drawer-foot"><button class="tool-btn" id="clearRouteDrawer">Clear Route</button><button class="tool-btn" data-close="routeDrawer">Done</button></div>
+    <div class="drawer-foot"><button class="tool-btn" id="clearRouteDrawer">Clear Route</button><button class="tool-btn" id="clearFieldTraceDrawer">Clear field trace</button><button class="tool-btn" data-close="routeDrawer">Done</button></div>
   </aside>
   <div id="drawerBackdrop" class="drawer-backdrop"></div>
   <div id="sheet" class="sheet"><div class="sheet-handle"></div><div id="sheetBody" class="sheet-body"></div></div>
@@ -853,6 +855,30 @@ const clearingRect = clearingLayer
   .attr("fill", "var(--bb-clearing-fill)")
   .attr("opacity", 0)
   .attr("pointer-events", "none");
+// Ordinary warm/cold focus: one broad, screen-stable radial penumbra under
+// the active object (4.8, BB-R12) — never applied to the Black Bird core.
+const warmPenumbraGradient = defs
+  .append("radialGradient")
+  .attr("id", "bb-warm-penumbra-gradient");
+warmPenumbraGradient
+  .append("stop")
+  .attr("offset", "0%")
+  .attr("stop-color", "#c9924a")
+  .attr("stop-opacity", 0.22);
+warmPenumbraGradient
+  .append("stop")
+  .attr("offset", "100%")
+  .attr("stop-color", "#c9924a")
+  .attr("stop-opacity", 0);
+const warmPenumbraLayer = root
+  .append("g")
+  .attr("class", "bb-warm-penumbra-layer")
+  .attr("pointer-events", "none");
+const warmPenumbraCircle = warmPenumbraLayer
+  .append("circle")
+  .attr("class", "bb-warm-penumbra")
+  .attr("fill", "url(#bb-warm-penumbra-gradient)")
+  .attr("opacity", 0);
 const baseLayer = root.append("g");
 const projectedLayer = root.append("g");
 const wearLayer = root.append("g").attr("class", "bb-wear-layer").attr("pointer-events", "none");
@@ -870,6 +896,8 @@ const zoom = d3
     S.transform = ev.transform;
     root.attr("transform", ev.transform);
     updateLabelVisibility();
+    if (+warmPenumbraCircle.attr("opacity") > 0)
+      warmPenumbraCircle.attr("r", 110 / Math.max(0.01, ev.transform.k));
   });
 svg.call(zoom).on("dblclick.zoom", null);
 svg.on("click", () => {
@@ -923,6 +951,11 @@ function updateGraphGeometry() {
       y = nodeY(d.node);
     if (Number.isFinite(x) && Number.isFinite(y)) d3.select(this).attr("cx", x).attr("cy", y);
   });
+  if (+warmPenumbraCircle.attr("opacity") > 0 && S.activeId) {
+    const core = byId[S.activeId];
+    if (core && Number.isFinite(core.x) && Number.isFinite(core.y))
+      warmPenumbraCircle.attr("cx", core.x).attr("cy", core.y);
+  }
 }
 // ── Focus force: a constrained local opening in real simulation coordinates ─
 // (4.2). Up to 14 focus-set nodes are pulled onto two rings around the
@@ -1013,40 +1046,43 @@ function renderRole(d) {
 function morphologyOf(d) {
   return isAperture(d) ? "aperture" : d.type.toLowerCase();
 }
+// Exact morphology metrics per 4.7: FO coreR=6.4; RNO coreR=6.0/outerR=11.5;
+// MNO mean radius 7.4; RefO diamond 9x9 (half-diagonal outerR = 4.5*sqrt(2));
+// RelO hollow ring r=8.5; aperture core r=9.5 / rim r=11.
 function nodeMetrics(d) {
   if (isAperture(d))
     return {
       role: "aperture",
-      coreR: 8.5,
-      outerR: 9.6,
-      hitR: 9.6 + 9,
-      collideR: 9.6 + 9,
-      labelOffset: 9.6 + 9,
-      haloR: 9.6 + 6,
-      focusR: 9.6 + 8,
+      coreR: 9.5,
+      outerR: 11,
+      hitR: 11 + 9,
+      collideR: 11 + 9,
+      labelOffset: 11 + 9,
+      haloR: 11 + 6,
+      focusR: 11 + 8,
     };
   switch (d.type) {
     case "RNO":
       return {
         role: "rno",
-        coreR: 6.2,
-        outerR: 10.4,
-        hitR: 10.4 + 9,
-        collideR: 10.4 + 9,
-        labelOffset: 10.4 + 9,
-        haloR: 10.4 + 6,
-        focusR: 10.4 + 8,
+        coreR: 6.0,
+        outerR: 11.5,
+        hitR: 11.5 + 9,
+        collideR: 11.5 + 9,
+        labelOffset: 11.5 + 9,
+        haloR: 11.5 + 6,
+        focusR: 11.5 + 8,
       };
     case "MNO":
       return {
         role: "mno",
-        coreR: 6.8,
-        outerR: 7.0,
-        hitR: 7.0 + 9,
-        collideR: 7.0 + 9,
-        labelOffset: 7.0 + 9,
-        haloR: 7.0 + 6,
-        focusR: 7.0 + 8,
+        coreR: 7.4,
+        outerR: 7.4,
+        hitR: 7.4 + 9,
+        collideR: 7.4 + 9,
+        labelOffset: 7.4 + 9,
+        haloR: 7.4 + 6,
+        focusR: 7.4 + 8,
       };
     case "NameO":
       return {
@@ -1062,35 +1098,35 @@ function nodeMetrics(d) {
     case "RefO":
       return {
         role: "refo",
-        coreR: 4,
-        outerR: 5.66,
-        hitR: 5.66 + 9,
-        collideR: 5.66 + 9,
-        labelOffset: 5.66 + 9,
-        haloR: 5.66 + 6,
-        focusR: 5.66 + 8,
+        coreR: 4.5,
+        outerR: 4.5 * Math.SQRT2,
+        hitR: 4.5 * Math.SQRT2 + 9,
+        collideR: 4.5 * Math.SQRT2 + 9,
+        labelOffset: 4.5 * Math.SQRT2 + 9,
+        haloR: 4.5 * Math.SQRT2 + 6,
+        focusR: 4.5 * Math.SQRT2 + 8,
       };
     case "RelO":
       return {
         role: "relo",
-        coreR: 7.5,
-        outerR: 7.5,
-        hitR: 7.5 + 9,
-        collideR: 7.5 + 9,
-        labelOffset: 7.5 + 9,
-        haloR: 7.5 + 6,
-        focusR: 7.5 + 8,
+        coreR: 8.5,
+        outerR: 8.5,
+        hitR: 8.5 + 9,
+        collideR: 8.5 + 9,
+        labelOffset: 8.5 + 9,
+        haloR: 8.5 + 6,
+        focusR: 8.5 + 8,
       };
     default:
       return {
         role: "fo",
-        coreR: 6.2,
-        outerR: 6.2,
-        hitR: 6.2 + 9,
-        collideR: 6.2 + 9,
-        labelOffset: 6.2 + 9,
-        haloR: 6.2 + 6,
-        focusR: 6.2 + 8,
+        coreR: 6.4,
+        outerR: 6.4,
+        hitR: 6.4 + 9,
+        collideR: 6.4 + 9,
+        labelOffset: 6.4 + 9,
+        haloR: 6.4 + 6,
+        focusR: 6.4 + 8,
       };
   }
 }
@@ -1147,49 +1183,60 @@ function nodeShape(g, d) {
     .attr("r", m.focusR)
     .attr("fill", "none")
     .attr("stroke", "transparent")
-    .attr("stroke-width", 1.5);
+    .attr("stroke-width", 1.5)
+    .attr("vector-effect", "non-scaling-stroke");
   if (isAperture(d)) {
     g.append("circle")
       .attr("class", "bb-aperture-rim")
-      .attr("r", 9.6)
+      .attr("r", m.outerR)
       .attr("fill", "none")
       .attr("stroke", "var(--bb-aperture-rim)")
       .attr("stroke-width", 1.4)
-      .attr("stroke-opacity", 0.9);
-    g.append("circle").attr("class", "bb-aperture-core").attr("r", 8.5);
+      .attr("stroke-opacity", 0.9)
+      .attr("vector-effect", "non-scaling-stroke");
+    g.append("circle").attr("class", "bb-aperture-core").attr("r", m.coreR);
   } else if (d.type === "RNO") {
     g.append("circle")
       .attr("class", "bb-rno-ring")
-      .attr("r", 10.4)
+      .attr("r", m.outerR)
       .attr("fill", "none")
       .attr("stroke", "var(--bb-rno-ring)")
-      .attr("stroke-width", 1.2);
-    g.append("circle").attr("class", "bb-body").attr("r", 6.2).attr("fill", "var(--bb-node-fill)");
+      .attr("stroke-width", 1.2)
+      .attr("vector-effect", "non-scaling-stroke");
+    g.append("circle")
+      .attr("class", "bb-body")
+      .attr("r", m.coreR)
+      .attr("fill", "var(--bb-node-fill)");
   } else if (d.type === "MNO") {
     g.append("path")
       .attr("class", "bb-body")
-      .attr("d", irregularCirclePath(d.id, 6.8, 14))
+      .attr("d", irregularCirclePath(d.id, m.coreR, 14))
       .attr("fill", "var(--bb-node-fill)");
   } else if (d.type === "NameO") {
     // textual body only: no visible geometric core, hit target still present via .node-hit below
   } else if (d.type === "RefO") {
+    const side = m.coreR * 2; // 9x9 diamond (4.7): coreR=4.5, side=9
     g.append("rect")
       .attr("class", "bb-body")
-      .attr("width", 8)
-      .attr("height", 8)
-      .attr("x", -4)
-      .attr("y", -4)
+      .attr("width", side)
+      .attr("height", side)
+      .attr("x", -side / 2)
+      .attr("y", -side / 2)
       .attr("transform", "rotate(45)")
       .attr("fill", "var(--bb-refo-fill)");
   } else if (d.type === "RelO") {
     g.append("circle")
       .attr("class", "bb-body")
-      .attr("r", 7.5)
+      .attr("r", m.coreR)
       .attr("fill", "none")
       .attr("stroke", "var(--bb-relo-stroke)")
-      .attr("stroke-width", 1.3);
+      .attr("stroke-width", 1.3)
+      .attr("vector-effect", "non-scaling-stroke");
   } else {
-    g.append("circle").attr("class", "bb-body").attr("r", 6.2).attr("fill", "var(--bb-node-fill)");
+    g.append("circle")
+      .attr("class", "bb-body")
+      .attr("r", m.coreR)
+      .attr("fill", "var(--bb-node-fill)");
   }
   g.append("circle").attr("class", "node-hit").attr("r", m.hitR);
   g.attr("data-bb-id", d.id)
@@ -1776,18 +1823,10 @@ function fitGraph(dur) {
 }
 
 // ── Field lighting (warm/cold, RelO clearing) ───────────────────────────────
-function isRouteObject(id) {
-  return S.routeEvents.some((ev) => ev.id === id);
-}
-function updateFocusRing(coreId, duration = 420) {
-  nodeSel
-    .select(".node-focus-ring")
-    .transition()
-    .duration(prefersReducedMotion() ? 0 : duration)
-    .attr("stroke", (d) => (d.id === coreId ? "#e2bc69" : "transparent"))
-    .attr("stroke-opacity", (d) => (d.id === coreId ? 0.82 : 0))
-    .attr("stroke-width", (d) => (d.id === coreId ? 1.35 : 1));
-}
+// The ordinary amber "this is selected" ring is gone (4.8) — the active
+// node is conveyed by full opacity + the warm penumbra. .node-focus-ring
+// is now exclusively a CSS :focus-visible outline for keyboard users (see
+// index.html), not something this JS module touches.
 function clearingMemberIdsFor(relOId) {
   return (DATA.relations[relOId] || []).filter(nodeVisible);
 }
@@ -1826,9 +1865,8 @@ function applyWarmColdStyling(focus, dur) {
     .attr("opacity", (d) => {
       if (!nodeVisible(d.id)) return 0;
       if (d.id === focus.coreId) return 1;
-      if (neighborIds.has(d.id)) return 0.82;
-      if (isRouteObject(d.id)) return 0.45;
-      return 0.18;
+      if (neighborIds.has(d.id)) return 0.78; // related: 0.72-0.82 (4.8)
+      return 0.38; // cold-context: 0.32-0.46 (4.8) — present, not near-absent
     });
   baseSel
     .transition()
@@ -1837,9 +1875,9 @@ function applyWarmColdStyling(focus, dur) {
       if (!edgeVisible(d)) return 0;
       const s = getEdgeSourceId(d),
         t = getEdgeTargetId(d);
-      if (s === focus.coreId || t === focus.coreId) return 0.34;
-      if (focusIds.has(s) && focusIds.has(t)) return 0.22;
-      return 0.04;
+      if (s === focus.coreId || t === focus.coreId || (focusIds.has(s) && focusIds.has(t)))
+        return 0.24; // inside focus: 0.18-0.30 (4.8)
+      return 0.07; // remaining: 0.05-0.09 (4.8)
     });
   projSel
     .transition()
@@ -1848,16 +1886,31 @@ function applyWarmColdStyling(focus, dur) {
       if (!projectedVisible(d)) return 0;
       const s = getEdgeSourceId(d),
         t = getEdgeTargetId(d);
-      if (s === focus.coreId || t === focus.coreId) return 0.28;
-      if (focusIds.has(s) && focusIds.has(t)) return 0.14;
-      return 0.025;
+      if (s === focus.coreId || t === focus.coreId || (focusIds.has(s) && focusIds.has(t)))
+        return 0.16; // inside focus: 0.12-0.20 (4.8)
+      return 0.035; // remaining: 0.02-0.05 (4.8)
     });
   projHitSel.attr("display", (d) => (projectedVisible(d) ? null : "none"));
   setNodeLightAttrs(focus, "warm");
   updateBodyBlur("warm");
+  updateWarmPenumbra(focus.coreId, dur);
+}
+// Screen-stable ~110 CSS px warm penumbra under the active object. Never
+// shown for the Black Bird aperture core (4.8) or outside warm-cold mode.
+function updateWarmPenumbra(coreId, dur = 420) {
+  const core = coreId && coreId !== "FO.BLACK_BIRD_FIELD" ? byId[coreId] : null;
+  const visible = !!(core && core.x != null && core.y != null);
+  warmPenumbraCircle
+    .attr("r", 110 / Math.max(0.01, S.transform.k))
+    .attr("cx", visible ? core.x : 0)
+    .attr("cy", visible ? core.y : 0)
+    .transition()
+    .duration(prefersReducedMotion() ? 0 : dur)
+    .attr("opacity", visible ? 1 : 0);
 }
 function applyClearingStyling(focus, dur) {
   currentPenumbraVisible = false;
+  updateWarmPenumbra(null, dur);
   const memberIds = new Set([focus.coreId, ...clearingMemberIdsFor(focus.coreId)]);
   nodeSel
     .transition()
@@ -1958,7 +2011,6 @@ function presentFocus(id, focus, opts = {}) {
     updateClearing(null);
     applyWarmColdStyling(focus, dur);
   }
-  updateFocusRing(focus.coreId, dur);
   updateLabelVisibility();
 }
 function transitionToFieldLighting(opts = {}) {
@@ -1966,6 +2018,7 @@ function transitionToFieldLighting(opts = {}) {
   currentLightMode = "field";
   currentPenumbraVisible = false;
   updateClearing(null);
+  updateWarmPenumbra(null, dur);
   nodeSel
     .transition()
     .duration(dur)
@@ -2188,9 +2241,7 @@ function renderRoute() {
     if (parts.length) parts.push('<span class="sep">·</span>');
     addEv(ev, i === ap.tail.length - 1 ? "current" : "");
   });
-  r.innerHTML =
-    parts.join("") +
-    '<button class="clear-route" aria-label="clear route and field trace">clear</button>';
+  r.innerHTML = parts.join("") + '<button class="clear-route" aria-label="clear route">clear</button>';
   r.querySelectorAll(".route-item").forEach((el) => {
     el.onmouseenter = () => touchObject(el.dataset.id, { source: "route-hover" });
     el.onmouseleave = () => clearTouch();
@@ -2203,9 +2254,10 @@ function renderRoute() {
       renderRouteDrawer();
       openDrawer("routeDrawer");
     };
+  // Route-strip clear affects Route only (4.11); field trace has its own
+  // separate public control in the Route drawer footer.
   r.querySelector(".clear-route").onclick = () => {
     S.routeEvents = [];
-    clearFieldTrace();
     renderRoute();
     drawRouteMemory({ duration: 260 });
   };
@@ -2577,12 +2629,13 @@ function hidePreview() {
 }
 function touchObject(id, opts = {}) {
   S.touchedId = id;
+  // Transient hover indicator only — there is no persistent amber ring for
+  // the active/selected node (4.8); that identity is carried by full
+  // opacity plus the warm penumbra instead.
   nodeSel
     .select(".node-focus-ring")
-    .attr("stroke", (n) =>
-      n.id === id ? "#c49a45" : n.id === S.activeId ? "#e2bc69" : "transparent",
-    )
-    .attr("stroke-opacity", (n) => (n.id === id ? 0.42 : n.id === S.activeId ? 0.95 : 0));
+    .attr("stroke", (n) => (n.id === id ? "#c49a45" : "transparent"))
+    .attr("stroke-opacity", (n) => (n.id === id ? 0.42 : 0));
   if (opts.showPreview !== false && byId[id]) {
     const d = byId[id];
     const pt = d.x != null ? graphPointToScreen(d.x, d.y) : { x: 120, y: 80 };
@@ -2592,7 +2645,7 @@ function touchObject(id, opts = {}) {
 function clearTouch() {
   S.touchedId = null;
   hidePreview();
-  if (S.activeId) updateFocusRing(S.activeId, 120);
+  nodeSel.select(".node-focus-ring").attr("stroke", "transparent").attr("stroke-opacity", 0);
 }
 
 function showEdgePreview(e, ev) {
@@ -3018,11 +3071,15 @@ document.getElementById("showAllObjects").onclick = () => {
   closeAllDrawers();
   returnToField({ source: "show-all" });
 };
+// Two explicit, separate public controls (4.11): Clear Route never touches
+// field trace; Clear field trace never touches Route.
 document.getElementById("clearRouteDrawer").onclick = () => {
   S.routeEvents = [];
-  clearFieldTrace();
   renderRoute();
   drawRouteMemory({ duration: 260 });
+};
+document.getElementById("clearFieldTraceDrawer").onclick = () => {
+  clearFieldTrace();
 };
 
 // ── Action bindings ─────────────────────────────────────────────────────────
