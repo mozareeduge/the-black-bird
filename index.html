@@ -561,7 +561,9 @@ window.__bbDesign = {
   resetTrace(){
     clearFieldTrace();
     return this.snapshot();
-  }
+  },
+  simAlpha(){return sim.alpha();},
+  fieldFitted(){return fitted;}
 };
 ['IBM Plex Mono','Crimson Pro','Scheherazade New'].forEach(f=>{try{document.fonts.load(`12px "${f}"`);}catch(e){}});
 
@@ -749,14 +751,14 @@ function isAperture(d){return d.id==='FO.BLACK_BIRD_FIELD';}
 function renderRole(d){return isAperture(d)?'APERTURE':d.type;}
 function morphologyOf(d){return isAperture(d)?'aperture':d.type.toLowerCase();}
 function nodeMetrics(d){
-  if(isAperture(d)) return {role:'aperture',coreR:8.5,outerR:9.6,hitR:18,collideR:9.6+9,labelOffset:9.6+9,haloR:9.6+6,focusR:9.6+8};
+  if(isAperture(d)) return {role:'aperture',coreR:8.5,outerR:9.6,hitR:9.6+9,collideR:9.6+9,labelOffset:9.6+9,haloR:9.6+6,focusR:9.6+8};
   switch(d.type){
-    case 'RNO': return {role:'rno',coreR:6.2,outerR:10.4,hitR:18,collideR:10.4+9,labelOffset:10.4+9,haloR:10.4+6,focusR:10.4+8};
-    case 'MNO': return {role:'mno',coreR:6.8,outerR:7.0,hitR:18,collideR:7.0+9,labelOffset:7.0+9,haloR:7.0+6,focusR:7.0+8};
-    case 'NameO': return {role:'nameo',coreR:0,outerR:5,hitR:18,collideR:5+9,labelOffset:5+9,haloR:5+6,focusR:5+8};
-    case 'RefO': return {role:'refo',coreR:4,outerR:5.66,hitR:18,collideR:5.66+9,labelOffset:5.66+9,haloR:5.66+6,focusR:5.66+8};
-    case 'RelO': return {role:'relo',coreR:7.5,outerR:7.5,hitR:18,collideR:7.5+9,labelOffset:7.5+9,haloR:7.5+6,focusR:7.5+8};
-    default: return {role:'fo',coreR:6.2,outerR:6.2,hitR:18,collideR:6.2+9,labelOffset:6.2+9,haloR:6.2+6,focusR:6.2+8};
+    case 'RNO': return {role:'rno',coreR:6.2,outerR:10.4,hitR:10.4+9,collideR:10.4+9,labelOffset:10.4+9,haloR:10.4+6,focusR:10.4+8};
+    case 'MNO': return {role:'mno',coreR:6.8,outerR:7.0,hitR:7.0+9,collideR:7.0+9,labelOffset:7.0+9,haloR:7.0+6,focusR:7.0+8};
+    case 'NameO': return {role:'nameo',coreR:0,outerR:5,hitR:5+9,collideR:5+9,labelOffset:5+9,haloR:5+6,focusR:5+8};
+    case 'RefO': return {role:'refo',coreR:4,outerR:5.66,hitR:5.66+9,collideR:5.66+9,labelOffset:5.66+9,haloR:5.66+6,focusR:5.66+8};
+    case 'RelO': return {role:'relo',coreR:7.5,outerR:7.5,hitR:7.5+9,collideR:7.5+9,labelOffset:7.5+9,haloR:7.5+6,focusR:7.5+8};
+    default: return {role:'fo',coreR:6.2,outerR:6.2,hitR:6.2+9,collideR:6.2+9,labelOffset:6.2+9,haloR:6.2+6,focusR:6.2+8};
   }
 }
 function nodeR(d){return nodeMetrics(d).outerR;}

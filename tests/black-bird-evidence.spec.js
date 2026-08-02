@@ -2,6 +2,7 @@ const {test,expect}=require('@playwright/test');const fs=require('fs'),path=requ
 const out=path.resolve(__dirname,'../test-results/black-bird-evidence');const rows=[];test.beforeAll(()=>fs.mkdirSync(out,{recursive:true}));
 async function capture(page,id,file){const state=await appState(page);const design=await page.evaluate(()=>window.__bbDesign?.snapshot());await page.screenshot({path:path.join(out,file),fullPage:false});rows.push({scenario_id:id,file,viewport:page.viewportSize(),state,design,captured_at:new Date().toISOString()});}
 test('generate named candidate evidence matrix',async({page})=>{
+ test.setTimeout(120_000);
  const runs=[
   ['SCN-01',{width:1440,height:900},async()=>gotoField(page,{realOnboarding:true,reduced:true}),'01-desktop-first-aperture.png'],
   ['SCN-02',{width:1280,height:800},async()=>{await gotoField(page);await clickNode(page,'FO.CORPSE');},'02-desktop-fo-warm-cold.png'],

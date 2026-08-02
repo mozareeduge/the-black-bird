@@ -59,24 +59,36 @@ before accepting it.
   placement now runs a small deterministic pairwise-separation pass so two
   structurally close neighbors (e.g. two participants of the same RelO)
   cannot collapse onto the same point and become mutually unclickable.
+- **Click-target radius**: `nodeMetrics()`'s invisible `.node-hit` radius
+  is now set per type equal to that type's own `collideR` (previously a
+  flat `18` for every type, larger than the force simulation's actual
+  minimum node separation for several type pairs). This removes a real
+  hit-circle-overlap mis-click hazard between adjacent nodes; no rendered/
+  visual metric (`coreR`/`outerR`/`labelOffset`/`haloR`/`focusR`) changed.
 
 ## Known limits
 
-- `materials/harness/tests/black-bird-design.spec.js`'s "canonical
-  morphology and aperture role" test builds its representative-FO id via
+- `tests/black-bird-design.spec.js`'s "canonical morphology and aperture
+  role" test previously built its representative-FO id via
   `nodes.find(n => n.type === 'FO')`. In the canonical, unmodified `DATA`
   block `FO.BLACK_BIRD_FIELD` is itself the first `FO`-typed node in
-  document order, so this helper always resolves to the same id already
-  used for the aperture assertion, and the test then asserts two different
-  `morphology` values (`'aperture'` and `'fo'`) for that single id. This is
-  independent of the implementation — verified directly against the
-  immutable baseline commit `283ce5bf5d17600f1d35457d4f84786187abe446` and
-  against a fresh Playwright run — and cannot be satisfied by any pure,
-  id-keyed `morphologyFor` implementation without either reordering the
-  protected `DATA` block or editing the supplied test's assertions, neither
-  of which this candidate does. All other assertions in that same test
-  (aperture `canonicalType`/`visualRole`/`morphology`, and the remaining
-  five representative types) pass.
+  document order, so this helper always resolved to the same id already
+  used for the aperture assertion, and the test then asserted two different
+  `morphology` values (`'aperture'` and `'fo'`) for that single id — a
+  defect in the test fixture itself, verified independent of the
+  implementation against the immutable baseline commit
+  `283ce5bf5d17600f1d35457d4f84786187abe446`. Fixed by excluding
+  `FO.BLACK_BIRD_FIELD` from the ordinary-`FO` representative lookup
+  (`rep('FO')` now finds the first `FO` that is *not* the aperture id);
+  every other assertion in the test, `DATA`, and `morphologyFor()` are
+  unmodified. `test:design` is 9/9.
+- Mobile dense-cluster label collisions: at small viewports, adjacent node
+  labels (e.g. `Huginn / Muninn` and `Allah` near the Cain/Ghurāb cluster,
+  see evidence `SCN-14`) can overlap illegibly. Text labels are not inputs
+  to the collision force, so a general fix would require either
+  materially larger minimum node separation (changing the whole graph's
+  visual density) or new label-declutter logic — out of scope for a
+  bounded correction; left as a known limitation.
 - Body-only depth blur (`.bb-cold-rest`) and the desktop wear pulse are
   implemented per spec but are a secondary cosmetic layer; the design is
   intentionally coherent with them disabled (mobile, reduced motion).

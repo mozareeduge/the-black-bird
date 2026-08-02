@@ -891,6 +891,106 @@ Known risks / next step:
 
 ---
 
+## 2026-08-02 — PR #8 release closure: defective fixture repair + click-target correction
+
+Base file:
+- `index.html` (candidate `0ae2db4a21c7d9207fcb3d3346f6b658e317a319`)
+
+Goal:
+- Close out PR #8: repair the one contradictory design-suite fixture
+  blocking `CHK-BB-DESIGN-UI`/`CHK-BB-FULL`, regenerate the full evidence
+  matrix, review it against the named scenario checklist, and correct any
+  material defect the review surfaces — without repeating or redesigning
+  the T00–T06 implementation.
+
+Files changed:
+- `tests/black-bird-design.spec.js` — the "canonical morphology and
+  aperture role" test's own `rep(type)` helper
+  (`nodes.find(n=>n.type===type)`) always resolved `rep('FO')` to
+  `FO.BLACK_BIRD_FIELD` itself, because that node is the first `FO` in
+  canonical `DATA` document order — the same id the test already asserts
+  as `'aperture'`. The test then asserted a second, contradictory
+  `morphology` value (`'fo'`) for that same id. Fixed by excluding
+  `FO.BLACK_BIRD_FIELD` from the ordinary-`FO` representative lookup
+  (`n.id!=='FO.BLACK_BIRD_FIELD'`); every other assertion, and `DATA`,
+  `morphologyFor()`, and all other product code, are unchanged.
+- `index.html` — `nodeMetrics()`'s invisible `.node-hit` click-target
+  radius was a flat `18` for every canonical type, independent of the
+  `collideR` the force simulation actually enforces as minimum
+  center-to-center node separation (`9.6+9`…`5+9` depending on type, all
+  well under `18+18=36`). Regenerating the evidence matrix repeatedly
+  surfaced non-deterministic screenshots (`SCN-02`/`SCN-07` sometimes
+  showed the aperture still focused after a click; the design suite's
+  ordinary-focus test intermittently recorded a spurious extra Route
+  entry) traced to adjacent nodes' hit-circles physically overlapping —
+  a real mis-click hazard for any fast click near a dense cluster, not
+  only for automated tests. Fixed by setting `hitR` equal to each type's
+  own `collideR`, which guarantees (by the same force that already
+  enforces minimum separation) that no two hit-circles can overlap.
+  `coreR`/`outerR`/`labelOffset`/`haloR`/`focusR` — every rendered/visual
+  metric — are untouched.
+- `tests/bb-helpers.cjs` — `clickNode` now waits for the camera transform
+  (`window.__bbState.transform`) to stop changing before clicking (the
+  760ms `fitFocusFrame` pan after a focus change was itself enough to
+  displace a hit target between locator resolution and click dispatch),
+  and retries with an activeId check up to 5 times as a last-resort
+  safety net; `gotoField` now waits for the new `window.__bbDesign
+  .fieldFitted()` diagnostic so the very first click of a test run can't
+  land before the initial camera auto-fit (`sim.on('end', …)`) has run.
+  `window.__bbDesign` gained two new read-only diagnostics —
+  `simAlpha()` and `fieldFitted()` — mirroring existing internal state
+  (`sim.alpha()`, the `fitted` flag), no behavior change.
+- `tests/black-bird-evidence.spec.js` — raised the evidence-generation
+  test's own timeout to 120s; waiting for camera settle on 10 sequential
+  full-navigation scenarios in one test now legitimately needs more than
+  the default 45s budget.
+
+Commands run:
+- `npm ci`
+- `npx playwright test tests/black-bird-design.spec.js` (run repeatedly,
+  including before/after each intermediate fix, to confirm determinism)
+- `npx playwright test tests/black-bird-baseline.spec.js`
+- `npm run test:full` (run twice consecutively; both fully green)
+
+Decisions:
+- Treated the design-suite fixture bug and the click-target hit-radius
+  bug as two separate defects (one in the supplied test, one in the
+  product) rather than one — the fixture fix alone does not touch
+  interaction geometry, and the hit-radius fix alone does not touch any
+  assertion; each is independently minimal and reversible.
+- The hit-radius correction is the one finite, evidence-bound product
+  correction made this round, per instruction. It was discovered through,
+  and validated against, the regenerated evidence matrix and repeated
+  `test:full` runs, not through speculative review.
+- Left the mobile dense-cluster label collisions observed in `SCN-14`
+  (e.g. `Huginn / Muninn` overlapping `Allah` near the Cain/Ghurāb
+  cluster) unfixed. Labels are not inputs to the collision force, so
+  removing overlap in general would mean either a materially larger
+  minimum node separation (changing the whole graph's visual density) or
+  new label-declutter logic — both are redesign-scale, not a bounded
+  correction, and this round's budget is one. Recorded as a known
+  limitation below instead.
+
+Results:
+- `test:legacy`, `test:traceability`, `test:data` — pass.
+- `test:baseline` — 5/5 pass.
+- `test:design` — 9/9 pass (the prior 8/9 blocker is resolved).
+- `test:visual` — evidence matrix regenerated for all 10 named scenarios;
+  each scenario's captured `state.activeId`/`design.lightMode` now
+  matches its intended flow on repeated runs.
+- `test:docs` — pass.
+- `test:full` — full green, twice consecutively.
+
+Known risks / next step:
+- Label collisions persist in dense clusters at small viewports (see
+  `SCN-14`, mobile field selection, around Huginn/Muninn/Allah/Cain).
+  Text labels are not collision-force inputs; a real fix is layout-scale
+  and out of this round's one-correction budget.
+- Body-only cold-distance blur and the desktop wear "pulse" remain
+  secondary/cosmetic, as previously noted.
+
+---
+
 ## Changelog template
 
 Use this for future entries:
