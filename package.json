@@ -10,9 +10,10 @@
     "test:data": "node tests/black-bird-data-integrity.cjs",
     "test:baseline": "playwright test tests/black-bird-baseline.spec.js",
     "test:route-solo": "playwright test tests/black-bird-route-solo.spec.js",
+    "test:world-camera": "playwright test tests/black-bird-world-camera.spec.js",
     "test:design": "playwright test tests/black-bird-design.spec.js",
     "test:visual": "playwright test tests/black-bird-evidence.spec.js",
-    "test:full": "npm run test:legacy && npm run test:traceability && npm run test:data && npm run test:baseline && npm run test:route-solo && npm run test:design && npm run test:visual && npm run test:docs",
+    "test:full": "npm run test:legacy && npm run test:traceability && npm run test:data && npm run test:baseline && npm run test:route-solo && npm run test:world-camera && npm run test:design && npm run test:visual && npm run test:docs",
     "test:docs": "node tests/documentation-contract.cjs"
   },
   "devDependencies": {
