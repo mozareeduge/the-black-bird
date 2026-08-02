@@ -289,8 +289,7 @@ button,input{font:inherit}
 
 /* ── Decided visual-system components (typed morphology, lighting, trace) ──── */
 .bb-aperture-core{fill:var(--bb-aperture-core)!important;}
-.bb-clearing{fill:var(--bb-clearing-fill);pointer-events:none;}
-.bb-clearing-spoke{pointer-events:none;fill:none;}
+.bb-clearing-field{pointer-events:none;}
 .bb-wear,.bb-afterglow{pointer-events:none;}
 .bb-body,.bb-rno-ring{transition:opacity .35s ease,fill .35s ease,stroke-opacity .35s ease;}
 .bb-cold-rest{filter:blur(var(--bb-dof-max));}
@@ -299,7 +298,7 @@ button,input{font:inherit}
 .node-label.quiet{fill:#92887a}
 .node-label.bb-arabic{font-family:var(--bb-arabic);}
 @media(prefers-reduced-motion:reduce){
-  .bb-node,.bb-edge,.bb-clearing,.bb-wear,.bb-afterglow,.bb-body,.bb-rno-ring{transition-duration:.01ms!important;animation:none!important;}
+  .bb-node,.bb-edge,.bb-clearing-field,.bb-wear,.bb-afterglow,.bb-body,.bb-rno-ring{transition-duration:.01ms!important;animation:none!important;}
   .bb-cold-rest{filter:none!important;}
 }
 </style>
@@ -820,8 +819,40 @@ const svg = d3.select("#graphSvg");
 const mapWrap = document.getElementById("mapWrap");
 let width = 0,
   height = 0;
+// ── RelO clearing: one masked continuous field (4.9, fixes BB-R11) ─────────
+// One visible rect, shaped entirely by a blurred/thresholded mask of hidden
+// kernel circles at the RelO + participant coordinates — no visible member
+// pools, no spokes. Kernel/subtract-circle coordinates are world-space
+// (same coordinate system as everything else in `root`).
+const defs = svg.append("defs");
+const clearingFilter = defs
+  .append("filter")
+  .attr("id", "bb-clearing-blur")
+  .attr("x", "-60%")
+  .attr("y", "-60%")
+  .attr("width", "220%")
+  .attr("height", "220%");
+const clearingBlur = clearingFilter.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", 18);
+clearingFilter
+  .append("feComponentTransfer")
+  .append("feFuncA")
+  .attr("type", "table")
+  .attr("tableValues", "0 0 0 0.25 0.9 1 1 1");
+const clearingMask = defs.append("mask").attr("id", "bb-clearing-mask");
+const clearingMaskGroup = clearingMask.append("g").attr("filter", "url(#bb-clearing-blur)");
 const root = svg.append("g");
 const clearingLayer = root.append("g").attr("class", "bb-clearing-layer");
+const clearingRect = clearingLayer
+  .append("rect")
+  .attr("class", "bb-clearing-field")
+  .attr("x", WORLD.cx - WORLD.width)
+  .attr("y", WORLD.cy - WORLD.height)
+  .attr("width", WORLD.width * 2)
+  .attr("height", WORLD.height * 2)
+  .attr("mask", "url(#bb-clearing-mask)")
+  .attr("fill", "var(--bb-clearing-fill)")
+  .attr("opacity", 0)
+  .attr("pointer-events", "none");
 const baseLayer = root.append("g");
 const projectedLayer = root.append("g");
 const wearLayer = root.append("g").attr("class", "bb-wear-layer").attr("pointer-events", "none");
@@ -882,18 +913,10 @@ function updateGraphGeometry() {
     if (Number.isFinite(x1) && Number.isFinite(y1) && Number.isFinite(x2) && Number.isFinite(y2))
       d3.select(this).attr("x1", x1).attr("y1", y1).attr("x2", x2).attr("y2", y2);
   });
-  clearingLayer.selectAll("circle.bb-clearing").each(function (d) {
-    const x = nodeX(d.node),
-      y = nodeY(d.node);
+  clearingMaskGroup.selectAll("circle.bb-clearing-kernel,circle.bb-clearing-subtract").each(function (d) {
+    const x = nodeX(d),
+      y = nodeY(d);
     if (Number.isFinite(x) && Number.isFinite(y)) d3.select(this).attr("cx", x).attr("cy", y);
-  });
-  clearingLayer.selectAll("line.bb-clearing-spoke").each(function (d) {
-    const x1 = nodeX(d.source),
-      y1 = nodeY(d.source),
-      x2 = nodeX(d.target),
-      y2 = nodeY(d.target);
-    if (Number.isFinite(x1) && Number.isFinite(y1) && Number.isFinite(x2) && Number.isFinite(y2))
-      d3.select(this).attr("x1", x1).attr("y1", y1).attr("x2", x2).attr("y2", y2);
   });
   afterglowLayer.selectAll("circle.bb-afterglow").each(function (d) {
     const x = nodeX(d.node),
@@ -1868,35 +1891,56 @@ function applyClearingStyling(focus, dur) {
 }
 function renderClearing(relOId) {
   const relNode = byId[relOId];
+  if (!relNode) return;
   const memberIds = clearingMemberIdsFor(relOId);
-  const pool = [relOId, ...memberIds]
-    .map((id) => byId[id])
-    .filter(Boolean)
-    .map((node) => ({ id: node.id, node }));
-  const circles = clearingLayer.selectAll("circle.bb-clearing").data(pool, (d) => d.id);
-  circles.exit().remove();
-  circles.enter().append("circle").attr("class", "bb-clearing").attr("r", 26).merge(circles);
-  const spokeData = memberIds
-    .map((id) => byId[id])
-    .filter(Boolean)
-    .map((target) => ({ source: relNode, target }));
-  const spokes = clearingLayer
-    .selectAll("line.bb-clearing-spoke")
-    .data(spokeData, (d) => d.target.id);
-  spokes.exit().remove();
-  spokes
+  const kernelIds = [relOId, ...memberIds].filter((id) => byId[id]);
+  const kernelPool = kernelIds.map((id) => byId[id]).filter((d) => d.x != null && d.y != null);
+  const kernelR = isMobile() ? 34 : 42;
+  const kernels = clearingMaskGroup
+    .selectAll("circle.bb-clearing-kernel")
+    .data(kernelPool, (d) => d.id);
+  kernels.exit().remove();
+  kernels
     .enter()
-    .append("line")
-    .attr("class", "bb-clearing-spoke")
-    .attr("stroke", "var(--bb-clearing-member)")
-    .attr("stroke-opacity", 0.14)
-    .attr("pointer-events", "none")
-    .merge(spokes);
+    .append("circle")
+    .attr("class", "bb-clearing-kernel")
+    .attr("fill", "#fff")
+    .merge(kernels)
+    .attr("r", kernelR)
+    .attr("cx", (d) => nodeX(d))
+    .attr("cy", (d) => nodeY(d));
+  // Subtract the aperture core from the mask whenever it falls inside the
+  // clearing without itself being a canonical participant of this relation.
+  const bb = byId["FO.BLACK_BIRD_FIELD"];
+  const subtractData = bb && !kernelIds.includes(bb.id) && bb.x != null ? [bb] : [];
+  const subtract = clearingMaskGroup
+    .selectAll("circle.bb-clearing-subtract")
+    .data(subtractData, (d) => d.id);
+  subtract.exit().remove();
+  subtract
+    .enter()
+    .append("circle")
+    .attr("class", "bb-clearing-subtract")
+    .attr("fill", "#000")
+    .merge(subtract)
+    .attr("r", nodeMetrics(bb).outerR + 6)
+    .attr("cx", (d) => nodeX(d))
+    .attr("cy", (d) => nodeY(d));
+  const desiredBlurPx = isMobile() ? 14 : 18;
+  clearingBlur.attr("stdDeviation", desiredBlurPx / Math.max(0.01, S.transform.k));
+  clearingRect
+    .transition()
+    .duration(prefersReducedMotion() ? 0 : 420)
+    .attr("opacity", 0.13);
 }
 function updateClearing(relOId) {
   S.fieldTrace.activeClearingId = relOId || null;
   if (!relOId) {
-    clearingLayer.selectAll("*").remove();
+    clearingMaskGroup.selectAll("*").remove();
+    clearingRect
+      .transition()
+      .duration(prefersReducedMotion() ? 0 : 300)
+      .attr("opacity", 0);
     return;
   }
   renderClearing(relOId);
@@ -2213,13 +2257,17 @@ function routeStats() {
   });
   return stats;
 }
+// Route uses a neutral silver/bone mark; only wear (recordInferredWear,
+// below) uses amber-brown. Keeping these visually distinct is required by
+// 4.11/BB-R13 — Route is exact reading history, wear is inferred passage.
+const ROUTE_MARK_COLOR = "#a89f8f";
 function updateRouteHalos(duration = 420) {
   const stats = routeStats();
   nodeSel
     .select(".node-route-halo")
     .transition()
     .duration(prefersReducedMotion() ? 0 : duration)
-    .attr("stroke", (d) => (stats.has(d.id) ? "#c49a45" : "transparent"))
+    .attr("stroke", (d) => (stats.has(d.id) ? ROUTE_MARK_COLOR : "transparent"))
     .attr("stroke-opacity", (d) => {
       const s = stats.get(d.id);
       if (!s) return 0;
@@ -2263,9 +2311,11 @@ function drawRouteMemory(opts = {}) {
     .enter()
     .append("line")
     .attr("class", "route-segment")
-    .attr("stroke", "#c49a45")
-    .attr("stroke-width", 0.55)
+    .attr("stroke", ROUTE_MARK_COLOR)
+    .attr("stroke-width", 0.8)
+    .attr("stroke-dasharray", "1.4 2.2")
     .attr("stroke-linecap", "round")
+    .attr("vector-effect", "non-scaling-stroke")
     .attr("pointer-events", "none")
     .attr("stroke-opacity", 0);
   enter
@@ -2656,8 +2706,6 @@ function renderTextNode(n) {
 }
 function renderFO(n) {
   let html = `${meta(n)}`;
-  if (n.id === "FO.BLACK_BIRD_FIELD")
-    html += `<div class="prose"><p>central black-bird field</p></div>`;
   const appears = appearingIn(n.id),
     relos = relosFor(n.id),
     names = nodes
