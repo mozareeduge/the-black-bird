@@ -1,0 +1,20 @@
+{
+  "name": "the-black-bird",
+  "version": "6.0.0-candidate.0",
+  "private": true,
+  "description": "Validation harness for The Black Bird public source archive",
+  "scripts": {
+    "baseline:capture": "node tests/capture-canonical-baseline.cjs",
+    "test:legacy": "node tests/no-active-legacy.cjs",
+    "test:traceability": "node tests/traceability-contract.cjs",
+    "test:data": "node tests/black-bird-data-integrity.cjs",
+    "test:baseline": "playwright test tests/black-bird-baseline.spec.js",
+    "test:design": "playwright test tests/black-bird-design.spec.js",
+    "test:visual": "playwright test tests/black-bird-evidence.spec.js",
+    "test:full": "npm run test:legacy && npm run test:traceability && npm run test:data && npm run test:baseline && npm run test:design && npm run test:visual && npm run test:docs",
+    "test:docs": "node tests/documentation-contract.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.0"
+  }
+}

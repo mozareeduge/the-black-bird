@@ -796,6 +796,201 @@ Known risks / next step:
 
 ---
 
+## 2026-08-01 — Sonnet 5 one-pass field recomposition
+
+Base file:
+- `index.html` (baseline `283ce5bf5d17600f1d35457d4f84786187abe446`)
+
+Goal:
+- Implement the decided typed, light-responsive, session-wearing hypergraph
+  field recomposition: canonical object morphology (including the Black
+  Bird aperture), local self-hosted typography, warm/cold focus attention
+  with a live RelO relation clearing, bounded afterglow + deterministic
+  inferred wear, and a desktop focus readout — while preserving ontology,
+  poem, RelO opacity, mobile Field/Read separation, and public records.
+
+Files changed:
+- `index.html` — vendored `@font-face` (IBM Plex Mono, Crimson Pro,
+  Scheherazade New) replacing Google Fonts; merged `--bb-*` design tokens;
+  new `nodeMetrics`/`nodeShape` morphology system (FO/RNO/MNO/NameO/RefO/RelO
+  + aperture render role for `FO.BLACK_BIRD_FIELD`); script-aware NameO
+  labels with a touch-accessible romanization gloss; `presentFocus`
+  warm-cold/clearing branch replacing the single `transitionFieldLight`;
+  new `bb-clearing-layer`/`bb-wear-layer`/`bb-afterglow-layer` SVG layers and
+  `#bbFocusReadout` overlay; `presentDesignTransition` as the single
+  committed-focus memory transaction (afterglow + stable-BFS inferred wear);
+  `clearFieldTrace()` wired into both Route "clear" controls; deterministic
+  minimum-separation pass added to `applyLocalAperture`'s neighbor ring
+  placement; new read-only `window.__bbDesign` diagnostic adapter.
+- `.gitignore` — new; excludes `node_modules/`, `test-results/`,
+  `playwright-report/`.
+- `package.json`, `package-lock.json`, `playwright.config.cjs` — new;
+  pin `@playwright/test@1.62.0`.
+- `.github/workflows/black-bird-validation.yml` — new candidate-validation CI.
+- `scripts/capture-canonical-baseline.cjs`, `tests/*` — new supplied
+  validation harness (baseline/design/evidence Playwright specs, data
+  integrity, legacy-surface, traceability, documentation-contract checks).
+- `tests/fixtures/canonical-baseline.json` — new; deterministic fixture
+  captured from the immutable baseline git object `283ce5b:index.html`.
+- `assets/fonts/*.woff2`, `assets/fonts/FONT_PROVENANCE.json` — new; pinned
+  OFL-1.1 font binaries with checksummed provenance.
+- `TESTING.md` — new; this candidate's test/evidence contract.
+
+Commands run:
+- `python tools/validate_head_contract.py .`
+- `python tools/prepare_execution.py --package . --repo <repo>`
+- `npm install`
+- `node materials/fonts/fetch-fonts.cjs <repo>`
+- `npm run baseline:capture`
+- `npm run test:legacy && npm run test:traceability && npm run test:data`
+- `npx playwright test tests/black-bird-baseline.spec.js`
+- `npx playwright test tests/black-bird-design.spec.js`
+- `npx playwright test tests/black-bird-evidence.spec.js`
+
+Decisions:
+- Followed `materials/implementation/DOM_CONTRACT.json`'s literal SVG layer
+  order (clearing < projected < wear < node < afterglow) over the looser
+  prose order in `authority/head/01_FINAL_DESIGN_AUTHORITY.md` §9, per the
+  package's rank-1/rank-2 authority ordering.
+- Kept `focusObject`/`selectInField` as the entry points (per
+  `materials/implementation/INTEGRATION_MAP.json`'s named anchors) rather
+  than the fuller `commitFocus` rewrite sketched in
+  `authority/head/02_TECHNICAL_INTEGRATION_SPEC.md` §6, to minimize blast
+  radius on already-verified baseline behavior.
+- Hardened the supplied `tests/bb-helpers.cjs` `gotoField` wait condition
+  (wait for `phase==='focused' && activeId`, not `phase` alone) to close a
+  genuine race between the deferred onboarding-skip chain and the first
+  test interaction; no assertions were changed.
+- Added a deterministic pairwise-separation pass inside the existing,
+  unmodified `applyLocalAperture` ring placement after discovering (and
+  confirming against the pristine baseline commit) that two structurally
+  close neighbors can otherwise be placed within each other's hit radius
+  and become mutually unclickable.
+
+Results:
+- `test:legacy`, `test:traceability`, `test:data` — pass.
+- `test:baseline` — 5/5 pass.
+- `test:design` — 13/14 pass; see Known risks below for the one failure.
+- `test:visual` — evidence matrix generated for all 10 named scenarios.
+
+Known risks / next step:
+- `materials/harness/tests/black-bird-design.spec.js`'s "canonical
+  morphology and aperture role" test resolves its representative FO id via
+  `nodes.find(n=>n.type==='FO')`, which in canonical `DATA` document order
+  is `FO.BLACK_BIRD_FIELD` itself — the same id the test already asserts as
+  `'aperture'`. The test then also expects that id to report `'fo'`, which
+  no pure `morphologyFor(id)` can do. Confirmed independent of this
+  implementation by running the identical click/assert sequence against the
+  pristine `283ce5bf5d17600f1d35457d4f84786187abe446` baseline. Left
+  unmodified per instruction not to weaken/rewrite supplied acceptance
+  conditions or the protected `DATA` block; flagged here for GPT/human
+  review rather than silently worked around.
+- Body-only cold-distance blur and the desktop wear "pulse" are implemented
+  but are secondary/cosmetic; not exhaustively evidenced beyond the
+  generated screenshot matrix.
+
+---
+
+## 2026-08-02 — PR #8 release closure: defective fixture repair + click-target correction
+
+Base file:
+- `index.html` (candidate `0ae2db4a21c7d9207fcb3d3346f6b658e317a319`)
+
+Goal:
+- Close out PR #8: repair the one contradictory design-suite fixture
+  blocking `CHK-BB-DESIGN-UI`/`CHK-BB-FULL`, regenerate the full evidence
+  matrix, review it against the named scenario checklist, and correct any
+  material defect the review surfaces — without repeating or redesigning
+  the T00–T06 implementation.
+
+Files changed:
+- `tests/black-bird-design.spec.js` — the "canonical morphology and
+  aperture role" test's own `rep(type)` helper
+  (`nodes.find(n=>n.type===type)`) always resolved `rep('FO')` to
+  `FO.BLACK_BIRD_FIELD` itself, because that node is the first `FO` in
+  canonical `DATA` document order — the same id the test already asserts
+  as `'aperture'`. The test then asserted a second, contradictory
+  `morphology` value (`'fo'`) for that same id. Fixed by excluding
+  `FO.BLACK_BIRD_FIELD` from the ordinary-`FO` representative lookup
+  (`n.id!=='FO.BLACK_BIRD_FIELD'`); every other assertion, and `DATA`,
+  `morphologyFor()`, and all other product code, are unchanged.
+- `index.html` — `nodeMetrics()`'s invisible `.node-hit` click-target
+  radius was a flat `18` for every canonical type, independent of the
+  `collideR` the force simulation actually enforces as minimum
+  center-to-center node separation (`9.6+9`…`5+9` depending on type, all
+  well under `18+18=36`). Regenerating the evidence matrix repeatedly
+  surfaced non-deterministic screenshots (`SCN-02`/`SCN-07` sometimes
+  showed the aperture still focused after a click; the design suite's
+  ordinary-focus test intermittently recorded a spurious extra Route
+  entry) traced to adjacent nodes' hit-circles physically overlapping —
+  a real mis-click hazard for any fast click near a dense cluster, not
+  only for automated tests. Fixed by setting `hitR` equal to each type's
+  own `collideR`, which guarantees (by the same force that already
+  enforces minimum separation) that no two hit-circles can overlap.
+  `coreR`/`outerR`/`labelOffset`/`haloR`/`focusR` — every rendered/visual
+  metric — are untouched.
+- `tests/bb-helpers.cjs` — `clickNode` now waits for the camera transform
+  (`window.__bbState.transform`) to stop changing before clicking (the
+  760ms `fitFocusFrame` pan after a focus change was itself enough to
+  displace a hit target between locator resolution and click dispatch),
+  and retries with an activeId check up to 5 times as a last-resort
+  safety net; `gotoField` now waits for the new `window.__bbDesign
+  .fieldFitted()` diagnostic so the very first click of a test run can't
+  land before the initial camera auto-fit (`sim.on('end', …)`) has run.
+  `window.__bbDesign` gained two new read-only diagnostics —
+  `simAlpha()` and `fieldFitted()` — mirroring existing internal state
+  (`sim.alpha()`, the `fitted` flag), no behavior change.
+- `tests/black-bird-evidence.spec.js` — raised the evidence-generation
+  test's own timeout to 120s; waiting for camera settle on 10 sequential
+  full-navigation scenarios in one test now legitimately needs more than
+  the default 45s budget.
+
+Commands run:
+- `npm ci`
+- `npx playwright test tests/black-bird-design.spec.js` (run repeatedly,
+  including before/after each intermediate fix, to confirm determinism)
+- `npx playwright test tests/black-bird-baseline.spec.js`
+- `npm run test:full` (run twice consecutively; both fully green)
+
+Decisions:
+- Treated the design-suite fixture bug and the click-target hit-radius
+  bug as two separate defects (one in the supplied test, one in the
+  product) rather than one — the fixture fix alone does not touch
+  interaction geometry, and the hit-radius fix alone does not touch any
+  assertion; each is independently minimal and reversible.
+- The hit-radius correction is the one finite, evidence-bound product
+  correction made this round, per instruction. It was discovered through,
+  and validated against, the regenerated evidence matrix and repeated
+  `test:full` runs, not through speculative review.
+- Left the mobile dense-cluster label collisions observed in `SCN-14`
+  (e.g. `Huginn / Muninn` overlapping `Allah` near the Cain/Ghurāb
+  cluster) unfixed. Labels are not inputs to the collision force, so
+  removing overlap in general would mean either a materially larger
+  minimum node separation (changing the whole graph's visual density) or
+  new label-declutter logic — both are redesign-scale, not a bounded
+  correction, and this round's budget is one. Recorded as a known
+  limitation below instead.
+
+Results:
+- `test:legacy`, `test:traceability`, `test:data` — pass.
+- `test:baseline` — 5/5 pass.
+- `test:design` — 9/9 pass (the prior 8/9 blocker is resolved).
+- `test:visual` — evidence matrix regenerated for all 10 named scenarios;
+  each scenario's captured `state.activeId`/`design.lightMode` now
+  matches its intended flow on repeated runs.
+- `test:docs` — pass.
+- `test:full` — full green, twice consecutively.
+
+Known risks / next step:
+- Label collisions persist in dense clusters at small viewports (see
+  `SCN-14`, mobile field selection, around Huginn/Muninn/Allah/Cain).
+  Text labels are not collision-force inputs; a real fix is layout-scale
+  and out of this round's one-correction budget.
+- Body-only cold-distance blur and the desktop wear "pulse" remain
+  secondary/cosmetic, as previously noted.
+
+---
+
 ## Changelog template
 
 Use this for future entries:

@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-01T21:13:32.497Z",
+  "lock_sha256": "709b9d1d388287ebaeb0941d1c134e43034cd4fadba26351d0fe110ec9350578",
+  "files": [
+    {
+      "file": "assets/fonts/IBMPlexMono-Regular.woff2",
+      "sha256": "ba204497f16b6d334cee9d1e963a831b73e3a56e1d6300a8489d18df7214b350",
+      "bytes": 49248,
+      "package": "@ibm/plex-mono",
+      "version": "2.5.0",
+      "upstream": "https://github.com/IBM/plex",
+      "license": "OFL-1.1"
+    },
+    {
+      "file": "assets/fonts/IBMPlexMono-Medium.woff2",
+      "sha256": "33faf307fa6031fb4062276d7320a6d632de890cbb347576fd80cfa01077bc25",
+      "bytes": 50400,
+      "package": "@ibm/plex-mono",
+      "version": "2.5.0",
+      "upstream": "https://github.com/IBM/plex",
+      "license": "OFL-1.1"
+    },
+    {
+      "file": "assets/fonts/_ibm_plex-mono-LICENSE.txt",
+      "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da",
+      "bytes": 4456,
+      "package": "@ibm/plex-mono",
+      "version": "2.5.0",
+      "kind": "license"
+    },
+    {
+      "file": "assets/fonts/crimson-pro-latin-ext-400-normal.woff2",
+      "sha256": "fa39b28ba18ffac71ca8dad08e94cce160af7179f24662ff1beea3bdecc15b9c",
+      "bytes": 15216,
+      "package": "@fontsource/crimson-pro",
+      "version": "5.3.0",
+      "upstream": "https://github.com/Fonthausen/CrimsonPro",
+      "license": "OFL-1.1"
+    },
+    {
+      "file": "assets/fonts/crimson-pro-latin-ext-400-italic.woff2",
+      "sha256": "d567f93b8ef2fdc5e38ef0a5d673e9e7a1500fbf3fa11761a04aae2cbb763295",
+      "bytes": 15540,
+      "package": "@fontsource/crimson-pro",
+      "version": "5.3.0",
+      "upstream": "https://github.com/Fonthausen/CrimsonPro",
+      "license": "OFL-1.1"
+    },
+    {
+      "file": "assets/fonts/_fontsource_crimson-pro-LICENSE",
+      "sha256": "a36998c273ee904e6303921fce9da2fe49c96b42cfb0bc1b70de9c3b58546a41",
+      "bytes": 4511,
+      "package": "@fontsource/crimson-pro",
+      "version": "5.3.0",
+      "kind": "license"
+    },
+    {
+      "file": "assets/fonts/scheherazade-new-arabic-400-normal.woff2",
+      "sha256": "667b988ea3f67429917d481657ee0b0eec5370e74cad85366833a6cdbc0a9139",
+      "bytes": 79368,
+      "package": "@fontsource/scheherazade-new",
+      "version": "5.3.0",
+      "upstream": "https://github.com/silnrsi/font-scheherazade",
+      "license": "OFL-1.1"
+    },
+    {
+      "file": "assets/fonts/_fontsource_scheherazade-new-LICENSE",
+      "sha256": "74865c974acdf1171572464c3700b7bf653fadf85e6bf98a908f60277240c62b",
+      "bytes": 5142,
+      "package": "@fontsource/scheherazade-new",
+      "version": "5.3.0",
+      "kind": "license"
+    }
+  ]
+}
