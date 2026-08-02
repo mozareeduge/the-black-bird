@@ -2,6 +2,85 @@
 
 This file is the canonical project log. Keep it in the repository root. Update it after every Claude Code round.
 
+## 2026-08-02 — Full-system field recomposition, v3 (T00–T05, checkpoint)
+
+Branch: `claude/black-bird-system-recomposition-9hpoia`
+PR: #9 (draft)
+Base: `main@5972b2b2e4a70b2b2f457b6345f84894af95ef2a`
+Authority: `BLACK_BIRD_FULL_SYSTEM_RECOMPOSITION_AUTHORITY_v3.md`
+
+### Decision
+
+Execute the v3 full-system recomposition authority document: single-authority
+Route/Solo state transaction; stable viewport-independent world coordinates
+and a real simulation focus force replacing render-only local-aperture
+offsets; safe-rectangle camera framing; screen-stable semantic-tier labels;
+deterministic screen-space pointer resolution; one masked continuous RelO
+clearing replacing visible member-circle pools and spokes; Route/wear visual
+separation; exact morphology metrics; roving-tabindex keyboard navigation
+with directional arrow-key movement; genuine modal focus containment for
+drawers and About. Landed as one commit per stage/slice, each independently
+tested and pushed. This changelog entry covers T00–T05; T03 and T05 retain
+disclosed partial remainders (see `TESTING.md` "Known limits"), and T06's
+motion-evidence capture has not landed yet.
+
+### Commands run
+
+```
+npm ci
+npm run test:full   # run twice consecutively after every commit
+node -e "... sha256 of the extracted DATA block ..."   # re-verified unchanged after every commit
+git add -A && git commit -m "..." && git push -u origin claude/black-bird-system-recomposition-9hpoia
+```
+
+### Changed files
+
+- `index.html` — all product code (JS logic inline `<script>`, CSS, and the
+  handful of structural HTML changes: `#bbFocusReadout` removed, RelO
+  clearing markup replaced with a masked `<rect>`, Route-drawer footer
+  gained a second "Clear field trace" button, three drawers + About gained
+  `aria-modal="true"`).
+- `tests/black-bird-route-solo.spec.js` — new, 10 tests (T01).
+- `tests/black-bird-world-camera.spec.js` — new, 7 tests (T02).
+- `tests/black-bird-accessibility.spec.js` — new, 6 tests (T05).
+- `tests/black-bird-mobile.spec.js` — new, 3 tests (T05).
+- `tests/black-bird-design.spec.js` — one test replaced (readout-removal
+  regression coverage), one test added (masked-clearing regression
+  coverage), one assertion removed (`readoutCount`, apparatus no longer
+  exists).
+- `tests/bb-helpers.cjs` — `clickNode()` now attempts one real click first
+  (with a bounded timeout) before falling back to forced retries, and adds
+  a sim-alpha settle wait alongside the existing camera-settle wait.
+- `package.json` — added `test:route-solo`, `test:world-camera`,
+  `test:accessibility`, `test:mobile` scripts, wired into `test:full`.
+- `TESTING.md`, this changelog file — rewritten/updated to describe the
+  actual current candidate rather than the prior round's.
+
+### Root cause notes worth keeping
+
+- The evidence-matrix test flaked intermittently in CI on `RelO.R4CB4A8D8`
+  clicks. Root cause: the closed mobile preview `.sheet` had no
+  `pointer-events:none`, so its DOM subtree could still intercept clicks at
+  desktop sizes — invisible locally because every existing Playwright click
+  used `force:true`, which bypasses real hit-testing. Fixed at the CSS
+  source (`.sheet{pointer-events:none}` / `.sheet.open{pointer-events:auto}`)
+  rather than only worked around in the test helper.
+- Mobile onboarding's `finishOnboarding()` used to set `S.activeId`
+  directly before calling `focusObject()` a second time with the same id;
+  under the new single-authority `commitFocus()` same-id dedup rule this
+  would have silently suppressed the one required onboarding Route event.
+  Fixed by removing the premature assignment — `commitFocus()` is now the
+  only thing that ever sets `S.activeId`.
+
+### Known risks
+
+- Label overlap/clipping in dense clusters is a known, measured-but-not-yet-
+  fixed gap (label placement optimizer is T03 remainder).
+- No motion (video) evidence has been captured yet (T06 remainder).
+- Target-size and full reduced-motion audits have not been independently
+  swept end-to-end.
+- See `TESTING.md` "Known limits" for the complete, current list.
+
 ## 2026-07-03 — Update Author section text
 
 Branch: `production/update-author-section`
