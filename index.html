@@ -59,7 +59,7 @@ button,input{font:inherit}
 .tool-btn:hover{color:var(--text);border-color:#5a5045;background:#151310}
 #graphSvg{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;overflow:hidden;}
 #graphSvg:active{cursor:grabbing}
-.node-label{font-family:var(--mono);font-size:8px;fill:#d7d0c3;paint-order:stroke;stroke:#050505;stroke-width:3px;stroke-linejoin:round;pointer-events:none;}
+.node-label{font-family:var(--mono);fill:#d7d0c3;paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;}
 .node-label.quiet{fill:#92887a}
 .node-core{transition:opacity .35s ease,fill .35s ease;}
 .node-focus-ring,.node-route-halo{transition:stroke-opacity .35s ease,stroke-width .35s ease;}
@@ -133,8 +133,8 @@ button,input{font:inherit}
 .th-actions button{border:1px solid var(--line2);background:#10100f;color:var(--text);font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:14px 22px;min-width:190px;cursor:pointer;text-align:center}
 .th-actions button:hover{border-color:#6a5e50;color:var(--amber2)}
 .bottom-nav{display:none}
-.sheet{position:absolute;left:0;right:0;bottom:0;background:#0e0d0c;border-top:1px solid var(--line2);box-shadow:0 -20px 60px rgba(0,0,0,.55);z-index:40;transform:translateY(110%);transition:transform .24s ease;max-height:58vh;display:flex;flex-direction:column;}
-.sheet.open{transform:translateY(0)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#0e0d0c;border-top:1px solid var(--line2);box-shadow:0 -20px 60px rgba(0,0,0,.55);z-index:40;transform:translateY(110%);transition:transform .24s ease;max-height:58vh;display:flex;flex-direction:column;pointer-events:none;}
+.sheet.open{transform:translateY(0);pointer-events:auto;}
 .sheet-handle{height:20px;display:flex;align-items:center;justify-content:center;}
 .sheet-handle::before{content:"";width:44px;height:3px;background:#675e54;border-radius:999px}
 .sheet-body{padding:8px 20px 24px;overflow:auto}
@@ -291,18 +291,13 @@ button,input{font:inherit}
 .bb-aperture-core{fill:var(--bb-aperture-core)!important;}
 .bb-clearing{fill:var(--bb-clearing-fill);pointer-events:none;}
 .bb-clearing-spoke{pointer-events:none;fill:none;}
-.bb-wear,.bb-afterglow,.bb-focus-readout{pointer-events:none;}
+.bb-wear,.bb-afterglow{pointer-events:none;}
 .bb-body,.bb-rno-ring{transition:opacity .35s ease,fill .35s ease,stroke-opacity .35s ease;}
 .bb-cold-rest{filter:blur(var(--bb-dof-max));}
 .bb-arabic{font-family:var(--bb-arabic);}
-.node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-width:var(--bb-label-halo);stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;}
+.node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;}
 .node-label.quiet{fill:#92887a}
 .node-label.bb-arabic{font-family:var(--bb-arabic);}
-.bb-focus-readout{position:absolute;z-index:12;min-width:180px;max-width:240px;padding:10px 12px;border:1px solid var(--line2);background:rgba(11,10,9,.94);box-shadow:0 12px 32px rgba(0,0,0,.4);font-family:var(--bb-mono);display:none;}
-.bb-focus-readout-id{font-size:11px;letter-spacing:.06em;color:var(--bb-bone);margin-bottom:4px;word-break:break-word;}
-.bb-focus-readout-type{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--bb-muted);margin-bottom:6px;}
-.bb-focus-readout-line{font-family:var(--bb-serif);font-size:13px;line-height:1.4;color:var(--bb-text-2);}
-@media(max-width:720px){#bbFocusReadout{display:none!important;}}
 @media(prefers-reduced-motion:reduce){
   .bb-node,.bb-edge,.bb-clearing,.bb-wear,.bb-afterglow,.bb-body,.bb-rno-ring{transition-duration:.01ms!important;animation:none!important;}
   .bb-cold-rest{filter:none!important;}
@@ -336,7 +331,6 @@ button,input{font:inherit}
         </div>
         <svg id="graphSvg" role="img" aria-label="hypergraph map"></svg>
         <div id="fieldPrompt" class="field-prompt" aria-live="polite"></div>
-        <div id="bbFocusReadout" class="bb-focus-readout" aria-hidden="true"></div>
         <button id="mobileAboutBtn" class="map-about-btn" aria-label="About the work">ABOUT</button>
       </section>
       <section class="panel">
@@ -659,20 +653,12 @@ window.__bbDesign = {
       urls: FONT_SPECS.map((s) => s.url),
     };
   },
-  readoutSnapshot() {
-    const id = S.activeId;
-    const visible = !!(id && !isMobile());
-    if (!visible) return { visible: false, id: null, type: null, line: "", bounds: null };
-    const n = byId[id];
-    return { visible: true, id, type: n.type, line: previewLineForObject(id), bounds: null };
-  },
   performanceSnapshot() {
     return {
       nodeCount: simNodes.length,
       edgeCount: baseLinks.length + projectedLinks.length,
       clearingCount: S.fieldTrace.activeClearingId ? 1 : 0,
       afterglowCount: S.fieldTrace.afterglows.length,
-      readoutCount: S.activeId && !isMobile() ? 1 : 0,
       timerCount: afterglowTimers.size + pulseTimers.length,
     };
   },
@@ -914,7 +900,6 @@ function updateGraphGeometry() {
       y = nodeY(d.node);
     if (Number.isFinite(x) && Number.isFinite(y)) d3.select(this).attr("cx", x).attr("cy", y);
   });
-  if (S.activeId && byId[S.activeId]) positionReadout(byId[S.activeId]);
 }
 // ── Focus force: a constrained local opening in real simulation coordinates ─
 // (4.2). Up to 14 focus-set nodes are pulled onto two rings around the
@@ -1088,6 +1073,43 @@ function nodeMetrics(d) {
 }
 function nodeR(d) {
   return nodeMetrics(d).outerR;
+}
+// ── Deterministic screen-space pointer resolution (4.3, fixes BB-R06) ──────
+// The DOM element under the pointer is not authoritative when hit areas
+// overlap in a dense cluster. Given a click point in the SVG's own pixel
+// space (which is 1:1 with mapWrap CSS pixels via the viewBox), find the
+// nearest VISIBLE node whose screen distance is inside the target radius.
+// Ties: prefer the node whose visible body contains the pointer; then the
+// active focus set; then canonical DATA order (simNodes iteration order).
+function resolveNearestVisibleNode(screenPoint, opts = {}) {
+  const radius = opts.radius ?? (opts.touch ? 18 : 14);
+  const t = S.transform;
+  const focusIds = opts.focusIds || null;
+  let best = null,
+    bestDist = Infinity,
+    bestContains = false,
+    bestInFocus = false;
+  simNodes.forEach((d) => {
+    if (!nodeVisible(d.id) || d.x == null || d.y == null) return;
+    const sx = t.applyX(d.x),
+      sy = t.applyY(d.y);
+    const dist = Math.hypot(sx - screenPoint[0], sy - screenPoint[1]);
+    if (dist > radius) return;
+    const contains = dist <= nodeMetrics(d).outerR * t.k;
+    const inFocus = !!(focusIds && focusIds.has(d.id));
+    const better =
+      !best ||
+      (contains && !bestContains) ||
+      (contains === bestContains && inFocus && !bestInFocus) ||
+      (contains === bestContains && inFocus === bestInFocus && dist < bestDist);
+    if (better) {
+      best = d;
+      bestDist = dist;
+      bestContains = contains;
+      bestInFocus = inFocus;
+    }
+  });
+  return best;
 }
 function nodeShape(g, d) {
   const m = nodeMetrics(d);
@@ -1323,15 +1345,26 @@ nodeSel
   .on("click", (ev, d) => {
     ev.stopPropagation();
     hidePreview();
+    // The datum bound to the DOM element under the pointer is not
+    // authoritative when hit areas overlap (BB-R06) — resolve the true
+    // nearest visible node in screen space and commit that instead.
+    const focus = S.activeId ? buildFocusSet(S.activeId) : null;
+    const resolved =
+      resolveNearestVisibleNode(d3.pointer(ev, svg.node()), {
+        touch: isMobile(),
+        focusIds: focus ? new Set(focus.ids) : null,
+      }) || d;
     if (S.onboardingActive) {
       S.onboardingActive = false;
       hideFieldPrompt();
-      return focusObject(d.id, { source: "onboarding-interrupt" });
+      return focusObject(resolved.id, { source: "onboarding-interrupt" });
     }
-    if (isMobile()) return selectInField(d.id, { source: "graph-mobile" });
-    focusObject(d.id, { source: "graph" });
+    if (isMobile()) return selectInField(resolved.id, { source: "graph-mobile" });
+    focusObject(resolved.id, { source: "graph" });
   })
   .on("keydown", (ev, d) => {
+    // Keyboard activation always selects the keyboard-focused node directly
+    // (4.3) — pointer resolution does not apply here.
     if (ev.key === "Enter" || ev.key === " ") {
       ev.preventDefault();
       focusObject(d.id, { source: "keyboard" });
@@ -1376,7 +1409,6 @@ let simInitialized = false;
 function resize() {
   S.viewport = isMobile() ? "mobile" : "desktop";
   updatePhaseClass();
-  updateReadout(S.activeId);
   if (isMobile() && S.surface === "read") {
     renderRoute();
     return;
@@ -1423,25 +1455,77 @@ function projectedVisible(e) {
   if ((a.type === "NameO" || b.type === "NameO") && !S.viewOptions.sourceNames) return false;
   return nodeVisible(a.id) && nodeVisible(b.id);
 }
+// ── Label engine: screen-stable sizing + semantic density tiers (4.6) ──────
+// Desired sizes are SCREEN pixels; graph-space size = desired / k, with no
+// graph-unit minimum — screen size never grows with zoom.
+function labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor) {
+  if (isActive) return 11.5;
+  if (isFocusMember) return 10.5;
+  if (isStructuralAnchor) return 10;
+  return 9.5;
+}
+function labelPriorityTier(d, isActive, isFocusMember, isRelParticipant) {
+  if (isActive) return 1;
+  if (isRelParticipant || isFocusMember) return 2;
+  if (d.id === "FO.BLACK_BIRD_FIELD") return 3;
+  if (d.type === "RNO" || d.type === "MNO") return 4;
+  if (d.type === "NameO" && isFocusMember) return 5;
+  if (d.type === "FO") return 6;
+  if (d.type === "NameO") return 7;
+  return 8; // RefO, RelO
+}
+function labelBudget(k, hasFocus) {
+  const mobile = isMobile();
+  let n = mobile ? (hasFocus ? 14 : 12) : hasFocus ? 18 : 22;
+  if (k >= 1.9) return Infinity;
+  if (k >= 1.4) n += 8;
+  return n;
+}
 function updateLabelVisibility(context = {}) {
   const k = S.transform.k;
-  const focus = context.focus;
+  const focus = context.focus || (S.activeId ? buildFocusSet(S.activeId) : null);
   const focusIds = focus ? new Set(focus.ids) : null;
+  const core = focus && focus.coreId ? byId[focus.coreId] : null;
+  const relParticipants =
+    core && core.type === "RelO" ? new Set(DATA.relations[focus.coreId] || []) : null;
+  const ranked = simNodes
+    .filter((d) => {
+      if (!S.viewOptions.labels) return false;
+      if (!nodeVisible(d.id)) return false;
+      if (d.type === "NameO" && !S.viewOptions.sourceNames) return false;
+      // Inactive RelO/RefO identity stays opaque/hidden below k=1.6 (4.6).
+      if ((d.type === "RefO" || d.type === "RelO") && d.id !== S.activeId) {
+        if (isMobile() || k < 1.6) return false;
+      }
+      return true;
+    })
+    .map((d) => {
+      const isActive = d.id === S.activeId;
+      const isFocusMember = !!(focusIds && focusIds.has(d.id));
+      const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
+      const isStructuralAnchor = d.type === "RNO" || d.type === "MNO" || d.id === "FO.BLACK_BIRD_FIELD";
+      return {
+        d,
+        isActive,
+        isFocusMember,
+        desired: labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor),
+        tier: labelPriorityTier(d, isActive, isFocusMember, isRelParticipant),
+      };
+    })
+    .sort((a, b) => a.tier - b.tier);
+  const budget = labelBudget(k, !!S.activeId);
+  const desiredById = new Map();
+  const visibleIds = new Set();
+  ranked.forEach((item, i) => {
+    desiredById.set(item.d.id, item.desired);
+    if (i < budget) visibleIds.add(item.d.id);
+  });
+  const kSafe = Math.max(0.01, k);
   nodeSel
     .selectAll("text.node-label")
-    .attr("font-size", `${Math.max(9, Math.min(10.5, 10.5 / Math.max(1, k)))}px`)
-    .attr("display", (d) => {
-      if (!S.viewOptions.labels) return "none";
-      if (!nodeVisible(d.id)) return "none";
-      if (d.id === S.activeId) return null;
-      if (focusIds && focusIds.has(d.id)) return null;
-      if (k < 0.85) return "none";
-      if (d.type === "RefO" || d.type === "RelO") {
-        if (isMobile() || k < 1.15) return "none";
-      }
-      if (d.type === "NameO" && !S.viewOptions.sourceNames) return "none";
-      return null;
-    })
+    .attr("font-size", (d) => `${(desiredById.get(d.id) ?? 9.5) / kSafe}px`)
+    .style("stroke-width", `${2 / kSafe}px`)
+    .attr("display", (d) => (visibleIds.has(d.id) ? null : "none"))
     .classed("quiet", (d) => d.type === "NameO" || d.type === "RefO");
 }
 function updateVisibility() {
@@ -1832,7 +1916,6 @@ function presentFocus(id, focus, opts = {}) {
   }
   updateFocusRing(focus.coreId, dur);
   updateLabelVisibility();
-  updateReadout(id);
 }
 function transitionToFieldLighting(opts = {}) {
   const dur = prefersReducedMotion() ? 0 : (opts.duration ?? 520);
@@ -1864,7 +1947,6 @@ function transitionToFieldLighting(opts = {}) {
   nodeSel.attr("data-bb-light", (d) => (nodeVisible(d.id) ? "field" : "field"));
   updateBodyBlur("field");
   updateLabelVisibility();
-  updateReadout(null);
   drawRouteMemory({ duration: dur });
 }
 
@@ -1992,41 +2074,10 @@ function clearFieldTrace() {
   updateWearOverlay();
 }
 
-// ── Focus readout (desktop-only persistent specimen readout) ───────────────
-function positionReadout(n) {
-  const el = document.getElementById("bbFocusReadout");
-  if (!el || el.style.display === "none") return;
-  const x = nodeX(n),
-    y = nodeY(n);
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-  const pt = graphPointToScreen(x, y);
-  const wrapRect = mapWrap.getBoundingClientRect();
-  const w = 220,
-    h = 90,
-    m = 14;
-  let left = pt.x - wrapRect.left + 22,
-    top = pt.y - wrapRect.top - h / 2;
-  if (left + w > mapWrap.clientWidth - m) left = pt.x - wrapRect.left - w - 22;
-  left = Math.max(m, Math.min(mapWrap.clientWidth - w - m, left));
-  top = Math.max(m, Math.min(mapWrap.clientHeight - h - m, top));
-  el.style.left = left + "px";
-  el.style.top = top + "px";
-}
-function updateReadout(id) {
-  const el = document.getElementById("bbFocusReadout");
-  if (!el) return;
-  const n = id ? byId[id] : null;
-  if (!n || isMobile()) {
-    el.style.display = "none";
-    el.removeAttribute("data-bb-id");
-    return;
-  }
-  const role = renderRole(n);
-  el.innerHTML = `<div class="bb-focus-readout-id">${esc(n.id)}</div><div class="bb-focus-readout-type">${esc(n.type)}${role !== n.type ? ` · ${esc(role)}` : ""}</div><div class="bb-focus-readout-line">${esc(previewLineForObject(id))}</div>`;
-  el.style.display = "block";
-  el.setAttribute("data-bb-id", id);
-  positionReadout(n);
-}
+// The Field no longer carries a persistent map readout (4.13, BB-R10):
+// #bbFocusReadout and its positioning logic have been removed. Persistent
+// ID/type/label information now lives only in Reader metadata; #microPreview
+// remains the sole transient desktop tooltip.
 
 // ── Committed-focus design transaction (afterglow + wear + presentation) ───
 function presentDesignTransition(id, previousId, focus, opts = {}) {
