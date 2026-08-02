@@ -340,7 +340,7 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
       </section>
     </main>
   </div>
-  <aside id="fieldViewDrawer" class="drawer" aria-hidden="true" inert>
+  <aside id="fieldViewDrawer" class="drawer" role="dialog" aria-modal="true" aria-hidden="true" inert>
     <div class="drawer-head"><span>Field View</span><button class="drawer-close" data-close="fieldViewDrawer">×</button></div>
     <div class="drawer-body">
       <div class="section-label">Object groups</div>
@@ -353,12 +353,12 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
       <button class="tool-btn" data-close="fieldViewDrawer">Done</button>
     </div>
   </aside>
-  <aside id="objectDrawer" class="drawer" aria-hidden="true" inert>
+  <aside id="objectDrawer" class="drawer" role="dialog" aria-modal="true" aria-hidden="true" inert>
     <div class="drawer-head"><span id="objectDrawerTitle">Index</span><button class="drawer-close" data-close="objectDrawer">×</button></div>
     <div class="drawer-body"><input id="objectSearch" class="search" placeholder="search objects" /><div id="objectList"></div></div>
     <div class="drawer-foot"><button class="tool-btn" id="showAllObjects">Show All</button><button class="tool-btn" data-close="objectDrawer">Done</button></div>
   </aside>
-  <aside id="routeDrawer" class="drawer" aria-hidden="true" inert>
+  <aside id="routeDrawer" class="drawer" role="dialog" aria-modal="true" aria-hidden="true" inert>
     <div class="drawer-head"><span>Route</span><button class="drawer-close" data-close="routeDrawer">×</button></div>
     <div class="drawer-body"><div id="routeList" class="route-list"></div></div>
     <div class="drawer-foot"><button class="tool-btn" id="clearRouteDrawer">Clear Route</button><button class="tool-btn" id="clearFieldTraceDrawer">Clear field trace</button><button class="tool-btn" data-close="routeDrawer">Done</button></div>
@@ -367,7 +367,7 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
   <div id="sheet" class="sheet"><div class="sheet-handle"></div><div id="sheetBody" class="sheet-body"></div></div>
   <div id="microPreview" class="micro-preview" role="tooltip" aria-hidden="true"></div>
   <div id="routeLive" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-  <div id="aboutPanel" class="about-panel" role="dialog" aria-label="About the Work" aria-hidden="true" inert>
+  <div id="aboutPanel" class="about-panel" role="dialog" aria-modal="true" aria-label="About the Work" aria-hidden="true" inert>
     <div class="about-head">
       <span>About the Work</span>
       <button id="aboutClose" class="about-close" aria-label="Close About the Work">×</button>
@@ -1187,6 +1187,48 @@ function resolveNearestVisibleNode(screenPoint, opts = {}) {
   });
   return best;
 }
+// ── Roving tabindex + directional keyboard navigation (4.15, BB-R17) ───────
+function visibleNodesList() {
+  return simNodes.filter((d) => nodeVisible(d.id) && d.x != null && d.y != null);
+}
+// One visible node has tabindex=0 (Tab enters the graph there); all others
+// are -1. Falls back to Black Bird when neutral, or the first visible node.
+function updateRovingTabindex(preferredId) {
+  const visible = visibleNodesList();
+  if (!visible.length) return;
+  let targetId = preferredId && nodeVisible(preferredId) ? preferredId : null;
+  if (!targetId)
+    targetId = nodeVisible("FO.BLACK_BIRD_FIELD") ? "FO.BLACK_BIRD_FIELD" : visible[0].id;
+  nodeSel.attr("tabindex", (d) => (d.id === targetId ? 0 : -1));
+}
+function focusNodeElement(id) {
+  const el = nodeLayer.select(`g.node[data-bb-id="${CSS.escape(id)}"]`).node();
+  if (el && el.focus) el.focus();
+}
+// Nearest visible node in the requested screen direction from `fromId`,
+// preferring graph neighbors when candidates are otherwise similar.
+function nearestNodeInDirection(fromId, dx, dy) {
+  const from = byId[fromId];
+  if (!from || from.x == null) return null;
+  let best = null,
+    bestScore = Infinity;
+  visibleNodesList().forEach((d) => {
+    if (d.id === fromId) return;
+    const vx = d.x - from.x,
+      vy = d.y - from.y;
+    const dist = Math.hypot(vx, vy);
+    if (dist < 1e-6) return;
+    const dot = (vx / dist) * dx + (vy / dist) * dy;
+    if (dot <= 0.15) return; // must lie roughly in the requested direction
+    const neighborBonus = adj[fromId] && adj[fromId].has(d.id) ? -20 : 0;
+    const score = dist * (1.4 - dot) + neighborBonus;
+    if (score < bestScore) {
+      bestScore = score;
+      best = d;
+    }
+  });
+  return best;
+}
 function nodeShape(g, d) {
   const m = nodeMetrics(d);
   g.append("circle")
@@ -1416,7 +1458,7 @@ nodeSel
 
 // Node events
 nodeSel
-  .attr("tabindex", 0)
+  .attr("tabindex", -1) // roving tabindex: updateRovingTabindex() sets the one 0 (4.15)
   .attr("role", "button")
   .attr("aria-label", (d) => `${d.type}: ${d.label}`)
   .on("mouseenter", (ev, d) => {
@@ -1455,12 +1497,30 @@ nodeSel
     if (ev.key === "Enter" || ev.key === " ") {
       ev.preventDefault();
       focusObject(d.id, { source: "keyboard" });
+      return;
     }
     if (ev.key === "Escape") {
       clearTouch();
       closeSheet();
+      document.querySelector('[data-action="field"]')?.focus();
+      return;
+    }
+    const dirMap = {
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+    };
+    const dir = dirMap[ev.key];
+    if (!dir) return;
+    ev.preventDefault();
+    const next = nearestNodeInDirection(d.id, dir[0], dir[1]);
+    if (next) {
+      updateRovingTabindex(next.id);
+      focusNodeElement(next.id);
     }
   });
+updateRovingTabindex(null);
 
 // Edge events
 projSel
@@ -1625,6 +1685,7 @@ function updateVisibility() {
   updateLabelVisibility();
   updateWearOverlay();
   drawRouteMemory({ duration: 0 });
+  updateRovingTabindex(S.activeId);
 }
 
 // ── Camera ─────────────────────────────────────────────────────────────────
@@ -2503,6 +2564,7 @@ async function commitFocus(id, opts = {}) {
   S.previewTarget = null;
   closeAllDrawers();
   hidePreview();
+  updateRovingTabindex(id);
   if (routePolicy === "append" && !isSameId) {
     registerRouteEvent(id, { from: previousId, source });
   }
@@ -2556,6 +2618,7 @@ async function returnToField(opts = {}) {
   closeSheet();
   hidePreview();
   updatePhaseClass();
+  updateRovingTabindex(null);
   if (isMobile()) await setReaderOpen(true, { measure: true });
   else {
     await nextFrame();
@@ -2908,6 +2971,32 @@ function inlineHandlers(root = document) {
 
 // ── Drawers ────────────────────────────────────────────────────────────────
 const backdrop = document.getElementById("drawerBackdrop");
+// ── Modal overlay focus containment (4.15) ──────────────────────────────────
+// Drawers and About behave as true modal dialogs: background made inert,
+// focus enters the panel, Escape/close returns focus to the invoker.
+// aria-modal is only meaningful (and only asserted in the HTML) because the
+// background is actually made inert here, not merely visually covered.
+let overlayReturnFocus = null;
+function trapOverlayOpen(panelEl) {
+  if (overlayReturnFocus) return; // already trapped by another open overlay
+  overlayReturnFocus = document.activeElement;
+  document.querySelector(".rail")?.setAttribute("inert", "");
+  document.getElementById("mainLayout")?.setAttribute("inert", "");
+  document.querySelector(".bottom-nav")?.setAttribute("inert", "");
+  const focusable = panelEl?.querySelector(
+    'button, [href], input, [tabindex]:not([tabindex="-1"])',
+  );
+  if (focusable) focusable.focus();
+}
+function trapOverlayClose() {
+  if (document.querySelector(".drawer.open, #aboutPanel.open")) return; // another overlay still open
+  document.querySelector(".rail")?.removeAttribute("inert");
+  document.getElementById("mainLayout")?.removeAttribute("inert");
+  document.querySelector(".bottom-nav")?.removeAttribute("inert");
+  const target = overlayReturnFocus;
+  overlayReturnFocus = null;
+  if (target && document.contains(target) && target.focus) target.focus();
+}
 function openDrawer(id) {
   closeSheet();
   hidePreview();
@@ -2926,6 +3015,7 @@ function openDrawer(id) {
   backdrop.classList.add("open");
   setOverlay(id);
   document.body.style.overflow = "hidden";
+  trapOverlayOpen(drawer);
 }
 function closeDrawer(id) {
   const drawer = document.getElementById(id);
@@ -2937,6 +3027,7 @@ function closeDrawer(id) {
     document.body.style.overflow = "";
     setOverlay(null);
   }
+  trapOverlayClose();
 }
 function closeAllDrawers() {
   ["fieldViewDrawer", "objectDrawer", "routeDrawer"].forEach((id) => {
@@ -2948,6 +3039,7 @@ function closeAllDrawers() {
   backdrop.classList.remove("open");
   document.body.style.overflow = "";
   setOverlay(null);
+  trapOverlayClose();
 }
 backdrop.addEventListener("click", closeAllDrawers);
 document
@@ -2969,7 +3061,7 @@ function renderFieldViewControls() {
   typeBox.innerHTML = typeOrder
     .map(
       (type) =>
-        `<div class="toggle-row"><span>${type} <span style="color:var(--ghost)">(${countType(type)})</span></span><button class="switch ${S.objectGroups[type] ? "on" : ""}" data-type="${type}" aria-label="toggle ${type}"></button></div>`,
+        `<div class="toggle-row"><span>${type} <span style="color:var(--ghost)">(${countType(type)})</span></span><button class="switch ${S.objectGroups[type] ? "on" : ""}" data-type="${type}" aria-label="toggle ${type}" aria-pressed="${!!S.objectGroups[type]}"></button></div>`,
     )
     .join("");
   viewBox.innerHTML = [
@@ -2979,7 +3071,7 @@ function renderFieldViewControls() {
   ]
     .map(
       ([key, label]) =>
-        `<div class="toggle-row"><span>${label}</span><button class="switch ${S.viewOptions[key] ? "on" : ""}" data-view="${key}" aria-label="toggle ${label}"></button></div>`,
+        `<div class="toggle-row"><span>${label}</span><button class="switch ${S.viewOptions[key] ? "on" : ""}" data-view="${key}" aria-label="toggle ${label}" aria-pressed="${!!S.viewOptions[key]}"></button></div>`,
     )
     .join("");
   typeBox
@@ -3367,6 +3459,7 @@ function openAbout(origin) {
   document
     .querySelectorAll('.rail-btn[data-action="about"]')
     .forEach((b) => b.classList.add("active"));
+  trapOverlayOpen(panel);
 }
 function closeAbout() {
   if (!S.aboutOpen) return;
@@ -3379,6 +3472,7 @@ function closeAbout() {
   document
     .querySelectorAll('.rail-btn[data-action="about"]')
     .forEach((b) => b.classList.remove("active"));
+  trapOverlayClose();
 }
 document.getElementById("aboutClose").onclick = closeAbout;
 document
