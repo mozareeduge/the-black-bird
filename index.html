@@ -870,6 +870,23 @@ warmPenumbraGradient
   .attr("offset", "100%")
   .attr("stop-color", "#c9924a")
   .attr("stop-opacity", 0);
+// Afterglow: soft departure residue (4.11) — a radial fade, not a ring.
+const afterglowGradient = defs.append("radialGradient").attr("id", "bb-afterglow-gradient");
+afterglowGradient
+  .append("stop")
+  .attr("offset", "0%")
+  .attr("stop-color", "var(--bb-warm)")
+  .attr("stop-opacity", 0.32);
+afterglowGradient
+  .append("stop")
+  .attr("offset", "70%")
+  .attr("stop-color", "var(--bb-warm)")
+  .attr("stop-opacity", 0.1);
+afterglowGradient
+  .append("stop")
+  .attr("offset", "100%")
+  .attr("stop-color", "var(--bb-warm)")
+  .attr("stop-opacity", 0);
 const warmPenumbraLayer = root
   .append("g")
   .attr("class", "bb-warm-penumbra-layer")
@@ -2118,20 +2135,25 @@ function pulseWearPath(pathIds) {
 }
 
 // ── Afterglow (bounded departure memory) ────────────────────────────────────
+// Afterglow: bounded departure residue (4.11, fixes BB-R14). Desktop: max 8,
+// 10s. Mobile: max 3, 4s (previously afterglow was skipped on mobile
+// entirely — a real gap, not a deliberate reduction). No pulse/travel
+// animation; reduced-motion shows the final static residue immediately.
 function recordDepartureAfterglow(previousId, newId) {
   if (!previousId || previousId === newId) return;
-  if (isMobile()) return;
+  const cap = isMobile() ? 3 : 8;
+  const duration = isMobile() ? 4000 : 10000;
   S.fieldTrace.afterglows = S.fieldTrace.afterglows.filter((a) => a.id !== previousId);
-  S.fieldTrace.afterglows.push({ id: previousId, departedAt: Date.now() });
-  if (S.fieldTrace.afterglows.length > 8)
-    S.fieldTrace.afterglows = S.fieldTrace.afterglows.slice(-8);
+  S.fieldTrace.afterglows.push({ id: previousId, departedAt: Date.now(), duration });
+  if (S.fieldTrace.afterglows.length > cap)
+    S.fieldTrace.afterglows = S.fieldTrace.afterglows.slice(-cap);
   const old = afterglowTimers.get(previousId);
   if (old) clearTimeout(old);
   const t = setTimeout(() => {
     S.fieldTrace.afterglows = S.fieldTrace.afterglows.filter((a) => a.id !== previousId);
     afterglowTimers.delete(previousId);
     updateAfterglowOverlay();
-  }, 10000);
+  }, duration);
   afterglowTimers.set(previousId, t);
   updateAfterglowOverlay();
 }
@@ -2141,22 +2163,23 @@ function updateAfterglowOverlay() {
     .filter((a) => a.node);
   const sel = afterglowLayer.selectAll("circle.bb-afterglow").data(data, (d) => d.id);
   sel.exit().remove();
-  sel
+  const residueR = isMobile() ? 46 : 64; // soft residue, larger than the body — not a ring hugging its edge
+  const enter = sel
     .enter()
     .append("circle")
     .attr("class", "bb-afterglow")
-    .attr("fill", "none")
-    .attr("stroke", "var(--bb-warm)")
-    .attr("stroke-width", 1.2)
+    .attr("fill", "url(#bb-afterglow-gradient)")
     .attr("pointer-events", "none")
-    .attr("stroke-opacity", 0.5)
     .attr("cx", (d) => nodeX(d.node))
     .attr("cy", (d) => nodeY(d.node))
-    .attr("r", (d) => (d.node.id === "FO.BLACK_BIRD_FIELD" ? 9.6 : nodeMetrics(d.node).outerR) + 4)
+    .attr("r", residueR)
+    .attr("opacity", 1);
+  enter
+    .merge(sel)
     .transition()
-    .duration(prefersReducedMotion() ? 0 : 10000)
+    .duration(prefersReducedMotion() ? 0 : (d) => d.duration)
     .ease(d3.easeLinear)
-    .attr("stroke-opacity", 0);
+    .attr("opacity", 0);
   nodeSel.attr("data-bb-afterglow", (d) =>
     S.fieldTrace.afterglows.some((a) => a.id === d.id) ? "1" : "0",
   );
