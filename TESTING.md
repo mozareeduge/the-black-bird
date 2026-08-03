@@ -65,6 +65,10 @@ reviewer should read before accepting it.
   removed entirely — Reader metadata is the only persistent record; label
   font-size is `desiredScreenPx / k` with no graph-unit floor (fixes labels
   growing with zoom) plus 8-tier semantic density budgets;
+  `recomputeLabelPlacements()` adds a real 4-candidate (below/above/right/
+  left) collision-rejection placement pass, run only at the spec's listed
+  trigger points (font load, sim settle, focus commit, zoom end, resize,
+  View/Solo/Field-restoration changes) rather than every frame;
   `resolveNearestVisibleNode()` gives deterministic screen-space click
   targeting instead of trusting whatever DOM element the browser reports as
   the event target.
@@ -87,12 +91,15 @@ reviewer should read before accepting it.
 
 ## Known limits
 
-- **Label placement optimizer not yet built.** Labels are screen-stably
-  sized and semantically prioritized (see T03 above), but the full
-  8-position collision-rejection candidate placement pass from spec §4.6
-  is not implemented. Labels can still overlap each other or clip the safe
-  rectangle in dense clusters — measured and logged (not asserted) by
-  `tests/black-bird-world-camera.spec.js`.
+- **Label placement uses 4 candidates, not the full 8, and first-valid
+  rather than cost-minimizing selection.** `recomputeLabelPlacements()`
+  (spec §4.6) tries below/above/right/left (not the four diagonals too)
+  and accepts the first collision-free candidate rather than scoring all
+  valid candidates and picking the cheapest. In the densest canonical RelO
+  cluster this leaves a small, timing-dependent number of residual overlaps
+  (observed 1-2 across repeated runs) — bounded and asserted by
+  `tests/black-bird-world-camera.spec.js`, not a full "zero overlaps
+  everywhere" guarantee. Ordinary (non-densest) clusters are collision-free.
 - **Tooltip lifecycle/ARIA association (spec §4.13) not yet repaired.**
   `#microPreview` remains the sole transient desktop tooltip, but its
   collision positioning, `aria-describedby` association, and "never opens
