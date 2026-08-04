@@ -1,12 +1,47 @@
 # Testing — full-system recomposition candidate (v3)
 
 This document describes how the v3 full-system field recomposition
-candidate (executed against
-`BLACK_BIRD_FULL_SYSTEM_RECOMPOSITION_AUTHORITY_v3.md`, base
-`main@5972b2b2e4a70b2b2f457b6345f84894af95ef2a`) is validated, and what a
-reviewer should read before accepting it.
+candidate (executed against a drop-in execution-loop authority package,
+base `main@5972b2b2e4a70b2b2f457b6345f84894af95ef2a`) is validated, and what
+a reviewer should read before accepting it.
 
-## Harness
+## Current architecture harness (T06–T28)
+
+The recomposition extracted the original monolithic `index.html` script
+into a layered `src/` tree (`state/`, `domain/`, `layout/`, `application/`,
+`presentation/`, `controllers/`, `accessibility/`, `styles/`), tested
+independently of the still-live application:
+
+- `npm run test:unit` — `node --test` over `tests/unit/*.test.js` (121
+  tests): reducer/invariants/selectors, Route/trace/Solo domain logic,
+  camera/focus-target/label-solver/pointer-ownership geometry, transaction
+  and timer-registry reconciliation. Expected values are read from
+  `tests/contracts/*.json`, committed copies of the authority's state/
+  command/algorithm/visual-token contracts, rather than hand-copied
+  literals — a contract change becomes a visible fixture diff, not a
+  silently stale test.
+- `npm run test:e2e` — Playwright, Chromium, real (unforced) actionability
+  only, over `tests/e2e/**` and `tests/generated/**`: bootstrap failure
+  surfaces, field rendering, Reader, Route/trace, View/Index/Solo, modals/
+  About, tooltip/keyboard/status, desktop composition, mobile chambers,
+  environmental resilience, reduced motion, plus the generated
+  `COV-CRITICAL-TRIPLES`/`COV-ORDERED-ACTION-PAIRS` coverage specs.
+- `npm run test:a11y` — Playwright + axe-core over `tests/a11y/**`: automated
+  scans at five app states plus explicit focus/modal/tooltip/target-size/
+  reflow/status/reduced-motion checks. Two real, disclosed findings
+  (`nested-interactive`, `aria-dialog-name`) are excluded by name pending a
+  future round with `src/**` access; see `.bb-control/CONFLICT.json`.
+- `npm run test:cross-browser` — the same semantic smoke suite
+  (`tests/cross-browser/smoke.spec.js`) against Chromium/Firefox/WebKit
+  projects declared in `playwright.config.cjs`.
+- `npm run test:coverage` — `scripts/generate-coverage.mjs` generates every
+  declared combinatorial obligation (three-way/pairwise dimension
+  combinations, ordered action pairs, named critical triples, canonical-type
+  and boundary enumerations, recovery-scenario list) and cross-references
+  all 115 declared product scenarios to real test/evidence, reporting
+  covered/gap status with a reason for every gap — no silent exclusions.
+
+## Legacy released-behavior harness
 
 - `npm run test:legacy` — repository is free of active Claude control-plane files.
 - `npm run test:traceability` — supplied traceability rows are present.

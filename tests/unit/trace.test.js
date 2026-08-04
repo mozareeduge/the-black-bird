@@ -1,6 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { recordWear, recordAfterglow, reconcileTraceDeadlines, clearTrace } from '../../src/domain/trace.js';
+import { readContract } from '../contracts/load.mjs';
+
+// The trace contract states these caps as prose ("cap 7 passes per edge";
+// "desktop max 8 / 10s; mobile max 3 / 4s"), not structured numeric fields,
+// so they can't be destructured directly. This guard still ties the
+// hardcoded numbers below to the contract (T26, T-REQ-044): if the contract
+// prose ever changes, this fails loudly instead of the numeric tests below
+// silently drifting out of sync with it.
+const TRACE_CONTRACT = readContract('algorithm-contracts.json').trace;
+const WEAR_CAP = 7;
+const AFTERGLOW_DESKTOP = { cap: 8, durationMs: 10000 };
+const AFTERGLOW_MOBILE = { cap: 3, durationMs: 4000 };
+test('the trace contract prose still states the exact wear/afterglow caps this suite hardcodes', () => {
+  assert.match(TRACE_CONTRACT.wear, new RegExp(`cap ${WEAR_CAP} passes per edge`));
+  assert.match(
+    TRACE_CONTRACT.afterglow,
+    new RegExp(`desktop max ${AFTERGLOW_DESKTOP.cap} / ${AFTERGLOW_DESKTOP.durationMs / 1000}s; mobile max ${AFTERGLOW_MOBILE.cap} / ${AFTERGLOW_MOBILE.durationMs / 1000}s`)
+  );
+});
 
 // A small canonical graph for wear tests: A-B-C-D visible canonical base links,
 // plus a "shortcut" A-D that only exists as a *projected* edge and is
@@ -34,10 +53,10 @@ test('a projected-only shortcut never wears: the module only uses the supplied c
 
 test('wear is capped at 7 passes per edge', () => {
   let trace = clearTrace();
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < WEAR_CAP + 3; i++) {
     trace = recordWear(trace, { fromId: 'A', toId: 'B', neighbors });
   }
-  assert.equal(trace.wear['A|B'], 7);
+  assert.equal(trace.wear['A|B'], WEAR_CAP);
 });
 
 test('no visible canonical path means no wear is recorded', () => {
@@ -53,26 +72,26 @@ test('same source and target records no wear', () => {
   assert.equal(t1, t0);
 });
 
-test('afterglow stores a wall-clock deadline and respects a contextual cap (P-RULE-009)', () => {
+test('afterglow stores a wall-clock deadline and respects the mobile cap (P-RULE-009)', () => {
   const t0 = clearTrace();
-  const t1 = recordAfterglow(t0, { id: 'FO.CORPSE', nowMs: 1000, durationMs: 4000, cap: 3 });
-  assert.deepEqual(t1.afterglows, [{ id: 'FO.CORPSE', deadline: 5000 }]);
+  const t1 = recordAfterglow(t0, { id: 'FO.CORPSE', nowMs: 1000, durationMs: AFTERGLOW_MOBILE.durationMs, cap: AFTERGLOW_MOBILE.cap });
+  assert.deepEqual(t1.afterglows, [{ id: 'FO.CORPSE', deadline: 1000 + AFTERGLOW_MOBILE.durationMs }]);
 
   let trace = t0;
-  for (let i = 0; i < 5; i++) {
-    trace = recordAfterglow(trace, { id: `FO.N${i}`, nowMs: 1000, durationMs: 4000, cap: 3 });
+  for (let i = 0; i < AFTERGLOW_MOBILE.cap + 2; i++) {
+    trace = recordAfterglow(trace, { id: `FO.N${i}`, nowMs: 1000, durationMs: AFTERGLOW_MOBILE.durationMs, cap: AFTERGLOW_MOBILE.cap });
   }
-  assert.equal(trace.afterglows.length, 3);
+  assert.equal(trace.afterglows.length, AFTERGLOW_MOBILE.cap);
   assert.deepEqual(
     trace.afterglows.map((a) => a.id),
-    ['FO.N2', 'FO.N3', 'FO.N4']
+    Array.from({ length: AFTERGLOW_MOBILE.cap }, (_, i) => `FO.N${i + 2}`)
   );
 });
 
 test('reconcileTraceDeadlines removes only expired entries against wall-clock time, without replay (P-RULE-030)', () => {
   let trace = clearTrace();
-  trace = recordAfterglow(trace, { id: 'FO.EXPIRED', nowMs: 0, durationMs: 1000, cap: 8 });
-  trace = recordAfterglow(trace, { id: 'FO.STILL_ACTIVE', nowMs: 0, durationMs: 5000, cap: 8 });
+  trace = recordAfterglow(trace, { id: 'FO.EXPIRED', nowMs: 0, durationMs: 1000, cap: AFTERGLOW_DESKTOP.cap });
+  trace = recordAfterglow(trace, { id: 'FO.STILL_ACTIVE', nowMs: 0, durationMs: 5000, cap: AFTERGLOW_DESKTOP.cap });
   const reconciled = reconcileTraceDeadlines(trace, 2000);
   assert.deepEqual(
     reconciled.afterglows.map((a) => a.id),
@@ -82,7 +101,7 @@ test('reconcileTraceDeadlines removes only expired entries against wall-clock ti
 
 test('reconcileTraceDeadlines is a no-op (same reference) when nothing has expired', () => {
   let trace = clearTrace();
-  trace = recordAfterglow(trace, { id: 'FO.STILL_ACTIVE', nowMs: 0, durationMs: 5000, cap: 8 });
+  trace = recordAfterglow(trace, { id: 'FO.STILL_ACTIVE', nowMs: 0, durationMs: 5000, cap: AFTERGLOW_DESKTOP.cap });
   const reconciled = reconcileTraceDeadlines(trace, 100);
   assert.equal(reconciled, trace);
 });

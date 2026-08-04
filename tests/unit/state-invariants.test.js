@@ -2,38 +2,20 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createInitialState } from '../../src/state/initial-state.js';
 import { assertStateInvariants } from '../../src/state/invariants.js';
+import { readContract } from '../contracts/load.mjs';
 
-// Pinned to the recomposition authority's state-contract.json `initial` value at the time
-// this module was written. Not read from .bb-authority/ at test time: that overlay is
-// intentionally never committed, so a runtime dependency on it would make this test
-// unrunnable for anyone (or any CI) checking out the branch without it installed locally.
-const EXPECTED_INITIAL_STATE = {
-  lifecycle: { phase: 'threshold', bootstrap: 'pending', documentVisibility: 'visible', connectivity: 'unknown' },
-  responsive: { profile: 'derived', surface: 'field', orientation: 'derived', visualViewport: null },
-  reading: {
-    anchorId: null,
-    fieldAttention: { kind: 'whole-field', id: null },
-    readerSubject: { kind: 'orientation', id: null },
-    inspection: null,
-  },
-  history: { route: [], nextSequence: 1 },
-  trace: { wear: {}, afterglows: [] },
-  view: {
-    typeVisibility: { RNO: true, MNO: true, FO: true, NameO: true, RefO: true, RelO: true },
-    objectVisibility: {},
-    projectedEdges: true,
-    labels: true,
-    sourceNames: false,
-  },
-  solo: { active: false, rootId: null, members: [], snapshot: null },
-  overlay: { kind: null, invoker: null },
-  tooltip: { kind: null, targetId: null, describedById: null },
-  focus: { graphRovingId: 'FO.BLACK_BIRD_FIELD', restoreTarget: null },
-  presentation: { txId: 0, cameraIntent: null, statusMessage: null },
-};
+// Loaded from tests/contracts/state-contract.json -- a committed copy of the
+// recomposition authority's state-contract.json, not the ephemeral
+// .bb-authority/ overlay itself (that directory is intentionally never
+// committed, so a runtime dependency on it would make this test unrunnable
+// for anyone -- or any CI -- checking out the branch without it installed
+// locally). Asserting against the fixture, rather than a hand-copied
+// literal, means a future contract change shows up as a visible fixture
+// diff instead of this test silently drifting out of sync with it.
+const STATE_CONTRACT = readContract('state-contract.json');
 
 test('createInitialState() matches the state contract exactly', () => {
-  assert.deepEqual(createInitialState(), EXPECTED_INITIAL_STATE);
+  assert.deepEqual(createInitialState(), STATE_CONTRACT.initial);
 });
 
 test('the initial state satisfies its own invariants', () => {

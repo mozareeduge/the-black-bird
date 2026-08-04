@@ -1,0 +1,1093 @@
+{
+  "schema_version": "1.0.0",
+  "generated_for": "T27",
+  "scenario_count": 115,
+  "entries": [
+    {
+      "id": "P-SCN-001",
+      "title": "Open About before entry",
+      "category": "entry",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/modals-about.spec.js :: About changes no poem state on the live app (state-pure)"
+      ],
+      "notes": "About's state-purity is proven generally, not phase-specific, so it holds before entry too."
+    },
+    {
+      "id": "P-SCN-002",
+      "title": "Complete onboarding normally",
+      "category": "entry",
+      "status": "covered",
+      "evidence": [
+        "tests/black-bird-baseline.spec.js :: desktop real onboarding lands once on Black Bird without page errors"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-003",
+      "title": "Complete onboarding with reduced motion",
+      "category": "entry",
+      "status": "covered",
+      "evidence": [
+        "every tests/e2e/*.spec.js test via bb-helpers.gotoField({reduced:true})"
+      ],
+      "notes": "Reduced-motion onboarding is exercised as setup by nearly every e2e test in the suite."
+    },
+    {
+      "id": "P-SCN-004",
+      "title": "Interrupt onboarding with object selection",
+      "category": "entry",
+      "status": "gap",
+      "evidence": [],
+      "notes": "No test interrupts the onboarding sequence mid-stage with a direct object click."
+    },
+    {
+      "id": "P-SCN-005",
+      "title": "Repeated Enter input",
+      "category": "entry",
+      "status": "gap",
+      "evidence": [],
+      "notes": "No idempotent-repeated-Enter test."
+    },
+    {
+      "id": "P-SCN-006",
+      "title": "Font readiness delayed",
+      "category": "entry",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Delayed font readiness during entry is not exercised."
+    },
+    {
+      "id": "P-SCN-010",
+      "title": "Direct new object selection",
+      "category": "selection",
+      "status": "covered",
+      "evidence": [
+        "tests/black-bird-route-solo.spec.js :: direct graph sequence CORPSE -> BURIAL -> ALLAH -> CAIN adds exactly those four events, no RelO insertion"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-011",
+      "title": "Same-object activation",
+      "category": "selection",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: COMMIT_OBJECT with the same id appends nothing (P-RULE-004)",
+        "tests/black-bird-route-solo.spec.js :: same-ID activation adds zero events"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-012",
+      "title": "Invalid target",
+      "category": "selection",
+      "status": "gap",
+      "evidence": [],
+      "notes": "No explicit invalid-target commit test at e2e level."
+    },
+    {
+      "id": "P-SCN-013",
+      "title": "Ambiguous dense pointer target",
+      "category": "selection",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/pointer-ownership.test.js :: body containment wins over a closer centroid distance",
+        "tests/unit/pointer-ownership.test.js :: active focus membership breaks a tie among equally-close, non-containing candidates",
+        "tests/unit/pointer-ownership.test.js :: smallest screen distance breaks a tie",
+        "tests/unit/pointer-ownership.test.js :: canonical index breaks a final exact tie"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-014",
+      "title": "Rapid A then B selection",
+      "category": "selection",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/transactions.test.js :: a superseding dispatch aborts the previous transaction's effects"
+      ],
+      "notes": "Unit-level: rapid re-dispatch cancels the stale in-flight transaction."
+    },
+    {
+      "id": "P-SCN-015",
+      "title": "Reveal whole field from focus",
+      "category": "selection",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: RETURN_TO_WHOLE_FIELD neutralizes field attention but retains anchor and Reader subject (P-RULE-011)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-016",
+      "title": "Background click from focus",
+      "category": "selection",
+      "status": "gap",
+      "evidence": [],
+      "notes": "No explicit background-click-from-focus e2e test."
+    },
+    {
+      "id": "P-SCN-017",
+      "title": "Preview inactive object",
+      "category": "preview",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+      ],
+      "notes": "Covers PREVIEW_OBJECT route/trace neutrality; not the visual preview UI itself."
+    },
+    {
+      "id": "P-SCN-018",
+      "title": "Preview active object",
+      "category": "preview",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Preview-of-the-already-active-object policy nuance is not tested."
+    },
+    {
+      "id": "P-SCN-019",
+      "title": "Preview near viewport edge",
+      "category": "preview",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Preview-near-viewport-edge placement (placePreviewNearPoint) is untested."
+    },
+    {
+      "id": "P-SCN-020",
+      "title": "Commit while preview pending",
+      "category": "preview",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Commit-while-preview-pending race is untested."
+    },
+    {
+      "id": "P-SCN-021",
+      "title": "Read RNO",
+      "category": "reader",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/reader.spec.js :: every one of the six canonical object types produces a view model that preserves canonical text and links exactly, with no generated filler",
+        "tests/e2e/field-rendering.spec.js :: all six canonical morphologies plus the aperture role are present and match the extracted metric roles"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-022",
+      "title": "Read MNO",
+      "category": "reader",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/reader.spec.js :: every one of the six canonical object types produces a view model...",
+        "tests/e2e/reader.spec.js :: the live Reader panel preserves RNO/MNO canonical body text without paraphrase"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-023",
+      "title": "Read FO",
+      "category": "reader",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/reader.spec.js :: every one of the six canonical object types produces a view model..."
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-024",
+      "title": "Read NameO",
+      "category": "reader",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/reader.spec.js :: every one of the six canonical object types produces a view model..."
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-025",
+      "title": "Read RefO",
+      "category": "reader",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/reader.spec.js :: the live Reader panel actually displays the same canonical text and citation the view model carries, for a representative RefO"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-026",
+      "title": "Read RelO",
+      "category": "reader",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/reader.spec.js :: every one of the six canonical object types produces a view model..."
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-027",
+      "title": "Follow inline MNO link",
+      "category": "reader",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Canonical MNO body text is proven present, but following an inline link's click-through is not exercised."
+    },
+    {
+      "id": "P-SCN-028",
+      "title": "Follow RNO chip/list link",
+      "category": "reader",
+      "status": "gap",
+      "evidence": [],
+      "notes": "RNO chip/list link click-through is not exercised."
+    },
+    {
+      "id": "P-SCN-029",
+      "title": "Inspect projected edge on desktop",
+      "category": "reader",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: INSPECT_PROJECTED_EDGE may change Reader subject but never anchor, Route, trace, solo, or view (P-RULE-014)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-030",
+      "title": "Inspect projected edge on mobile",
+      "category": "reader",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Mobile-specific projected-edge sheet (showEdgeSheet) is not exercised."
+    },
+    {
+      "id": "P-SCN-031",
+      "title": "External source succeeds",
+      "category": "external",
+      "status": "gap",
+      "evidence": [],
+      "notes": "No external-source-success test."
+    },
+    {
+      "id": "P-SCN-032",
+      "title": "External source fails/offline",
+      "category": "external",
+      "status": "gap",
+      "evidence": [],
+      "notes": "No external-source-failure/offline test (distinct from the popup-blocked scenario P-SCN-106, which is covered)."
+    },
+    {
+      "id": "P-SCN-040",
+      "title": "Search Index by label",
+      "category": "index",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Index search-by-label is exercised as setup in other tests but has no scenario test of its own."
+    },
+    {
+      "id": "P-SCN-041",
+      "title": "Search Index by id",
+      "category": "index",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Index search-by-id has no dedicated test."
+    },
+    {
+      "id": "P-SCN-042",
+      "title": "Empty Index search",
+      "category": "index",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: a search with no matches shows an explicit, recoverable no-results state"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-043",
+      "title": "Open visible object from Index",
+      "category": "index",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Plain open-visible-object-from-Index has no dedicated test (only Solo-from-Index is tested)."
+    },
+    {
+      "id": "P-SCN-044",
+      "title": "Open individually hidden object from Index",
+      "category": "index",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: Index Open clears an individual hide but never overrides a group-hidden type (P-RULE-016)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-045",
+      "title": "Open group-hidden object from Index",
+      "category": "index",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: Index Open clears an individual hide but never overrides a group-hidden type (P-RULE-016)"
+      ],
+      "notes": "Second half of the same test (stillHiddenByGroup)."
+    },
+    {
+      "id": "P-SCN-046",
+      "title": "Hide inactive object",
+      "category": "view",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+      ],
+      "notes": "SET_OBJECT_VISIBILITY covered generically."
+    },
+    {
+      "id": "P-SCN-047",
+      "title": "Hide field-focused object",
+      "category": "view",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Hiding the currently field-focused object specifically is untested."
+    },
+    {
+      "id": "P-SCN-048",
+      "title": "Hide Solo core",
+      "category": "view",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Hiding the current Solo core is untested."
+    },
+    {
+      "id": "P-SCN-049",
+      "title": "Disable active object type",
+      "category": "view",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+      ],
+      "notes": "SET_TYPE_VISIBILITY covered generically."
+    },
+    {
+      "id": "P-SCN-050",
+      "title": "Disable all object groups",
+      "category": "view",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: the all-hidden state is explicit and offers a one-action local recovery (D-DEC-09)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-051",
+      "title": "Toggle projected edges",
+      "category": "view",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+      ],
+      "notes": "SET_VIEW_OPTION covered generically, not the projectedEdges option specifically."
+    },
+    {
+      "id": "P-SCN-052",
+      "title": "Toggle labels/source names",
+      "category": "view",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+      ],
+      "notes": "SET_VIEW_OPTION covered generically."
+    },
+    {
+      "id": "P-SCN-053",
+      "title": "Solo ordinary object",
+      "category": "solo",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/visibility-solo.test.js :: object Solo membership is the object, its containing RelOs, and their participants, exactly (P-RULE-013)",
+        "tests/black-bird-route-solo.spec.js :: Solo adds zero Route events regardless of target"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-054",
+      "title": "Solo RelO",
+      "category": "solo",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/visibility-solo.test.js :: RelO Solo membership is the RelO plus every canonical participant, exactly (P-RULE-013)",
+        "tests/e2e/view-index-solo.spec.js :: Solo is rendered as a visible, explicit lens band (D-DEC-08), never impersonating a direct commit"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-055",
+      "title": "Exit Solo",
+      "category": "solo",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/visibility-solo.test.js :: exit Solo restores the snapshot captured on entry, exactly (P-RULE-012)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-056",
+      "title": "Resize while Solo active",
+      "category": "solo",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Resize-while-Solo-active is untested."
+    },
+    {
+      "id": "P-SCN-060",
+      "title": "Four direct selections",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/black-bird-route-solo.spec.js :: direct graph sequence CORPSE -> BURIAL -> ALLAH -> CAIN adds exactly those four events, no RelO insertion"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-061",
+      "title": "Revisit after intervening object",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/route.test.js :: appendRouteEvent only appends when the id differs from the current anchor, regardless of the last route entry"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-062",
+      "title": "Long Route beyond display tail",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/route-trace.spec.js :: the compact route strip condenses once events exceed the visible tail, but the expanded drawer exposes every event (D-DEC-10/22)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-063",
+      "title": "Replay visible Route event",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/route-trace.spec.js :: replaying a route event changes the reading subject without appending Route or recording trace (P-RULE-007)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-064",
+      "title": "Replay hidden Route event",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: Route replay never changes visibility, even for a currently-hidden target (P-RULE-017)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-065",
+      "title": "Clear Route with trace present",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/route-trace.spec.js :: Clear Route and Clear field trace are independent: clearing one never touches the other (P-RULE-010)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-066",
+      "title": "Clear trace with Route present",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/route-trace.spec.js :: Clear Route and Clear field trace are independent: clearing one never touches the other (P-RULE-010)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-067",
+      "title": "Clear empty Route/trace",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/route.test.js :: replay-shaped and non-commit actions never append: clearRoute/selectRouteWindow are read-only, non-appending operations",
+        "tests/unit/trace.test.js :: clearTrace is idempotent and structurally cannot touch Route"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-068",
+      "title": "Wear path unavailable under current View",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/trace.test.js :: no visible canonical path means no wear is recorded"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-069",
+      "title": "Wear reaches cap",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/trace.test.js :: wear is capped at 7 passes per edge"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-070",
+      "title": "Mobile select remains in Field",
+      "category": "mobile",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: live app: ordinary selection remains in Field, and switching to Read via bottom-nav keeps the same object/session with no redundant sheet"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-071",
+      "title": "Field to Read to Field",
+      "category": "mobile",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: live app: ordinary selection remains in Field, and switching to Read via bottom-nav keeps the same object/session with no redundant sheet",
+        "tests/black-bird-mobile.spec.js :: switching Field -> Read -> Field preserves active ID, Route, and Solo state"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-072",
+      "title": "Read with no anchor",
+      "category": "mobile",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Opening Read with no active anchor is untested."
+    },
+    {
+      "id": "P-SCN-073",
+      "title": "Mobile About from Field",
+      "category": "mobile",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Mobile-viewport About-from-Field is untested (existing About tests run at default viewport)."
+    },
+    {
+      "id": "P-SCN-074",
+      "title": "Mobile Read has no About handle",
+      "category": "mobile",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Absence of an About handle in the mobile Read chamber is untested."
+    },
+    {
+      "id": "P-SCN-075",
+      "title": "Mobile dense cluster default fit",
+      "category": "mobile",
+      "status": "covered",
+      "evidence": [
+        "tests/black-bird-mobile.spec.js :: no clipped active label or active body at 390x844 bottom-nav-adjusted safe rect"
+      ],
+      "notes": "Dense-cluster default fit is implied by the no-clipping guarantee, not literally a dense-cluster fixture."
+    },
+    {
+      "id": "P-SCN-076",
+      "title": "Mobile user zoom",
+      "category": "mobile",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Mobile user-pinch-zoom is untested (Playwright touch-zoom emulation not exercised)."
+    },
+    {
+      "id": "P-SCN-077",
+      "title": "Mobile keyboard/assistive traversal",
+      "category": "mobile",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Mobile-viewport keyboard/assistive traversal is untested (roving-focus tests run at default desktop viewport)."
+    },
+    {
+      "id": "P-SCN-080",
+      "title": "Roving graph focus",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: exactly one visible node has tabindex=0 on the live app (T-REQ-036)",
+        "tests/e2e/tooltip-keyboard-status.spec.js :: directional focus movement is deterministic: identical geometry produces identical results across runs"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-081",
+      "title": "Keyboard commit",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/black-bird-accessibility.spec.js :: Enter commits the keyboard-focused node directly"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-082",
+      "title": "Escape transient preview",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: tooltip lifecycle: show associates aria-describedby, hide removes it, Escape dismisses (T-REQ-034/035)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-083",
+      "title": "Open/close modal drawer",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/black-bird-accessibility.spec.js :: opening a drawer makes the background inert and moves focus into the panel; closing restores both"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-084",
+      "title": "Rapid overlay conflict",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/modals-about.spec.js :: exactly one modal is ever active: opening a second replaces the first"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-085",
+      "title": "Reduced-motion full path",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/reduced-motion.spec.js :: live app JS motion paths: reduced motion yields zero blur, no travel pulse, and no field-force alpha heating across two commits"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-086",
+      "title": "Focus near authored chrome",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/desktop-composition.spec.js :: the map title and tools never occlude the active label or focus contour"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-087",
+      "title": "Open Research Annex",
+      "category": "external",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Research Annex link is untested."
+    },
+    {
+      "id": "P-SCN-088",
+      "title": "Reload after long reading",
+      "category": "session",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Reload-after-long-reading is untested."
+    },
+    {
+      "id": "P-SCN-089",
+      "title": "Resize during camera/focus transition",
+      "category": "session",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Resize during an in-flight camera/focus transition is untested."
+    },
+    {
+      "id": "P-SCN-090",
+      "title": "No-script or core-script unavailable at initial load",
+      "category": "bootstrap",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/bootstrap.spec.js :: runtime failure (D3 unavailable) shows the truthful unavailable surface, never a blank or partial graph",
+        "tests/e2e/bootstrap.spec.js :: no-script surface identifies the work and provides stable links when JavaScript is unavailable"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-091",
+      "title": "Canonical data validation fails before field creation",
+      "category": "bootstrap",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/bootstrap.spec.js :: invalid canonical data shows the truthful unavailable surface, never a blank or partial graph"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-092",
+      "title": "Page hides during focus/camera motion and resumes after timers elapsed",
+      "category": "lifecycle",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/trace.test.js :: reconcileTraceDeadlines removes only expired entries against wall-clock time, without replay (P-RULE-030)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-093",
+      "title": "Cross desktop/mobile breakpoint with active object, Solo, Route, and modal closed",
+      "category": "responsive",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: live app: an orientation/viewport change on mobile preserves the active object and the Field/Read session (P-RULE-033)"
+      ],
+      "notes": "Covers active-object preservation across viewport change; not literally Solo+Route+modal simultaneously."
+    },
+    {
+      "id": "P-SCN-094",
+      "title": "Orientation and safe-area change on mobile Field",
+      "category": "responsive",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: start() wires the visualViewport resize listener and an immediate resize reconciles again; stop() unwires it (T-REQ-041)",
+        "tests/e2e/reduced-motion.spec.js :: live app: an orientation change under reduced motion still preserves the active object with no re-animation (P-RULE-022/033)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-095",
+      "title": "Two-hundred-percent text zoom in Reader and modal surfaces",
+      "category": "responsive",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/environmental-resilience.spec.js :: the composition grid reflows to 320px CSS width with no horizontal overflow, and a 200%-zoom-equivalent viewport keeps the bottom-nav fully in view (T-REQ-040)"
+      ],
+      "notes": "Covers a 200%-zoom-equivalent viewport on the bottom-nav; not literally Reader/modal surfaces."
+    },
+    {
+      "id": "P-SCN-096",
+      "title": "Forced-colors or high-contrast presentation",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/environmental-resilience.spec.js :: forced-colors mode gives active/focus state a non-color affordance and leaves field-layer colors as authored data (T-REQ-038, D-DEC-21)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-097",
+      "title": "Switch pointer to keyboard to touch in one session",
+      "category": "accessibility",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Switching pointer to keyboard to touch within one session is untested."
+    },
+    {
+      "id": "P-SCN-098",
+      "title": "Pointer movement or cancellation before release",
+      "category": "selection",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/pointer-ownership.test.js :: movement beyond the modality slop separates pan from tap/click (T-REQ-022)",
+        "tests/unit/pointer-ownership.test.js :: pointercancel invalidates the pending commit"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-099",
+      "title": "Touch pan and pinch are distinguished from tap",
+      "category": "selection",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/pointer-ownership.test.js :: a second pointer arriving means no pinch/pan ownership: neither pointer can commit"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-100",
+      "title": "User zoom overlaps a new direct commit",
+      "category": "camera",
+      "status": "gap",
+      "evidence": [],
+      "notes": "User-zoom-overlaps-a-new-commit race is untested."
+    },
+    {
+      "id": "P-SCN-101",
+      "title": "Keyboard-focused node becomes hidden before activation",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: focus-manager falls back deterministically when the roving target becomes hidden"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-102",
+      "title": "Labels disabled while using screen reader and keyboard",
+      "category": "accessibility",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Labels-off combined with screen-reader/keyboard operation is untested."
+    },
+    {
+      "id": "P-SCN-103",
+      "title": "Opening a modal while another modal is active",
+      "category": "overlay",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/modals-about.spec.js :: exactly one modal is ever active: opening a second replaces the first"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-104",
+      "title": "Modal closes after its invoker became unavailable",
+      "category": "overlay",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/modals-about.spec.js :: closing falls back deterministically when the recorded invoker is no longer in the document"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-105",
+      "title": "Escape precedence with tooltip and modal contexts",
+      "category": "overlay",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: tooltip and modal dismissal do not overlap ambiguously: Escape dismisses the tooltip first, the modal only on a second press"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-106",
+      "title": "External destination opening is blocked",
+      "category": "external",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/environmental-resilience.spec.js :: createExternalLinkController shows a local non-modal status with retry/copy on a blocked popup, and never mutates the poem session (T-REQ-042, P-RULE-037)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-107",
+      "title": "Index search using source script, case, whitespace, and opaque id",
+      "category": "index",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Index search normalization (source-script/case/whitespace/opaque-id) is untested."
+    },
+    {
+      "id": "P-SCN-108",
+      "title": "Reader link targets individually hidden object",
+      "category": "hidden-target",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Reader link to an individually hidden object is untested."
+    },
+    {
+      "id": "P-SCN-109",
+      "title": "Reader link targets group-hidden object",
+      "category": "hidden-target",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Reader link to a group-hidden object is untested."
+    },
+    {
+      "id": "P-SCN-110",
+      "title": "Projected-edge generator list opens a hidden RelO",
+      "category": "hidden-target",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Projected-edge generator list opening a hidden RelO is untested."
+    },
+    {
+      "id": "P-SCN-111",
+      "title": "Enter Solo when core is individually or group hidden",
+      "category": "solo",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Entering Solo when its core is hidden is untested."
+    },
+    {
+      "id": "P-SCN-112",
+      "title": "Change visibility while Solo is active then exit",
+      "category": "solo",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: ENTER_SOLO captures a snapshot once; EXIT_SOLO restores it exactly (P-RULE-012)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-113",
+      "title": "Clear Route while trace animation is active",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/route-trace.spec.js :: Clear Route and Clear field trace are independent: clearing one never touches the other (P-RULE-010)"
+      ],
+      "notes": "Covers the independence claim; not literally timed against an in-flight trace animation."
+    },
+    {
+      "id": "P-SCN-114",
+      "title": "Clear trace during camera/focus transition",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/route-trace.spec.js :: Clear Route and Clear field trace are independent: clearing one never touches the other (P-RULE-010)"
+      ],
+      "notes": "Covers the independence claim; not literally timed against an in-flight camera transition."
+    },
+    {
+      "id": "P-SCN-115",
+      "title": "Late font-ready or layout-completion callback after newer commit",
+      "category": "lifecycle",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/transactions.test.js :: stale callbacks are unable to commit presentation: isActive is false once superseded"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-116",
+      "title": "Very long Route with five hundred or more direct commits",
+      "category": "memory",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/route.test.js :: a 500+ event route window is virtualized without deleting any semantic event (D-DEC-22, P-RULE-039)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-117",
+      "title": "Same object activated through different channels",
+      "category": "selection",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/reducer.test.js :: COMMIT_OBJECT with the same id appends nothing (P-RULE-004)",
+        "tests/unit/pointer-ownership.test.js :: keyboard activation bypasses the pointer solver entirely: a direct dispatch needs no pointer module at all"
+      ],
+      "notes": "Multiple channels dispatch the same idempotent COMMIT_OBJECT; not a single combined multi-channel test."
+    },
+    {
+      "id": "P-SCN-118",
+      "title": "Background interaction attempted while modal is open",
+      "category": "overlay",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/modals-about.spec.js :: the background is genuinely inert while a modal is open, and replacement never leaks focus to it"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-119",
+      "title": "All-hidden Field followed by Route replay and Index open",
+      "category": "view",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: the all-hidden state is explicit and offers a one-action local recovery (D-DEC-09)",
+        "tests/e2e/view-index-solo.spec.js :: Route replay never changes visibility, even for a currently-hidden target (P-RULE-017)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-120",
+      "title": "Page resumes after afterglow duration elapsed while hidden",
+      "category": "lifecycle",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/trace.test.js :: reconcileTraceDeadlines removes only expired entries against wall-clock time, without replay (P-RULE-030)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-121",
+      "title": "Rapid commits produce assistive status without announcement flood",
+      "category": "accessibility",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: rapid status messages coalesce: only the latest meaningful message is published (T-REQ-037)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-122",
+      "title": "Tooltip is repositioned or dismissed during resize",
+      "category": "preview",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Tooltip reposition/dismiss specifically during a resize event is untested."
+    },
+    {
+      "id": "P-SCN-123",
+      "title": "Mobile virtual keyboard opens during Index search",
+      "category": "mobile",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: start() wires the visualViewport resize listener and an immediate resize reconciles again; stop() unwires it (T-REQ-041)"
+      ],
+      "notes": "Covers the visual-viewport-height mechanism; not literally combined with an open Index search."
+    },
+    {
+      "id": "P-SCN-124",
+      "title": "Projected-edge inspection with screen reader",
+      "category": "accessibility",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Projected-edge inspection with a screen reader is untested."
+    },
+    {
+      "id": "P-SCN-125",
+      "title": "Narrow 320px viewport preserves all capabilities",
+      "category": "responsive",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/environmental-resilience.spec.js :: the composition grid reflows to 320px CSS width with no horizontal overflow, and a 200%-zoom-equivalent viewport keeps the bottom-nav fully in view (T-REQ-040)"
+      ],
+      "notes": "Covers layout reflow at 320px; not every capability's reachability."
+    },
+    {
+      "id": "P-SCN-126",
+      "title": "Reduced motion combined with rapid commit and modal change",
+      "category": "accessibility",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Reduced motion combined with rapid commit AND a modal change together is untested (each pair is tested separately)."
+    },
+    {
+      "id": "P-SCN-127",
+      "title": "Connectivity changes after core work has loaded",
+      "category": "external",
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/environmental-resilience.spec.js :: createLifecycleController only ever dispatches RECONCILE_* commands, never a Route/trace command (T-REQ-042)"
+      ],
+      "notes": null
+    },
+    {
+      "id": "P-SCN-128",
+      "title": "Assistive reading order across landmarks and responsive chambers",
+      "category": "accessibility",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Assistive reading order across landmarks and responsive chambers is untested."
+    },
+    {
+      "id": "P-SCN-129",
+      "title": "Keyboard navigation in dense cluster after filters change",
+      "category": "accessibility",
+      "status": "gap",
+      "evidence": [],
+      "notes": "Keyboard navigation in a dense cluster after filters change is untested."
+    },
+    {
+      "id": "P-SCN-130",
+      "title": "Duplicate touch/click event sequence on one activation",
+      "category": "selection",
+      "status": "covered",
+      "evidence": [
+        "tests/unit/pointer-ownership.test.js :: a synthetic click immediately after a real pointer commit is suppressed, then stops being suppressed"
+      ],
+      "notes": null
+    }
+  ]
+}

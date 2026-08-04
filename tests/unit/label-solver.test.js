@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { scoreLabelCandidate, solveLabels, CANDIDATE_SIDES } from '../../src/layout/label-solver.js';
+import { readContract } from '../contracts/load.mjs';
+
+const LABELS_CONTRACT = readContract('algorithm-contracts.json').labels;
+
+test('CANDIDATE_SIDES matches the algorithm contract\'s candidate list and tie-break order exactly', () => {
+  assert.deepEqual(CANDIDATE_SIDES, LABELS_CONTRACT.candidates);
+  assert.deepEqual(CANDIDATE_SIDES, LABELS_CONTRACT.tieBreakOrder);
+});
 
 const SIZE = { width: 60, height: 16 };
 

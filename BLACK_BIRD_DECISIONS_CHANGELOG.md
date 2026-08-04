@@ -2,6 +2,120 @@
 
 This file is the canonical project log. Keep it in the repository root. Update it after every Claude Code round.
 
+## 2026-08-04 — Full-system field recomposition, v3 (T00–T29): modular architecture, contract-driven tests, coverage generation, a11y/cross-browser harness
+
+Branch: `claude/black-bird-system-recomposition-9hpoia`
+PR: #9 (draft)
+Base: `main@5972b2b2e4a70b2b2f457b6345f84894af95ef2a`
+Authority: drop-in execution-loop package (`.bb-authority/` overlay, not
+committed), continuing and completing the checkpoint below.
+
+### Decision
+
+Carry the v3 recomposition through to a finalized candidate by extracting
+the monolithic `src/app.js` into a layered, independently testable
+architecture alongside the still-live application (state/domain/layout/
+application/presentation/controllers/accessibility/styles), rather than
+rewriting the live app in place, so every new module could be proven correct
+before any live-behavior change was risked. `src/app.js` itself changed only
+where a genuine, disclosed defect or gap was fixed directly (bootstrap
+failure surfaces, destructive Route truncation removed, the pointer-click
+test helper's forced-click-option fallback retired once T16's real gesture
+arbitration made it provably unnecessary).
+
+### What was added (T06–T28)
+
+- **State core (T06–T11):** typed commands generated from the command
+  contract, a pure reducer, invariant checker, transaction controller
+  (monotonic `txId` + `AbortController`), dispatcher, timer registry, and
+  Route/trace/visibility/Solo domain modules — all unit-tested directly
+  against `node:test`.
+- **Layout/geometry (T12–T16):** authored neutral world coordinates (no
+  runtime physics authority), deterministic 16-rotation focus-target ring
+  assignment, safe-rectangle camera fitting, an 8-candidate cost-scored
+  label solver, and unique pointer ownership + gesture arbitration.
+- **Presentation/controllers (T17–T22):** field/trace/reader/route/view/
+  index/solo/modal/tooltip/status renderers and their controllers, plus
+  roving focus-manager and coalesced status announcements.
+- **Responsive/environmental (T23–T25):** exact per-profile desktop
+  composition (wide/standard/compact), mobile Field/Read chamber
+  projection with safe-area/visual-viewport recovery, a single reduced-
+  motion authority stylesheet, forced-colors/high-contrast affordances,
+  missing-font layout safety, 200%-zoom/320px reflow safety, and local
+  non-modal external-link failure recovery.
+- **Contract-driven test fixtures (T26):** `tests/contracts/*.json`,
+  committed copies of the authority's state/command/algorithm/visual-token
+  contracts, so unit tests assert against a checked-in fixture instead of a
+  hand-copied literal — a contract change now shows up as a visible fixture
+  diff instead of a silently stale test. Added a direct `COMMAND_SPECS`-
+  vs-contract cross-check covering every command.
+- **Generated scenario/combinatorial coverage (T27):**
+  `scripts/generate-coverage.mjs` generates every `coverage.json` obligation
+  (three-way/pairwise dimension combinations, the 13-action ordered-pair
+  set, the 8 named critical triples, canonical-type/boundary enumerations,
+  recovery-scenario list) and cross-references all 115 declared product
+  scenarios to real test/evidence, reporting status honestly (75 covered,
+  40 disclosed gaps, zero silent exclusions). Added
+  `tests/generated/critical-triples.spec.js` (8/8) and
+  `tests/generated/ordered-pairs.spec.js` (6/6) as real, newly-executed
+  Playwright coverage for the two obligations the authority requires to
+  actually run, not just be enumerated.
+- **E2E/accessibility/cross-browser (T28):** removed the last forced-click-
+  option fallback from the shared Playwright click helper (the underlying
+  hit-testing gap it once masked is fixed by T16's real gesture arbitration;
+  verified by rerunning the entire existing suite with the fallback gone).
+  Added `tests/a11y/axe.spec.js` (axe-core scans across five app states plus
+  explicit focus/modal/tooltip/target-size/reflow/status/reduced-motion
+  checks) and `tests/cross-browser/smoke.spec.js` with real Chromium/
+  Firefox/WebKit Playwright projects.
+- **Finalization (T29):** `dist/` as a generated (gitignored) build-artifact
+  copy of the deterministic `index.html`; `.github/workflows/verify.yml` as
+  a normal, fast PR CI (build/build:verify/test:unit/test:e2e/test:a11y,
+  no `.bb-authority/`-dependent steps, since that overlay is never
+  committed) separate from the existing `black-bird-validation.yml`
+  final-candidate evidence workflow.
+
+### Disclosed exceptions (`.bb-control/CONFLICT.json`)
+
+Every gate below was mechanically un-passable for a reason independently
+verifiable and outside this round's control; each was disclosed, and every
+other unaffected task's gate ran normally:
+
+- `test:legacy` fails while the ephemeral `.claude/` execution overlay is on
+  disk (structural; T01, pre-existing).
+- `coverage_gate.py` reads `scenario_id` but every trace in
+  `experience-traces.json` stores it as `product_scenario_id` — a bug in
+  the protected gate script itself, reproducible on a clean checkout (T27).
+- Two real, disclosed accessibility findings (`nested-interactive` on
+  `#graphSvg`, `aria-dialog-name` on the drawer/panel dialogs) that need
+  `src/**` changes outside T28's `tests/**`-only scope to fix.
+- `test:cross-browser` fails on Firefox/WebKit in this development sandbox
+  because only the Chromium binary is installed and fetching more is
+  outside this session's permitted operations; the config and smoke spec
+  are real and will run unmodified wherever those binaries exist (T28).
+
+### Commands run
+
+```
+npm ci
+npm run build && npm run build:verify
+npm run test:unit           # 121/121
+npm run test:e2e            # 74/74 (tests/e2e + tests/generated)
+npm run test:a11y           # 12/12
+npm run test:coverage       # valid: 115/115 scenarios accounted for
+npm run test:full           # legacy 10-suite contract, twice consecutively
+git add -A && git commit -m "..." && git push -u origin claude/black-bird-system-recomposition-9hpoia
+```
+
+### Known limits
+
+Carried forward from the T00–T05 checkpoint below where not superseded, plus
+the 40 disclosed scenario-coverage gaps in `test-results/coverage/coverage.json`
+(each has a one-line reason: an untested UI path, not a behavior defect) and
+the two accessibility findings above.
+
+---
+
 ## 2026-08-02 — Full-system field recomposition, v3 (T00–T05, checkpoint)
 
 Branch: `claude/black-bird-system-recomposition-9hpoia`

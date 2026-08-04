@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -30,6 +30,13 @@ function main() {
   const outPath = path.join(ROOT, 'index.html');
   writeFileSync(outPath, output, 'utf8');
   process.stdout.write(`built ${outPath} (${Buffer.byteLength(output, 'utf8')} bytes)\n`);
+  // dist/ is a generated, gitignored copy of the same deterministic output
+  // (T29, T-REQ-002) -- a conventional build-artifact location CI can
+  // archive, distinct from the committed root index.html that GitHub Pages
+  // actually serves.
+  const distDir = path.join(ROOT, 'dist');
+  mkdirSync(distDir, { recursive: true });
+  writeFileSync(path.join(distDir, 'index.html'), output, 'utf8');
 }
 
 if (path.resolve(fileURLToPath(import.meta.url)) === path.resolve(process.argv[1] ?? '')) {

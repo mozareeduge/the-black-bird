@@ -5,6 +5,22 @@ import { assertStateInvariants } from '../../src/state/invariants.js';
 import { CommandType, COMMAND_SPECS } from '../../src/state/command-types.js';
 import { validateCommand } from '../../src/state/guards.js';
 import { reduceCommand } from '../../src/state/reducer.js';
+import { readContract } from '../contracts/load.mjs';
+
+const COMMAND_CONTRACT = readContract('command-contract.json');
+
+test('COMMAND_SPECS matches the committed command contract exactly, command by command (T26, T-REQ-044)', () => {
+  const contractTypes = COMMAND_CONTRACT.commands.map((c) => c.type).sort();
+  assert.deepEqual(Object.values(CommandType).slice().sort(), contractTypes, 'CommandType must declare exactly the contract\'s command set');
+  for (const c of COMMAND_CONTRACT.commands) {
+    const spec = COMMAND_SPECS[c.type];
+    assert.ok(spec, `${c.type}: missing from COMMAND_SPECS`);
+    assert.deepEqual(spec.requiredFields, c.required_fields, `${c.type}: requiredFields mismatch`);
+    assert.equal(spec.routePolicy, c.route_policy, `${c.type}: routePolicy mismatch`);
+    assert.equal(spec.tracePolicy, c.trace_policy, `${c.type}: tracePolicy mismatch`);
+    assert.equal(spec.origin, c.origin, `${c.type}: origin mismatch`);
+  }
+});
 
 function deepFreeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {

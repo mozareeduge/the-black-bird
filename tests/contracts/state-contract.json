@@ -1,0 +1,86 @@
+{
+  "schema_version": "3.0.0",
+  "initial": {
+    "lifecycle": {
+      "phase": "threshold",
+      "bootstrap": "pending",
+      "documentVisibility": "visible",
+      "connectivity": "unknown"
+    },
+    "responsive": {
+      "profile": "derived",
+      "surface": "field",
+      "orientation": "derived",
+      "visualViewport": null
+    },
+    "reading": {
+      "anchorId": null,
+      "fieldAttention": {
+        "kind": "whole-field",
+        "id": null
+      },
+      "readerSubject": {
+        "kind": "orientation",
+        "id": null
+      },
+      "inspection": null
+    },
+    "history": {
+      "route": [],
+      "nextSequence": 1
+    },
+    "trace": {
+      "wear": {},
+      "afterglows": []
+    },
+    "view": {
+      "typeVisibility": {
+        "RNO": true,
+        "MNO": true,
+        "FO": true,
+        "NameO": true,
+        "RefO": true,
+        "RelO": true
+      },
+      "objectVisibility": {},
+      "projectedEdges": true,
+      "labels": true,
+      "sourceNames": false
+    },
+    "solo": {
+      "active": false,
+      "rootId": null,
+      "members": [],
+      "snapshot": null
+    },
+    "overlay": {
+      "kind": null,
+      "invoker": null
+    },
+    "tooltip": {
+      "kind": null,
+      "targetId": null,
+      "describedById": null
+    },
+    "focus": {
+      "graphRovingId": "FO.BLACK_BIRD_FIELD",
+      "restoreTarget": null
+    },
+    "presentation": {
+      "txId": 0,
+      "cameraIntent": null,
+      "statusMessage": null
+    }
+  },
+  "invariants": [
+    "anchorId is null only before first commit; RETURN_TO_WHOLE_FIELD does not clear it",
+    "fieldAttention and readerSubject are independent",
+    "route contains only direct commits and is never semantically truncated",
+    "projected-edge inspection never changes anchor, route, trace, solo or view",
+    "only one modal overlay may be active",
+    "solo snapshot is captured once on entry and restored exactly on exit",
+    "afterglow deadlines are wall-clock timestamps",
+    "all delayed presentation effects carry the active txId and abort signal",
+    "desktop and mobile project the same store"
+  ]
+}

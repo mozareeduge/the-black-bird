@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { appendRouteEvent, clearRoute, selectRouteWindow } from '../../src/domain/route.js';
+import { readContract } from '../contracts/load.mjs';
+
+test('the route contract states no semantic limit (T26, T-REQ-044)', () => {
+  assert.equal(readContract('algorithm-contracts.json').route.semanticLimit, null);
+});
 
 test('a new-id commit appends exactly one event with the full field set (P-RULE-006)', () => {
   const r0 = clearRoute();

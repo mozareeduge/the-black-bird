@@ -1,0 +1,230 @@
+{
+  "schema_version": "3.0.0",
+  "dispatch_rule": "No UI handler may mutate semantic state directly. Every semantic change dispatches one command to reducer(state, command).",
+  "commands": [
+    {
+      "type": "BOOTSTRAP_READY",
+      "origin": "system",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "BOOTSTRAP_FAILED",
+      "origin": "system",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "ENTER_WORK",
+      "origin": "reader",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "INTERRUPT_ONBOARDING_WITH_OBJECT",
+      "origin": "reader",
+      "required_fields": [
+        "id",
+        "source"
+      ],
+      "route_policy": "append-on-id-change",
+      "trace_policy": "record-on-id-change"
+    },
+    {
+      "type": "RETURN_TO_WHOLE_FIELD",
+      "origin": "reader",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "PREVIEW_OBJECT",
+      "origin": "reader",
+      "required_fields": [
+        "id"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "CLEAR_PREVIEW",
+      "origin": "reader",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "COMMIT_OBJECT",
+      "origin": "reader",
+      "required_fields": [
+        "id",
+        "source"
+      ],
+      "route_policy": "append-on-id-change",
+      "trace_policy": "record-on-id-change"
+    },
+    {
+      "type": "INSPECT_PROJECTED_EDGE",
+      "origin": "reader",
+      "required_fields": [
+        "sourceId",
+        "targetId",
+        "relOIds"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "CLEAR_INSPECTION",
+      "origin": "reader",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "SET_SURFACE",
+      "origin": "reader",
+      "required_fields": [
+        "surface"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "SET_TYPE_VISIBILITY",
+      "origin": "reader",
+      "required_fields": [
+        "objectType",
+        "visible"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "SET_OBJECT_VISIBILITY",
+      "origin": "reader",
+      "required_fields": [
+        "id",
+        "visible"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "SET_VIEW_OPTION",
+      "origin": "reader",
+      "required_fields": [
+        "option",
+        "value"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "ENTER_SOLO",
+      "origin": "reader",
+      "required_fields": [
+        "id"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "EXIT_SOLO",
+      "origin": "reader",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "RESTORE_FIELD",
+      "origin": "reader",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "REPLAY_ROUTE_EVENT",
+      "origin": "reader",
+      "required_fields": [
+        "sequence"
+      ],
+      "route_policy": "replay",
+      "trace_policy": "none"
+    },
+    {
+      "type": "CLEAR_ROUTE",
+      "origin": "reader",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "CLEAR_TRACE",
+      "origin": "reader",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "OPEN_OVERLAY",
+      "origin": "reader",
+      "required_fields": [
+        "kind",
+        "invoker"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "CLOSE_OVERLAY",
+      "origin": "reader",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "REPLACE_OVERLAY",
+      "origin": "reader",
+      "required_fields": [
+        "kind",
+        "invoker"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "SET_ROVING_FOCUS",
+      "origin": "reader",
+      "required_fields": [
+        "id"
+      ],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "RECONCILE_ENVIRONMENT",
+      "origin": "system",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "RECONCILE_DOCUMENT_VISIBILITY",
+      "origin": "system",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    },
+    {
+      "type": "EXTERNAL_NAVIGATION_FAILED",
+      "origin": "system",
+      "required_fields": [],
+      "route_policy": "none",
+      "trace_policy": "none"
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "schema_version": "3.0.0",
+  "colors": {
+    "canvas": "#070706",
+    "panel": "#0C0B0A",
+    "text": "#E7E1D7",
+    "bone": "#DCD4C3",
+    "routeSilver": "#A89F8F",
+    "focusAmber": "#C99A4A",
+    "focusHigh": "#E2BC69",
+    "cold": "#7E8D96",
+    "wearUmber": "#9A6736",
+    "apertureCore": "#020202",
+    "apertureRim": "#D5D2CA"
+  },
+  "fonts": {
+    "mono": "IBM Plex Mono",
+    "serif": "Crimson Pro",
+    "arabic": "Scheherazade New"
+  },
+  "label_screen_px": {
+    "active": 11.5,
+    "priority": 10.5,
+    "ordinary": 9.5
+  },
+  "morphology": {
+    "FO": {
+      "coreRadius": 6.4
+    },
+    "RNO": {
+      "coreRadius": 6.0,
+      "ringRadius": 11.5
+    },
+    "MNO": {
+      "meanRadius": 7.4,
+      "irregularityPercent": 10
+    },
+    "NameO": {
+      "baselineWidth": 8
+    },
+    "RefO": {
+      "diamondWidth": 9,
+      "diamondHeight": 9
+    },
+    "RelO": {
+      "ringRadius": 8.5
+    },
+    "BlackBird": {
+      "coreRadius": 9.5,
+      "rimRadius": 11
+    }
+  },
+  "motion_ms": {
+    "micro": 80,
+    "control": 160,
+    "content": 240,
+    "camera": 520,
+    "structuralMax": 680,
+    "tooltip": 160
+  },
+  "opacity": {
+    "active": 1.0,
+    "related": 0.78,
+    "cold": 0.38,
+    "focusEdge": 0.24,
+    "remainingEdge": 0.07
+  },
+  "responsive": {
+    "wide": {
+      "minWidth": 1440,
+      "rail": 60,
+      "readerMin": 420,
+      "readerMax": 480,
+      "fieldMinShare": 0.6
+    },
+    "desktop": {
+      "minWidth": 1180,
+      "maxWidth": 1439,
+      "rail": 60,
+      "readerMin": 390,
+      "readerMax": 450
+    },
+    "compact": {
+      "minWidth": 901,
+      "maxWidth": 1179,
+      "rail": 56,
+      "readerMin": 340,
+      "readerMax": 400
+    },
+    "mobile": {
+      "minWidth": 360,
+      "maxWidth": 900,
+      "top": 54,
+      "bottomNav": 58
+    },
+    "narrow": {
+      "minWidth": 320,
+      "maxWidth": 359,
+      "top": 50,
+      "bottomNav": 58
+    }
+  },
+  "occupancy": {
+    "neutralMin": 0.72,
+    "neutralTarget": 0.8,
+    "neutralMax": 0.88,
+    "focusMin": 0.58,
+    "focusTarget": 0.7,
+    "focusMax": 0.82
+  },
+  "pointer": {
+    "mousePenRadius": 14,
+    "touchRadius": 18,
+    "mouseMoveSlop": 6,
+    "touchMoveSlop": 10,
+    "mobilePrimaryTarget": 44,
+    "minimumTarget": 24
+  }
+}

@@ -8,6 +8,12 @@ import {
 } from '../../src/layout/pointer-ownership.js';
 import { createPointerController } from '../../src/controllers/pointer-controller.js';
 import { CommandType } from '../../src/state/command-types.js';
+import { readContract } from '../contracts/load.mjs';
+
+// Hit-test radii and target sizes come from the committed visual-tokens
+// fixture (T26, T-REQ-044), not re-typed literals.
+const { mousePenRadius: MOUSE_PEN_RADIUS, touchRadius: TOUCH_RADIUS, minimumTarget: MINIMUM_TARGET, mobilePrimaryTarget: MOBILE_PRIMARY_TARGET } =
+  readContract('visual-tokens.json').pointer;
 
 function candidate(id, x, y, overrides = {}) {
   return { id, screenX: x, screenY: y, bodyRect: { x: x - 5, y: y - 5, width: 10, height: 10 }, canonicalIndex: 0, ...overrides };
@@ -55,7 +61,8 @@ test('canonical index breaks a final exact tie', () => {
 
 test('touch modality uses the wider touch radius than mouse/pen', () => {
   const candidates = [candidate('A', 100, 100, { bodyRect: null })];
-  const point = { x: 100 + 16, y: 100 }; // 16px away: inside touch radius (18), outside mouse/pen radius (14)
+  const distance = (MOUSE_PEN_RADIUS + TOUCH_RADIUS) / 2; // strictly between the two contract radii
+  const point = { x: 100 + distance, y: 100 };
   assert.equal(resolvePointerOwner(point, candidates, { modality: 'mouse' }), null);
   assert.equal(resolvePointerOwner(point, candidates, { modality: 'touch' }), 'A');
 });
@@ -113,18 +120,18 @@ test('a synthetic click immediately after a real pointer commit is suppressed, t
 });
 
 test('meetsMinimumTarget: 24x24+ always passes; smaller passes only with sufficient neighbor spacing', () => {
-  assert.equal(meetsMinimumTarget({ x: 0, y: 0, width: 24, height: 24 }, []), true);
-  const small = { x: 0, y: 0, width: 16, height: 16 };
+  assert.equal(meetsMinimumTarget({ x: 0, y: 0, width: MINIMUM_TARGET, height: MINIMUM_TARGET }, []), true);
+  const small = { x: 0, y: 0, width: MINIMUM_TARGET - 8, height: MINIMUM_TARGET - 8 };
   assert.equal(meetsMinimumTarget(small, []), true, 'no neighbors: spacing exception trivially holds');
-  const closeNeighbor = [{ x: 10, y: 0, width: 16, height: 16 }];
+  const closeNeighbor = [{ x: 10, y: 0, width: MINIMUM_TARGET - 8, height: MINIMUM_TARGET - 8 }];
   assert.equal(meetsMinimumTarget(small, closeNeighbor), false);
-  const farNeighbor = [{ x: 1000, y: 1000, width: 16, height: 16 }];
+  const farNeighbor = [{ x: 1000, y: 1000, width: MINIMUM_TARGET - 8, height: MINIMUM_TARGET - 8 }];
   assert.equal(meetsMinimumTarget(small, farNeighbor), true);
 });
 
 test('meetsMobilePrimaryTarget requires 44x44', () => {
-  assert.equal(meetsMobilePrimaryTarget({ x: 0, y: 0, width: 44, height: 44 }), true);
-  assert.equal(meetsMobilePrimaryTarget({ x: 0, y: 0, width: 40, height: 44 }), false);
+  assert.equal(meetsMobilePrimaryTarget({ x: 0, y: 0, width: MOBILE_PRIMARY_TARGET, height: MOBILE_PRIMARY_TARGET }), true);
+  assert.equal(meetsMobilePrimaryTarget({ x: 0, y: 0, width: MOBILE_PRIMARY_TARGET - 4, height: MOBILE_PRIMARY_TARGET }), false);
 });
 
 class FakeSurface extends EventTarget {}

@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeFocusTargets } from '../../src/layout/focus-targets.js';
+import { readContract } from '../contracts/load.mjs';
+
+// Ring geometry and neighbor cap come from the committed algorithm-contracts
+// fixture (T26, T-REQ-044), not literals re-typed by hand -- a contract
+// change becomes a visible fixture diff instead of a silently stale test.
+const { maxNeighbors: MAX_NEIGHBORS, innerRadius: INNER_RADIUS, innerCapacity: INNER_CAPACITY, outerRadius: OUTER_RADIUS } =
+  readContract('algorithm-contracts.json').focus_targets;
 
 const CORE_ID = 'CORE';
 const CORE_HOME = { x: 500, y: 500 };
@@ -58,7 +65,7 @@ test('evenly spaced candidates land on the inner ring at radius 76, preserving t
   const targets = computeFocusTargets(CORE_ID, baseContext());
   for (const id of RING_IDS) {
     const target = targets.get(id);
-    closeTo(radiusFromCore(target), 76, 1e-6, `${id} radius`);
+    closeTo(radiusFromCore(target), INNER_RADIUS, 1e-6, `${id} radius`);
     const originalAngle = angleFromCore(RING_HOMES[id]);
     const targetAngle = angleFromCore(target);
     const diff = Math.atan2(Math.sin(targetAngle - originalAngle), Math.cos(targetAngle - originalAngle));
@@ -89,7 +96,7 @@ test('tier priority: canonical participants (RelO core) outrank base-edge neighb
   assert.notDeepEqual(targets.get('B1'), homes.B1);
   assert.notDeepEqual(targets.get('S1'), homes.S1);
   for (const id of ['P1', 'B1', 'S1']) {
-    closeTo(radiusFromCore(targets.get(id)), 76, 1e-6, `${id} radius`);
+    closeTo(radiusFromCore(targets.get(id)), INNER_RADIUS, 1e-6, `${id} radius`);
   }
 });
 
@@ -110,11 +117,11 @@ test('candidates beyond MAX_NEIGHBORS (14) are dropped in tier/angle/index order
   let leftAtHomeCount = 0;
   for (const id of manyIds) {
     const t = targets.get(id);
-    if (Math.abs(radiusFromCore(t) - 76) < 1 || Math.abs(radiusFromCore(t) - 118) < 1) selectedCount++;
+    if (Math.abs(radiusFromCore(t) - INNER_RADIUS) < 1 || Math.abs(radiusFromCore(t) - OUTER_RADIUS) < 1) selectedCount++;
     else leftAtHomeCount++;
   }
-  assert.equal(selectedCount, 14);
-  assert.equal(leftAtHomeCount, 6);
+  assert.equal(selectedCount, MAX_NEIGHBORS);
+  assert.equal(leftAtHomeCount, manyIds.length - MAX_NEIGHBORS);
 });
 
 test('the inner ring holds at most 8; the remainder overflows to the outer ring at radius 118', () => {
@@ -131,10 +138,10 @@ test('the inner ring holds at most 8; the remainder overflows to the outer ring 
   };
   const targets = computeFocusTargets(CORE_ID, ctx);
   const radii = tenIds.map((id) => Math.round(radiusFromCore(targets.get(id))));
-  const innerCount = radii.filter((r) => r === 76).length;
-  const outerCount = radii.filter((r) => r === 118).length;
-  assert.equal(innerCount, 8);
-  assert.equal(outerCount, 2);
+  const innerCount = radii.filter((r) => r === INNER_RADIUS).length;
+  const outerCount = radii.filter((r) => r === OUTER_RADIUS).length;
+  assert.equal(innerCount, INNER_CAPACITY);
+  assert.equal(outerCount, tenIds.length - INNER_CAPACITY);
 });
 
 test('computeFocusTargets is deterministic: identical inputs produce byte-identical targets', () => {

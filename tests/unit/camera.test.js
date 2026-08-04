@@ -2,6 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeSafeRect, computeNeutralCamera, computeFocusCamera, reconcileCamera } from '../../src/layout/camera.js';
 import { createTransactionController } from '../../src/application/transaction-controller.js';
+import { readContract } from '../contracts/load.mjs';
+
+// Scale bounds and occupancy bands come from the committed algorithm-
+// contracts/visual-tokens fixtures (T26, T-REQ-044), not re-typed literals.
+const { scaleMin: SCALE_MIN, scaleMax: SCALE_MAX } = readContract('algorithm-contracts.json').camera;
+const { neutralMin: NEUTRAL_MIN, neutralTarget: NEUTRAL_TARGET, neutralMax: NEUTRAL_MAX, focusMin: FOCUS_MIN, focusTarget: FOCUS_TARGET, focusMax: FOCUS_MAX } =
+  readContract('visual-tokens.json').occupancy;
 
 const PANE = { x: 0, y: 0, width: 1440, height: 900 };
 const MARGINS = { top: 60, right: 0, bottom: 0, left: 480 }; // rail + reader, no bottom nav on desktop
@@ -38,8 +45,8 @@ test('neutral camera hits the exact occupancy band (0.72-0.88) at a required des
   const envelope = { x: 0, y: 0, width: 1000, height: 760 }; // WORLD extent
   const t = computeNeutralCamera(envelope, safeRect);
   const occ = occupancy(envelope, t, safeRect);
-  assert.ok(occ >= 0.72 && occ <= 0.88, `occupancy ${occ} outside 0.72-0.88`);
-  assert.ok(Math.abs(occ - 0.8) < 0.01, `occupancy ${occ} not close to target 0.80`);
+  assert.ok(occ >= NEUTRAL_MIN && occ <= NEUTRAL_MAX, `occupancy ${occ} outside ${NEUTRAL_MIN}-${NEUTRAL_MAX}`);
+  assert.ok(Math.abs(occ - NEUTRAL_TARGET) < 0.01, `occupancy ${occ} not close to target ${NEUTRAL_TARGET}`);
 });
 
 test('neutral camera centers the envelope in the safe rect', () => {
@@ -57,10 +64,10 @@ test('scale is clamped to [scaleMin, scaleMax] for extreme envelope sizes', () =
   const safeRect = computeSafeRect(PANE, MARGINS);
   const tinyEnvelope = { x: 0, y: 0, width: 1, height: 1 };
   const t1 = computeNeutralCamera(tinyEnvelope, safeRect);
-  assert.equal(t1.k, 2.4);
+  assert.equal(t1.k, SCALE_MAX);
   const hugeEnvelope = { x: 0, y: 0, width: 100000, height: 100000 };
   const t2 = computeNeutralCamera(hugeEnvelope, safeRect);
-  assert.equal(t2.k, 0.55);
+  assert.equal(t2.k, SCALE_MIN);
 });
 
 test('first focus fits the focus envelope to the focus occupancy band (0.58-0.82, target 0.70)', () => {
@@ -71,8 +78,8 @@ test('first focus fits the focus envelope to the focus occupancy band (0.58-0.82
   const focusEnvelope = { x: 400, y: 300, width: 300, height: 300 };
   const t = computeFocusCamera(focusEnvelope, safeRect, null, { isFirstFocus: true });
   const occ = occupancy(focusEnvelope, t, safeRect);
-  assert.ok(occ >= 0.58 && occ <= 0.82, `occupancy ${occ} outside focus band`);
-  assert.ok(Math.abs(occ - 0.7) < 0.01);
+  assert.ok(occ >= FOCUS_MIN && occ <= FOCUS_MAX, `occupancy ${occ} outside focus band`);
+  assert.ok(Math.abs(occ - FOCUS_TARGET) < 0.01);
   const proj = projectedRect(focusEnvelope, t);
   assert.ok(fullyInside(proj, safeRect), 'focus contour must be fully inside the safe rect after first focus');
 });
@@ -108,7 +115,7 @@ test('more than 20% outside triggers a full refit, not a pan', () => {
   const t = computeFocusCamera(focusEnvelope, safeRect, currentTransform);
   assert.notEqual(t.k, currentTransform.k, 'a refit recomputes scale for the focus occupancy target');
   const occ = occupancy(focusEnvelope, t, safeRect);
-  assert.ok(Math.abs(occ - 0.7) < 0.01);
+  assert.ok(Math.abs(occ - FOCUS_TARGET) < 0.01);
 });
 
 test('reconcileCamera returns the computed transform only while its transaction is still active (T-REQ-017)', () => {
