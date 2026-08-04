@@ -1,0 +1,89 @@
+/* Route aperture (compact strip) + modal (expanded drawer) styling (T19),
+   extracted from the route/trace rules already live in
+   src/index.template.html. Not yet linked from index.html -- see
+   src/presentation/route-renderer.js for the matching extracted logic. */
+
+.route {
+  height: 54px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 18px 0 24px;
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+}
+.route-empty {
+  color: var(--bb-muted, #867d72);
+  font-family: var(--bb-mono, monospace);
+  font-size: 10px;
+}
+.route-item {
+  border: none;
+  background: transparent;
+  color: var(--bb-text-2, #b3aa9d);
+  font-family: var(--bb-mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  padding: 0;
+}
+.route-item.current {
+  color: var(--bb-text, #e7e1d7);
+}
+.route-item:hover,
+.route-item:focus-visible {
+  color: var(--bb-warm-focus, #e2bc69);
+  outline: none;
+}
+.route-ellipsis {
+  border: none;
+  background: transparent;
+  color: var(--bb-muted, #867d72);
+  cursor: pointer;
+  font-family: var(--bb-mono, monospace);
+  font-size: 11px;
+}
+.clear-route,
+.clear-trace {
+  /* Two entirely separate controls (P-RULE-010): clearing one never touches
+     the other's state -- see route-renderer.js's onClearRoute/onClearTrace. */
+  margin-left: auto;
+  border: 1px solid var(--line2, #3a352e);
+  background: transparent;
+  color: var(--bb-muted, #867d72);
+  font-family: var(--bb-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  padding: 4px 10px;
+}
+.clear-route:hover,
+.clear-trace:hover {
+  color: var(--bb-text, #e7e1d7);
+  border-color: var(--bb-warm, #c49a45);
+}
+
+.route-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line, #221f1a);
+}
+.route-row-index {
+  font-family: var(--bb-mono, monospace);
+  font-size: 10px;
+  color: var(--bb-muted, #867d72);
+  min-width: 24px;
+}
+.route-row-label {
+  font-family: var(--bb-mono, monospace);
+  font-size: 12px;
+  color: var(--bb-text-2, #b3aa9d);
+}
+.route-row:hover .route-row-label {
+  color: var(--bb-warm-focus, #e2bc69);
+}
