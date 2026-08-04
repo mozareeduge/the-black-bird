@@ -2,7 +2,6 @@
   "name": "the-black-bird",
   "version": "6.0.0-candidate.0",
   "private": true,
-  "type": "module",
   "description": "Validation harness for The Black Bird public source archive",
   "scripts": {
     "baseline:capture": "node tests/capture-canonical-baseline.cjs",
