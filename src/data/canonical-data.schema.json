@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://poem.theblackbirdfield.com/schema/canonical-data.schema.json",
+  "title": "The Black Bird — canonical DATA",
+  "type": "object",
+  "required": ["nodes", "texts", "nameos", "refs", "relations", "meta", "docs", "ui"],
+  "additionalProperties": false,
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "minItems": 50,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "label", "shortLabel", "cluster"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["RNO", "MNO", "FO", "NameO", "RefO", "RelO"] },
+          "label": { "type": "string", "minLength": 1 },
+          "shortLabel": { "type": "string", "minLength": 1 },
+          "cluster": { "type": "string", "minLength": 1 },
+          "central": { "type": "boolean" }
+        }
+      }
+    },
+    "texts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["body"],
+        "additionalProperties": false,
+        "properties": {
+          "body": { "type": "string" },
+          "refs": { "type": "array", "items": { "type": "string" } },
+          "objects": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "nameos": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["sourceLayer", "attached", "gloss"],
+        "additionalProperties": false,
+        "properties": {
+          "sourceLayer": { "type": "string" },
+          "attached": { "type": "array", "items": { "type": "string" } },
+          "gloss": { "type": "string" }
+        }
+      }
+    },
+    "refs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["citation", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "citation": { "type": "string" },
+          "url": { "type": "string" },
+          "status": { "type": "string" },
+          "statusNote": { "type": "string" },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "url"],
+              "additionalProperties": false,
+              "properties": {
+                "label": { "type": "string" },
+                "url": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "relations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": { "type": "string" }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "required": ["title", "subtitle", "author", "version"],
+      "properties": {
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "author": { "type": "string" },
+        "version": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "required": ["statement", "how", "types", "sources"],
+      "properties": {
+        "statement": { "type": "string" },
+        "how": { "type": "string" },
+        "types": { "type": "string" },
+        "sources": { "type": "string" }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "required": ["objectTypes"],
+      "properties": {
+        "objectTypes": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["RNO", "MNO", "FO", "NameO", "RefO", "RelO"] }
+        }
+      }
+    }
+  }
+}
