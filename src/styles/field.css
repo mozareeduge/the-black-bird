@@ -1,0 +1,96 @@
+/* Field rendering tokens and classes (T17), extracted from the tokens and
+   node/route/wear/afterglow rules already live in src/index.template.html.
+   Not yet linked from index.html -- see src/presentation/field-renderer.js
+   and trace-renderer.js for the matching extracted render logic; wiring
+   both into the built page is a later integration task. Values here must
+   stay byte-for-byte in sync with the template's :root block until then. */
+
+:root {
+  --bb-field: #070706;
+  --bb-field-deep: #050505;
+  --bb-panel: #0d0c0b;
+  --bb-text: #e7e1d7;
+  --bb-text-2: #b3aa9d;
+  --bb-muted: #867d72;
+  --bb-bone: #e4dbc9;
+  --bb-warm: #c49a45;
+  --bb-warm-focus: #e2bc69;
+  --bb-cold: #839cac;
+  --bb-cold-body: #777b7e;
+  --bb-cold-text: #6f7a81;
+  --bb-cold-edge: #242a2e;
+  --bb-aperture-core: #020202;
+  --bb-aperture-rim: #d5d2ca;
+  --bb-clearing-fill: rgba(228, 219, 201, 0.16);
+  --bb-clearing-member: #c4bfb2;
+  --bb-node-fill: #9c9b97;
+  --bb-rno-ring: #6b6258;
+  --bb-refo-fill: #8a8378;
+  --bb-relo-stroke: #8f8a83;
+  --bb-route-mark: #a89f8f;
+  --bb-label-min: 9px;
+  --bb-label-max: 10.5px;
+  --bb-label-halo: 2.25px;
+  --bb-dof-max: 0.6px;
+  --bb-afterglow-ms: 10000;
+  --bb-afterglow-max: 8;
+  --bb-wear-max: 7;
+  --bb-ease: cubic-bezier(0.22, 0.8, 0.36, 1);
+  --bb-dur-micro: 260ms;
+  --bb-dur-structural: 620ms;
+}
+
+/* Aperture (T-REQ-031): a distinct core/rim role, never recolored as an
+   ordinary node selection state. */
+.bb-aperture-core {
+  fill: var(--bb-aperture-core) !important;
+}
+.bb-aperture-rim {
+  fill: none;
+  stroke: var(--bb-aperture-rim);
+  stroke-width: 1.4;
+  stroke-opacity: 0.9;
+  vector-effect: non-scaling-stroke;
+}
+
+/* RelO clearing (T-REQ-029): one continuous masked field, never member
+   bubbles or spokes. */
+.bb-clearing-field {
+  pointer-events: none;
+}
+
+.bb-body,
+.bb-rno-ring {
+  transition: opacity 0.35s ease, fill 0.35s ease, stroke-opacity 0.35s ease;
+}
+.bb-cold-rest {
+  filter: blur(var(--bb-dof-max));
+}
+
+/* Route/wear/afterglow (T-REQ-030): three separate, non-confusable layers.
+   Route uses a neutral silver/bone mark; wear uses amber-brown; afterglow
+   is a distinct soft residue. Keeping these visually distinct is required. */
+.node-route-halo,
+.node-focus-ring {
+  transition: stroke-opacity 0.35s ease, stroke-width 0.35s ease;
+}
+.bb-wear,
+.bb-afterglow {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-node,
+  .bb-edge,
+  .bb-clearing-field,
+  .bb-wear,
+  .bb-afterglow,
+  .bb-body,
+  .bb-rno-ring {
+    transition-duration: 0.01ms !important;
+    animation: none !important;
+  }
+  .bb-cold-rest {
+    filter: none !important;
+  }
+}

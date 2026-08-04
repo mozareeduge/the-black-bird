@@ -161,7 +161,10 @@ let S = {
   activeEdge: null,
   activeRelos: [],
   routeEvents: [],
-  maxRouteEvents: 11,
+  // Presentation-only recent-tail window for route halos/segments (routeStats,
+  // routeSegments); Route truth itself is never capped or truncated
+  // (P-RULE-005/039, D-DEC-22) — see registerRouteEvent below.
+  recentRouteWindow: 11,
   maxVisibleRouteSegments: 10,
   objectGroups: { RNO: true, MNO: true, FO: true, NameO: true, RefO: true, RelO: true },
   viewOptions: { projected: true, labels: true, sourceNames: false },
@@ -2082,9 +2085,9 @@ function makeRouteEvent(id, meta = {}) {
 // Route must record only successful, direct committed selection changes.
 function registerRouteEvent(id, meta = {}) {
   const ev = makeRouteEvent(id, meta);
+  // Route retains the complete ordered session history; only its presentation
+  // is windowed (P-RULE-005/039, D-DEC-22) — nothing here truncates S.routeEvents.
   S.routeEvents.push(ev);
-  if (S.routeEvents.length > S.maxRouteEvents)
-    S.routeEvents = S.routeEvents.slice(-S.maxRouteEvents);
   renderRoute();
 }
 function routeApertureEvents() {
@@ -2179,7 +2182,7 @@ function updateRouteLiveRegion() {
 
 // ── Route memory ────────────────────────────────────────────────────────────
 function routeStats() {
-  const recent = S.routeEvents.slice(-S.maxRouteEvents);
+  const recent = S.routeEvents.slice(-S.recentRouteWindow);
   const stats = new Map();
   recent.forEach((ev, i) => {
     const age = recent.length - 1 - i;
@@ -2212,7 +2215,7 @@ function updateRouteHalos(duration = 420) {
     });
 }
 function routeSegments() {
-  const events = S.routeEvents.slice(-S.maxRouteEvents);
+  const events = S.routeEvents.slice(-S.recentRouteWindow);
   const segs = [];
   for (let i = 1; i < events.length; i++) {
     const a = events[i - 1],
