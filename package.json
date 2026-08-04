@@ -5,7 +5,9 @@
   "description": "Validation harness for The Black Bird public source archive",
   "scripts": {
     "baseline:capture": "node tests/capture-canonical-baseline.cjs",
-    "test:unit": "node --test tests/unit/",
+    "build": "node scripts/build.mjs",
+    "build:verify": "node scripts/verify-build.mjs",
+    "test:unit": "node --test tests/unit/*.test.js",
     "test:legacy": "node tests/no-active-legacy.cjs",
     "test:traceability": "node tests/traceability-contract.cjs",
     "test:data": "node tests/black-bird-data-integrity.cjs",

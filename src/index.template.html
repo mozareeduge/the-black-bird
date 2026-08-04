@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>The Black Bird — Hypergraph Poem</title>
+<link rel="canonical" href="https://poem.theblackbirdfield.com/" />
+<meta name="description" content="The Black Bird is a born-digital hypergraph research poem by Mohammad Zare, built from a black bird beside a body into a field of sources, names, relations, and routes." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://poem.theblackbirdfield.com/" />
+<meta property="og:title" content="The Black Bird — Hypergraph Poem" />
+<meta property="og:description" content="The Black Bird is a born-digital hypergraph research poem by Mohammad Zare, built from a black bird beside a body into a field of sources, names, relations, and routes." />
+<script src="vendor/d3.v7.9.0.min.js"></script>
+<style>
+@font-face{font-family:'IBM Plex Mono';src:url('assets/fonts/IBMPlexMono-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'IBM Plex Mono';src:url('assets/fonts/IBMPlexMono-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap;}
+@font-face{font-family:'Crimson Pro';src:url('assets/fonts/crimson-pro-latin-ext-400-normal.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+@font-face{font-family:'Crimson Pro';src:url('assets/fonts/crimson-pro-latin-ext-400-italic.woff2') format('woff2');font-weight:400;font-style:italic;font-display:swap;}
+@font-face{font-family:'Scheherazade New';src:url('assets/fonts/scheherazade-new-arabic-400-normal.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
+:root {
+  --bg:#070706;--bg2:#0b0a09;--panel:#0d0c0b;--panel2:#11100e;
+  --line:#2a2621;--line2:#3a342b;--text:#e7e1d7;--text2:#b3aa9d;
+  --muted:#867d72;--ghost:#554e45;--amber:#c49a45;--amber2:#e2bc69;
+  --blue:#839cac;--bone:#e4dbc9;--silver:#aab0b3;--relo:#504b47;
+  --shadow:0 22px 80px rgba(0,0,0,.55);
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Crimson Pro',Georgia,serif;
+  --bb-field:#070706; --bb-field-deep:#050505; --bb-panel:#0d0c0b;
+  --bb-text:#e7e1d7; --bb-text-2:#b3aa9d; --bb-muted:#867d72; --bb-bone:#e4dbc9;
+  --bb-warm:#c49a45; --bb-warm-focus:#e2bc69; --bb-cold:#839cac;
+  --bb-cold-body:#777b7e; --bb-cold-text:#6f7a81; --bb-cold-edge:#242a2e;
+  --bb-aperture-core:#020202; --bb-aperture-rim:#d5d2ca;
+  --bb-clearing-fill:rgba(228,219,201,.16); --bb-clearing-member:#c4bfb2;
+  --bb-node-fill:#9c9b97; --bb-rno-ring:#6b6258; --bb-refo-fill:#8a8378; --bb-relo-stroke:#8f8a83;
+  --bb-label-min:9px; --bb-label-max:10.5px; --bb-label-halo:2.25px;
+  --bb-dof-max:.6px; --bb-afterglow-ms:10000; --bb-afterglow-max:8; --bb-wear-max:7;
+  --bb-ease:cubic-bezier(.22,.8,.36,1); --bb-dur-micro:260ms; --bb-dur-structural:620ms;
+  --bb-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --bb-serif:'Crimson Pro',Georgia,serif; --bb-arabic:'Scheherazade New',serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#070706;color:var(--text);font-family:var(--serif);-webkit-font-smoothing:antialiased;}
+button,input{font:inherit}
+#app{position:fixed;inset:0;background:var(--bg);overflow:hidden;}
+.app-frame{position:absolute;inset:0;display:grid;grid-template-columns:56px minmax(0,1fr);}
+.rail{border-right:1px solid var(--line);background:#080807;display:flex;flex-direction:column;align-items:stretch;padding:28px 7px;gap:8px;z-index:15}
+.rail-btn{height:42px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;display:flex;align-items:center;justify-content:center;transition:.18s;}
+.rail-btn:hover,.rail-btn.active{border-color:var(--line2);color:var(--text);background:#100f0d}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 0px;min-width:0;height:100%;transition:grid-template-columns 620ms cubic-bezier(.22,.8,.36,1);}
+.main.reader-open{grid-template-columns:minmax(0,1fr) clamp(360px,34vw,500px);}
+.panel{min-width:0;overflow:hidden;opacity:0;pointer-events:none;transform:translateX(24px);transition:opacity 520ms ease,transform 620ms cubic-bezier(.22,.8,.36,1);}
+.main.reader-open .panel{opacity:1;pointer-events:auto;transform:translateX(0);}
+.map-wrap{position:relative;min-width:0;border-right:1px solid var(--line);background:radial-gradient(circle at 50% 40%,#11100e 0%,#080807 54%,#050505 100%);overflow:hidden;}
+.map-title{position:absolute;left:24px;top:22px;z-index:5;pointer-events:none;}
+.map-title h1{font-family:var(--mono);font-size:15px;font-weight:400;letter-spacing:.32em;margin:0 0 6px;color:var(--text);}
+.map-title div{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--muted);}
+.map-tools{position:absolute;right:18px;top:18px;display:none;gap:8px;z-index:8}
+.tool-btn{border:1px solid var(--line2);background:rgba(13,12,11,.82);color:var(--text2);height:36px;min-width:36px;padding:0 10px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;cursor:pointer;}
+.tool-btn:hover{color:var(--text);border-color:#5a5045;background:#151310}
+#graphSvg{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;overflow:hidden;}
+#graphSvg:active{cursor:grabbing}
+.node-label{font-family:var(--mono);fill:#d7d0c3;paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;}
+.node-label.quiet{fill:#92887a}
+.node-core{transition:opacity .35s ease,fill .35s ease;}
+.node-focus-ring,.node-route-halo{transition:stroke-opacity .35s ease,stroke-width .35s ease;}
+g.node{outline:none;}
+g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacity:.9;stroke-width:1.8px;}
+.node-hit{fill:transparent;stroke:transparent;cursor:pointer;}
+.link-base,.link-proj{cursor:pointer}
+.panel{min-width:0;overflow:hidden;opacity:0;pointer-events:none;transform:translateX(24px);background:linear-gradient(180deg,#0b0a09 0%,#070706 100%);display:flex;flex-direction:column;height:100%;transition:opacity 520ms ease,transform 620ms cubic-bezier(.22,.8,.36,1);}
+.route{height:54px;flex:0 0 auto;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:6px;padding:0 18px 0 24px;overflow:hidden;white-space:nowrap;min-width:0;}
+.route-empty{color:var(--ghost);font-family:var(--mono);font-size:10px;}
+.route-item,.route-ellipsis{border:0;background:transparent;color:var(--text2);font-family:var(--mono);font-size:11px;cursor:pointer;padding:0 2px;min-height:32px;display:inline-flex;align-items:center;min-width:0;max-width:16ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto;}
+.route-item.current{color:var(--bone);}
+.route-item:hover,.route-item:focus-visible,.route-ellipsis:hover,.route-ellipsis:focus-visible{color:var(--amber2);outline:none;}
+.route .sep{color:var(--ghost);cursor:default;font-family:var(--mono);font-size:11px;flex:0 0 auto;}
+.route .clear-route{margin-left:auto;border:0;background:linear-gradient(90deg,rgba(7,7,6,0),var(--panel) 32%);color:var(--ghost);font-family:var(--mono);font-size:10px;cursor:pointer;padding-left:28px;min-height:32px;flex:0 0 auto;}
+.route-list{border-top:1px solid var(--line);}
+.route-row{display:grid;grid-template-columns:42px minmax(0,1fr);gap:14px;align-items:center;border-bottom:1px solid #211e1a;padding:13px 0;cursor:pointer;}
+.route-row:hover .route-row-label{color:var(--amber2)}
+.route-row-index{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;}
+.route-row-label{font-family:var(--serif);font-size:18px;color:var(--text);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reader{flex:1;overflow:auto;padding:42px 52px 80px;scrollbar-color:#655d53 transparent;}
+.meta{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--muted);margin-bottom:22px;}
+.title{font-family:var(--mono);font-size:15px;letter-spacing:.28em;text-transform:uppercase;color:var(--text);margin-bottom:28px;line-height:1.55;}
+.prose{font-size:18px;line-height:1.78;max-width:680px;color:var(--text);}
+.prose p{margin:0 0 1.15em}
+.about-body .prose a{color:var(--amber2);text-decoration:underline;text-decoration-color:rgba(196,154,69,.55);text-underline-offset:4px;}
+.about-body .prose a:visited{color:var(--amber2);}
+.about-body .prose a:hover,.about-body .prose a:focus-visible{color:var(--bone);text-decoration-color:var(--bone);outline:none;}
+.poem{font-family:var(--serif);font-size:23px;line-height:1.88;color:var(--bone);font-style:italic;max-width:430px;margin:10px 0 36px;}
+.poem > span{display:block}
+.fl{color:inherit;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#6b6256;text-underline-offset:5px;cursor:pointer;transition:.18s;}
+.fl:hover,.fl.active{color:var(--amber2);text-decoration-color:var(--amber2)}
+.section-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:34px 0 14px;}
+.chip-row{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0 24px;}
+.chip{border:1px solid var(--line2);padding:7px 10px;font-family:var(--mono);font-size:11px;color:var(--text);background:#100f0e;cursor:pointer;min-height:30px;}
+.chip:hover{border-color:#695f51;color:var(--amber2)}
+.disclosure{border-top:1px solid var(--line);margin-top:32px;padding-top:16px;}
+.disclosure button{background:transparent;border:0;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;cursor:pointer;padding:0;}
+.disclosure button:hover{color:var(--text)}
+.index-list{border-top:1px solid var(--line);max-width:680px;}
+.index-item{display:grid;grid-template-columns:80px minmax(0,1fr);gap:16px;padding:13px 0;border-bottom:1px solid #1e1b17;cursor:pointer;}
+.index-item:hover .idx-title{color:var(--amber2)}
+.idx-type{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.08em;}
+.idx-title{font-family:var(--serif);font-size:18px;color:var(--text);line-height:1.25;}
+.ref-citation{font-family:var(--serif);font-size:22px;line-height:1.5;color:var(--text);max-width:720px;}
+.source-row{display:inline-flex;margin-top:16px;border-bottom:1px solid var(--line2);font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--text2);text-decoration:none;padding-bottom:4px;}
+.source-row:hover{color:var(--amber2);border-color:var(--amber2)}
+.edge-head{font-family:var(--mono);font-size:14px;letter-spacing:.18em;text-transform:uppercase;line-height:1.7;color:var(--text)}
+.drawer{position:absolute;top:0;bottom:0;left:56px;width:min(430px,calc(100vw - 56px));background:rgba(11,10,9,.97);border-right:1px solid var(--line2);box-shadow:var(--shadow);z-index:30;transform:translateX(calc(-100% - 57px));transition:transform .32s cubic-bezier(.22,.8,.36,1),visibility 0s linear .32s;display:flex;flex-direction:column;pointer-events:none;visibility:hidden;}
+.drawer.open{transform:translateX(0);pointer-events:auto;visibility:visible;transition:transform .32s cubic-bezier(.22,.8,.36,1),visibility 0s;}
+.drawer-head{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line);font-family:var(--mono);letter-spacing:.22em;text-transform:uppercase;font-size:12px;}
+.drawer-close{border:1px solid var(--line2);background:transparent;color:var(--text);width:34px;height:34px;cursor:pointer}
+.drawer-body{overflow:auto;padding:18px;}
+.drawer-foot{border-top:1px solid var(--line);padding:12px 18px;display:flex;gap:8px;justify-content:flex-end;background:#0b0a09;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #211e1a;padding:12px 0;font-family:var(--mono);font-size:12px;color:var(--text2)}
+.switch{width:42px;height:24px;border:1px solid var(--line2);background:#0a0908;position:relative;cursor:pointer;}
+.switch::after{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#6b6258;transition:.18s}
+.switch.on::after{left:21px;background:var(--amber2)}
+.search{width:100%;height:42px;background:#0a0908;border:1px solid var(--line2);color:var(--text);padding:0 12px;font-family:var(--mono);font-size:13px;margin:8px 0 14px}
+.object-row{display:grid;grid-template-columns:54px minmax(0,1fr) auto auto;gap:8px;align-items:center;border-bottom:1px solid #211e1a;padding:9px 0;}
+.object-row .otype{border:1px solid var(--line2);font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;padding:4px 0}
+.object-row .olabel{font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.object-row .olabel:hover{color:var(--amber2)}
+.icon-small{height:28px;min-width:36px;border:1px solid var(--line2);background:transparent;color:var(--text2);font-family:var(--mono);font-size:10px;cursor:pointer}
+.icon-small:hover{color:var(--text);border-color:#65594c}
+.threshold{position:absolute;inset:0;background:radial-gradient(circle at center,#0d0c0b 0%,#070706 62%,#050505 100%);z-index:60;display:flex;align-items:center;justify-content:center;padding:28px;opacity:1;transition:opacity 520ms ease;}
+.threshold.leaving{opacity:0;pointer-events:none;}
+.threshold-card{width:min(800px,90vw);border:1px solid var(--line2);padding:64px 60px 56px;background:rgba(8,7,7,.72);box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:flex-start;opacity:0;transition:opacity 360ms ease;}
+.threshold h1{font-family:var(--mono);font-weight:400;font-size:42px;letter-spacing:.36em;margin:0 0 24px;color:var(--text);line-height:1.18}
+.threshold .sub{font-family:var(--mono);font-size:13px;letter-spacing:.22em;color:var(--text2);margin-bottom:38px}
+.threshold .author{font-family:var(--mono);font-size:13px;letter-spacing:.16em;color:var(--muted);margin-bottom:64px}
+.th-actions{display:flex;gap:12px;flex-wrap:wrap}
+.th-actions button{border:1px solid var(--line2);background:#10100f;color:var(--text);font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;padding:14px 22px;min-width:190px;cursor:pointer;text-align:center}
+.th-actions button:hover{border-color:#6a5e50;color:var(--amber2)}
+.bottom-nav{display:none}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#0e0d0c;border-top:1px solid var(--line2);box-shadow:0 -20px 60px rgba(0,0,0,.55);z-index:40;transform:translateY(110%);transition:transform .24s ease;max-height:58vh;display:flex;flex-direction:column;pointer-events:none;}
+.sheet.open{transform:translateY(0);pointer-events:auto;}
+.sheet-handle{height:20px;display:flex;align-items:center;justify-content:center;}
+.sheet-handle::before{content:"";width:44px;height:3px;background:#675e54;border-radius:999px}
+.sheet-body{padding:8px 20px 24px;overflow:auto}
+.sheet-title{font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px;color:var(--text)}
+.sheet-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+.drawer-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0);z-index:25;display:none;transition:background .28s ease;}
+.drawer-backdrop.open{display:block;background:rgba(0,0,0,.38);}
+.field-prompt{position:absolute;left:50%;top:72px;transform:translateX(-50%) translateY(6px);width:min(760px,calc(100vw - 48px));z-index:20;pointer-events:none;font-family:var(--serif);font-size:clamp(20px,2.4vw,30px);line-height:1.45;color:var(--text2);text-align:center;opacity:0;transition:opacity 520ms ease,transform 520ms ease;}
+.field-prompt.visible{opacity:1;transform:translateX(-50%) translateY(0);}
+.micro-preview{position:fixed;z-index:50;pointer-events:none;min-width:160px;max-width:260px;padding:10px 12px;border:1px solid var(--line2);background:rgba(11,10,9,.96);box-shadow:0 12px 36px rgba(0,0,0,.42);opacity:0;transform:translateY(4px);transition:opacity 160ms ease,transform 160ms ease;font-family:var(--mono);}
+.micro-preview.visible{opacity:1;transform:translateY(0);}
+.micro-preview-title{font-size:12px;color:var(--text);letter-spacing:.08em;margin-bottom:5px;}
+.micro-preview-meta{font-size:10px;color:var(--muted);margin-bottom:7px;}
+.micro-preview-line{font-family:var(--serif);font-size:15px;line-height:1.35;color:var(--text2);}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+.phase-threshold .route,.phase-onboarding .route{display:none;}
+.phase-threshold .map-tools,.phase-onboarding .map-tools{opacity:0;pointer-events:none;}
+.phase-threshold .bottom-nav,.phase-onboarding .bottom-nav{display:none!important;}
+.phase-threshold .panel,.phase-onboarding .panel{display:none;}
+.phase-threshold .reader,.phase-onboarding .reader{display:none;}
+
+@media (max-width:860px){
+  /* Top map-tools Field/View buttons are duplicated by bottom-nav; hide them on mobile */
+  .map-tools{display:none!important;}
+  .app-frame{display:block;padding-bottom:calc(56px + env(safe-area-inset-bottom,0px));}
+  .rail{display:none}
+  .main{display:flex;flex-direction:column;height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px));}
+  .main.reader-open{grid-template-columns:unset;}
+  .main:not(.reader-open) .map-wrap{height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px));flex:1 1 auto;border-right:0;border-bottom:0;}
+  .main:not(.reader-open) .panel{display:none;}
+  .main.reader-open .map-wrap{height:38dvh;min-height:230px;border-right:0;border-bottom:1px solid var(--line);flex:0 0 auto;}
+  .main.reader-open .panel{display:flex;opacity:1;pointer-events:auto;transform:none;flex:1;min-height:0;}
+  .map-title{left:22px;top:20px}
+  .map-title h1{font-size:13px;letter-spacing:.28em}
+  .map-title div{font-size:9px}
+  .map-tools{right:14px;top:14px}
+  .route{height:44px;padding:0 18px;font-size:10px;}
+  .reader{padding:26px 22px 86px;}
+  .title{font-size:13px;letter-spacing:.22em}
+  .prose{font-size:17px;line-height:1.74}
+  .poem{font-size:20px;line-height:1.82;max-width:340px}
+  .drawer{left:0;width:100vw;max-width:none;bottom:56px;transform:translateX(-100%);transition:transform .28s cubic-bezier(.22,.8,.36,1),visibility 0s linear .28s;}
+  .drawer.open{transform:translateX(0);visibility:visible;pointer-events:auto;transition:transform .28s cubic-bezier(.22,.8,.36,1),visibility 0s;}
+  .drawer-foot{position:sticky;bottom:0;background:#0b0a09}
+  .drawer-backdrop{display:none!important}
+  .bottom-nav{display:grid;grid-template-columns:repeat(4,1fr);position:absolute;left:0;right:0;bottom:0;height:calc(56px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:#0b0a09;border-top:1px solid var(--line2);z-index:45;}
+  .bottom-nav button{border:0;border-right:1px solid #1e1b17;background:transparent;color:var(--text2);font-family:var(--mono);font-size:10px;letter-spacing:.08em;}
+  .bottom-nav button:last-child{border-right:0}
+  .bottom-nav button.active{color:var(--amber2)}
+  .threshold-card{padding:46px 32px 42px;width:100%;}
+  .threshold h1{font-size:32px;letter-spacing:.26em;line-height:1.28;margin-bottom:28px}
+  .threshold .sub{font-size:11px;line-height:1.8;margin-bottom:34px}
+  .threshold .author{margin-bottom:56px}
+  .th-actions{width:100%}
+  .th-actions button{width:100%;text-align:center}
+}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#3a3328;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#554e45}
+.drawer-body::-webkit-scrollbar,.sheet-body::-webkit-scrollbar{width:4px}
+@media (max-width:860px){::-webkit-scrollbar{width:4px}}
+
+/* V5.6 nightly: governed mobile surfaces */
+#app.surface-field .bottom-nav [data-mobile="field"],
+#app.surface-read .bottom-nav [data-mobile="read"]{color:var(--amber2)}
+@media (max-width:860px){
+  #app.surface-field.phase-focused .main.reader-open .map-wrap,
+  #app.surface-field.phase-field .main.reader-open .map-wrap{
+    height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px));
+    min-height:0;
+    flex:1 1 auto;
+    border-bottom:0;
+  }
+  #app.surface-field.phase-focused .main.reader-open .panel,
+  #app.surface-field.phase-field .main.reader-open .panel{
+    display:none!important;
+  }
+  #app.surface-read.phase-focused .main.reader-open .map-wrap,
+  #app.surface-read.phase-field .main.reader-open .map-wrap{
+    display:none!important;
+  }
+  #app.surface-read.phase-focused .main.reader-open .panel,
+  #app.surface-read.phase-field .main.reader-open .panel{
+    display:flex!important;
+    opacity:1;
+    pointer-events:auto;
+    transform:none;
+    flex:1 1 auto;
+    min-height:0;
+    height:calc(100dvh - 56px - env(safe-area-inset-bottom,0px));
+  }
+  #app.surface-read .reader{
+    padding-bottom:112px;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── About chamber ─────────────────────────────────────────────────────────── */
+.th-about-link{background:transparent;border:0;color:var(--ghost);font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;margin-top:16px;padding:0;text-decoration:none;transition:color .2s;display:block;text-align:center;min-width:190px;}
+.th-about-link::after{content:'';display:block;height:1px;background:var(--amber);transform:scaleX(0);transform-origin:center;transition:transform .24s ease;margin-top:5px;}
+.th-about-link:hover,.th-about-link:focus-visible{color:var(--muted);outline:none;}
+.th-about-link:hover::after,.th-about-link:focus-visible::after{transform:scaleX(.5);}
+.map-about-btn{display:none;}
+.about-panel{position:absolute;top:0;right:0;bottom:0;width:min(640px,calc(100% - 56px));background:linear-gradient(180deg,#0b0a09 0%,#070706 100%);border-left:1px solid var(--line);z-index:35;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .34s cubic-bezier(.22,.8,.36,1),visibility 0s linear .34s;visibility:hidden;pointer-events:none;}
+.about-panel.open{transform:translateX(0);visibility:visible;pointer-events:auto;transition:transform .34s cubic-bezier(.22,.8,.36,1),visibility 0s;}
+.about-panel.from-threshold{z-index:65;}
+.about-close{border:1px solid transparent;background:transparent;color:var(--ghost);width:32px;height:32px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:border-color .18s,color .18s;flex:0 0 auto;}
+.about-close:hover,.about-close:focus-visible{border-color:var(--line2);color:var(--bone);outline:none;}
+.about-head{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--line);font-family:var(--mono);letter-spacing:.22em;text-transform:uppercase;font-size:12px;flex:0 0 auto;}
+.about-nav{display:flex;align-items:center;padding:0 14px;height:44px;border-bottom:1px solid var(--line);flex:0 0 auto;overflow-x:auto;white-space:nowrap;gap:0;scrollbar-width:none;}
+.about-nav::-webkit-scrollbar{display:none;}
+.about-nav-btn{background:transparent;border:0;color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:.14em;cursor:pointer;padding:4px 8px;}
+.about-nav-btn:hover,.about-nav-btn:focus-visible{color:var(--amber2);outline:none;}
+.about-nav-sep{color:var(--ghost);font-family:var(--mono);font-size:10px;flex:0 0 auto;padding:0 2px;}
+.about-body{flex:1;overflow-y:auto;padding:42px 52px 80px;scrollbar-color:#655d53 transparent;scrollbar-width:thin;scroll-padding-top:28px;}
+.about-section{margin-bottom:52px;scroll-margin-top:28px;}
+.about-section-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+.about-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;}
+.about-tile{border:1px solid var(--line);padding:16px 18px;background:#0a0908;}
+.about-tile.span-2{grid-column:span 2;}
+.about-tile-key{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--text);margin-bottom:7px;}
+.about-tile-desc{font-family:var(--serif);font-size:16px;color:var(--text2);line-height:1.52;}
+.about-grammar-intro{font-family:var(--serif);font-size:18px;line-height:1.72;color:var(--text);margin-bottom:18px;}
+.about-grammar-cards{display:flex;flex-direction:column;gap:10px;}
+.about-grammar-card{border:1px solid var(--line);padding:16px 18px;background:#0a0908;transition:border-color .18s;}
+.about-grammar-card:hover{border-color:rgba(196,154,69,.45);}
+.about-grammar-abbr{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--text2);margin-bottom:6px;}
+.about-grammar-desc{font-family:var(--serif);font-size:17px;color:var(--text);line-height:1.62;}
+.about-source-rows{margin-top:4px;}
+.about-source-row{display:grid;grid-template-columns:140px 1fr;gap:14px;padding:13px 0;border-bottom:1px solid var(--line);}
+.about-source-rows .about-source-row:first-child{border-top:1px solid var(--line);}
+.about-source-key{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--muted);line-height:1.65;}
+.about-source-val{font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.65;}
+.about-source-val a{color:var(--text2);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px;}
+.about-source-val a:hover,.about-source-val a:focus-visible{color:var(--amber2);text-decoration-color:var(--amber2);outline:none;}
+@media (max-width:860px){
+  .map-about-btn{display:block;position:absolute;right:18px;top:20px;pointer-events:auto;background:transparent;border:0;color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:.14em;padding:4px;cursor:pointer;z-index:8;}
+  .map-about-btn:hover,.map-about-btn:focus-visible{color:var(--text);outline:none;}
+  .phase-threshold .map-about-btn,.phase-onboarding .map-about-btn{display:none!important;}
+  .th-about-link{width:100%;min-width:0;}
+  .about-panel{left:0;right:0;bottom:calc(56px + env(safe-area-inset-bottom,0px));width:100%;max-width:100vw;overflow:hidden;border-left:none;border-top:1px solid var(--line2);z-index:42;transform:translateX(100%);}
+  .about-panel.from-threshold{bottom:0;z-index:65;}
+  .about-tiles{grid-template-columns:1fr;}
+  .about-tile.span-2{grid-column:span 1;}
+  .about-body{padding:28px 22px 48px;overflow-x:hidden;}
+  .about-nav{min-width:0;}
+  .about-tile,.about-grammar-card,.about-source-row{min-width:0;}
+  .about-source-row{grid-template-columns:110px 1fr;gap:10px;}
+}
+
+/* ── Decided visual-system components (typed morphology, lighting, trace) ──── */
+.bb-aperture-core{fill:var(--bb-aperture-core)!important;}
+.bb-clearing-field{pointer-events:none;}
+.bb-wear,.bb-afterglow{pointer-events:none;}
+.bb-body,.bb-rno-ring{transition:opacity .35s ease,fill .35s ease,stroke-opacity .35s ease;}
+.bb-cold-rest{filter:blur(var(--bb-dof-max));}
+.bb-arabic{font-family:var(--bb-arabic);}
+.node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;}
+.node-label.quiet{fill:#92887a}
+.node-label.bb-arabic{font-family:var(--bb-arabic);}
+@media(prefers-reduced-motion:reduce){
+  .bb-node,.bb-edge,.bb-clearing-field,.bb-wear,.bb-afterglow,.bb-body,.bb-rno-ring{transition-duration:.01ms!important;animation:none!important;}
+  .bb-cold-rest{filter:none!important;}
+}
+</style>
+</head>
+<body>
+<div id="app" class="phase-threshold">
+  <div id="threshold" class="threshold">
+    <div class="threshold-card">
+      <h1>THE BLACK BIRD</h1>
+      <div class="sub">A HYPERGRAPH RESEARCH POEM</div>
+      <div class="author">Mohammad Zare</div>
+      <div class="th-actions"><button data-enter="map">Enter the field</button></div>
+      <button id="thAboutBtn" class="th-about-link">About the work</button>
+    </div>
+  </div>
+  <div class="app-frame">
+    <nav class="rail">
+      <button class="rail-btn" data-action="field">FIELD</button>
+      <button class="rail-btn" data-action="view">VIEW</button>
+      <button class="rail-btn" data-action="index">INDEX</button>
+      <button class="rail-btn" data-action="about">ABOUT</button>
+    </nav>
+    <main class="main" id="mainLayout">
+      <section id="mapWrap" class="map-wrap" aria-label="map">
+        <div class="map-title"><h1>THE BLACK BIRD</h1><div>HYPERGRAPH POEM</div></div>
+        <div class="map-tools">
+          <button class="tool-btn" id="fieldBtn">Field</button>
+          <button class="tool-btn" data-action="view">View</button>
+        </div>
+        <svg id="graphSvg" role="img" aria-label="hypergraph map"></svg>
+        <div id="fieldPrompt" class="field-prompt" aria-live="polite"></div>
+        <button id="mobileAboutBtn" class="map-about-btn" aria-label="About the work">ABOUT</button>
+      </section>
+      <section class="panel">
+        <div id="route" class="route"></div>
+        <div id="reader" class="reader"></div>
+      </section>
+    </main>
+  </div>
+  <aside id="fieldViewDrawer" class="drawer" role="dialog" aria-modal="true" aria-hidden="true" inert>
+    <div class="drawer-head"><span>Field View</span><button class="drawer-close" data-close="fieldViewDrawer">×</button></div>
+    <div class="drawer-body">
+      <div class="section-label">Object groups</div>
+      <div id="typeToggles"></div>
+      <div class="section-label">View</div>
+      <div id="viewToggles"></div>
+    </div>
+    <div class="drawer-foot">
+      <button class="tool-btn" id="restoreField">Restore Field</button>
+      <button class="tool-btn" data-close="fieldViewDrawer">Done</button>
+    </div>
+  </aside>
+  <aside id="objectDrawer" class="drawer" role="dialog" aria-modal="true" aria-hidden="true" inert>
+    <div class="drawer-head"><span id="objectDrawerTitle">Index</span><button class="drawer-close" data-close="objectDrawer">×</button></div>
+    <div class="drawer-body"><input id="objectSearch" class="search" placeholder="search objects" /><div id="objectList"></div></div>
+    <div class="drawer-foot"><button class="tool-btn" id="showAllObjects">Show All</button><button class="tool-btn" data-close="objectDrawer">Done</button></div>
+  </aside>
+  <aside id="routeDrawer" class="drawer" role="dialog" aria-modal="true" aria-hidden="true" inert>
+    <div class="drawer-head"><span>Route</span><button class="drawer-close" data-close="routeDrawer">×</button></div>
+    <div class="drawer-body"><div id="routeList" class="route-list"></div></div>
+    <div class="drawer-foot"><button class="tool-btn" id="clearRouteDrawer">Clear Route</button><button class="tool-btn" id="clearFieldTraceDrawer">Clear field trace</button><button class="tool-btn" data-close="routeDrawer">Done</button></div>
+  </aside>
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+  <div id="sheet" class="sheet"><div class="sheet-handle"></div><div id="sheetBody" class="sheet-body"></div></div>
+  <div id="microPreview" class="micro-preview" role="tooltip" aria-hidden="true"></div>
+  <div id="routeLive" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  <div id="aboutPanel" class="about-panel" role="dialog" aria-modal="true" aria-label="About the Work" aria-hidden="true" inert>
+    <div class="about-head">
+      <span>About the Work</span>
+      <button id="aboutClose" class="about-close" aria-label="Close About the Work">×</button>
+    </div>
+    <nav class="about-nav" aria-label="About sections">
+      <button class="about-nav-btn" data-about-section="about-statement">Statement</button>
+      <span class="about-nav-sep" aria-hidden="true">·</span>
+      <button class="about-nav-btn" data-about-section="about-how">Read</button>
+      <span class="about-nav-sep" aria-hidden="true">·</span>
+      <button class="about-nav-btn" data-about-section="about-grammar">Grammar</button>
+      <span class="about-nav-sep" aria-hidden="true">·</span>
+      <button class="about-nav-btn" data-about-section="about-source">Source</button>
+      <span class="about-nav-sep" aria-hidden="true">·</span>
+      <button class="about-nav-btn" data-about-section="about-author">Author</button>
+    </nav>
+    <div class="about-body" id="aboutBody">
+      <section class="about-section" id="about-statement">
+        <div class="about-section-label">Statement</div>
+        <div class="prose">
+          <p>A black bird appears beside a body. The scene opens a field.</p>
+          <p>The Black Bird is a hypergraph research poem by Mohammad Zare. It gives the materials of inquiry a spatial and textual form. A source can return as a scene. A name can keep its pressure. A relation can remain visible before explanation. A mapping note can condense a charged part of the field.</p>
+          <p>The poem appears as the reader moves among these surfaces. The graph gives contact a place. The Reader gives one pressure duration. The route lets movement leave a trace. Research enters as returnable material; poetry emerges as the arrangement through which that material becomes felt, delayed, and followed.</p>
+          <p>For readers who want to inspect the work's research apparatus, the <a href="research/">Research Annex</a> gathers its first methodological appendix, the speculative indices, and the accompanying data package.</p>
+        </div>
+      </section>
+      <section class="about-section" id="about-how">
+        <div class="about-section-label">How to Read</div>
+        <div class="about-tiles">
+          <div class="about-tile"><div class="about-tile-key">FIELD</div><div class="about-tile-desc">Interact with objects. Follow relations.</div></div>
+          <div class="about-tile"><div class="about-tile-key">READ</div><div class="about-tile-desc">The selected object takes textual form here.</div></div>
+          <div class="about-tile"><div class="about-tile-key">INDEX</div><div class="about-tile-desc">The object field appears as an ordered inventory.</div></div>
+          <div class="about-tile"><div class="about-tile-key">VIEW</div><div class="about-tile-desc">Govern what remains visible.</div></div>
+          <div class="about-tile"><div class="about-tile-key">SOLO</div><div class="about-tile-desc">Narrow the graph around the selected object and the relations it participates in.</div></div>
+          <div class="about-tile"><div class="about-tile-key">HIDE</div><div class="about-tile-desc">Quiet selected objects from the visible surface. Their attached lines leave with them until restored.</div></div>
+          <div class="about-tile span-2"><div class="about-tile-key">ROUTE</div><div class="about-tile-desc">Keep the trace of movement.</div></div>
+        </div>
+      </section>
+      <section class="about-section" id="about-grammar">
+        <div class="about-section-label">Object Grammar</div>
+        <p class="about-grammar-intro">The object types in The Black Bird are engineered metaphors. Each type gives a pressure a working form inside the field.</p>
+        <div class="about-grammar-cards">
+          <div class="about-grammar-card"><div class="about-grammar-abbr">RNO · Research Note Object</div><div class="about-grammar-desc">A Research Note Object gives source pressure a returnable body. It lets inquiry remain inside the poem's movement.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">MNO · Mapping Note Object</div><div class="about-grammar-desc">A Mapping Note Object is a partial map made inside the poem. It condenses a dense region of relation into a local surface.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">FO · Field Object</div><div class="about-grammar-desc">A Field Object gives recurrence an address. It lets something that returns through the work remain followable.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">NameO · Name Object</div><div class="about-grammar-desc">A Name Object treats a name as a field event. It gives linguistic pressure a place when a word changes how an object can be approached.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">RefO · Reference Object</div><div class="about-grammar-desc">A Reference Object makes source support traceable. It gives citation and source location an active place in the poem's structure.</div></div>
+          <div class="about-grammar-card"><div class="about-grammar-abbr">RelO · Relation Object</div><div class="about-grammar-desc">A Relation Object gives relation a body before explanation. It lets contact remain visible, returnable, and open to reading.</div></div>
+        </div>
+      </section>
+      <section class="about-section" id="about-source">
+        <div class="about-section-label">Source and Code</div>
+        <div class="prose"><p>The source code is available because The Black Bird is a born-digital poem. Its data model, graph behavior, reader surface, route memory, and interface states belong to the form of the work.</p></div>
+        <div class="about-source-rows">
+          <div class="about-source-row"><div class="about-source-key">Live work</div><div class="about-source-val"><a href="https://poem.theblackbirdfield.com/" target="_blank" rel="noopener">poem.theblackbirdfield.com ↗</a></div></div>
+          <div class="about-source-row"><div class="about-source-key">GitHub repository</div><div class="about-source-val"><a href="https://github.com/mozareeduge/the-black-bird" target="_blank" rel="noopener">github.com/mozareeduge/the-black-bird ↗</a></div></div>
+          <div class="about-source-row"><div class="about-source-key">Citation</div><div class="about-source-val"><a href="https://github.com/mozareeduge/the-black-bird/blob/main/CITATION.cff" target="_blank" rel="noopener">CITATION.cff ↗</a> — Mohammad Zare. The Black Bird: A Hypergraph Research Poem. Born-digital web work, 2026.</div></div>
+          <div class="about-source-row"><div class="about-source-key">Version</div><div class="about-source-val">Public source archive, v1.0.0</div></div>
+          <div class="about-source-row"><div class="about-source-key">Research Annex</div><div class="about-source-val"><a href="research/">Research Annex →</a></div></div>
+        </div>
+      </section>
+      <section class="about-section" id="about-author">
+        <div class="about-section-label">Author</div>
+        <div class="prose"><p>Mohammad Zare keeps returning to the same instant: the moment a source is still alive, before it settles into a single meaning. He trained in dramatic literature at the University of Art, Tehran, and in industrial engineering at Sharif University of Technology, and has spent the years since moving that instant across media — writing for the stage, writing for gallery walls, and finally building it into working interfaces. The Black Bird is where that movement lands: a hypergraph poem that keeps a source addressable instead of resolved.</p></div>
+      </section>
+    </div>
+  </div>
+  <nav class="bottom-nav">
+    <button data-mobile="field">Field</button>
+    <button data-mobile="read">Read</button>
+    <button data-mobile="view">View</button>
+    <button data-mobile="index">Index</button>
+  </nav>
+</div>
+<script>
+/*__BB_BUILD_APP_SCRIPT__*/</script>
+</body>
+</html>
