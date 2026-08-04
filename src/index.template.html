@@ -303,9 +303,31 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
   .bb-node,.bb-edge,.bb-clearing-field,.bb-wear,.bb-afterglow,.bb-body,.bb-rno-ring{transition-duration:.01ms!important;animation:none!important;}
   .bb-cold-rest{filter:none!important;}
 }
+.bb-unavailable{position:fixed;inset:0;z-index:9999;background:radial-gradient(circle at center,#0d0c0b 0%,#070706 62%,#050505 100%);display:flex;align-items:center;justify-content:center;padding:28px;}
+.bb-unavailable-card{width:min(640px,90vw);border:1px solid var(--line2);padding:48px 44px;background:rgba(8,7,7,.86);box-shadow:var(--shadow);}
+.bb-unavailable-card h1{font-family:var(--mono);font-weight:400;font-size:32px;letter-spacing:.3em;margin:0 0 24px;color:var(--text);}
+.bb-unavailable-title{font-family:var(--mono);font-size:15px;letter-spacing:.08em;color:var(--text2);margin:0 0 16px;}
+.bb-unavailable-body{font-family:var(--mono);font-size:13px;line-height:1.7;color:var(--muted);margin:0 0 28px;}
+.bb-unavailable-links{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+.bb-unavailable-links a{font-family:var(--mono);font-size:13px;letter-spacing:.04em;color:var(--amber2,#c9a86a);}
+#app.phase-unavailable{background:transparent;}
 </style>
 </head>
 <body>
+<noscript>
+  <div class="bb-unavailable">
+    <div class="bb-unavailable-card">
+      <h1>THE BLACK BIRD</h1>
+      <p class="bb-unavailable-title">The field could not be opened</p>
+      <p class="bb-unavailable-body">This interactive artwork requires JavaScript, which is disabled or unavailable in this browser. Use the source and citation links below.</p>
+      <ul class="bb-unavailable-links">
+        <li><a href="research/">Research</a></li>
+        <li><a href="https://github.com/mozareeduge/the-black-bird/blob/main/CITATION.cff">Citation</a></li>
+        <li><a href="https://github.com/mozareeduge/the-black-bird">Source repository</a></li>
+      </ul>
+    </div>
+  </div>
+</noscript>
 <div id="app" class="phase-threshold">
   <div id="threshold" class="threshold">
     <div class="threshold-card">

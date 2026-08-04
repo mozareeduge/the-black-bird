@@ -1,3 +1,71 @@
+// ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
+// Canonical, independently testable implementation: src/bootstrap.js and
+// src/presentation/bootstrap-renderer.js. Reimplemented inline here (not
+// imported) because scripts/build.mjs concatenates this file into a single
+// non-module <script>; those two files are the real modules pending build
+// support for actual ES module bundling.
+const BB_UI_COPY = {
+  bootstrapUnavailableTitle: "The field could not be opened",
+  bootstrapUnavailableBody:
+    "The artwork did not finish loading. Reload the page. If the problem continues, use the source and citation links below.",
+};
+function bbValidateBootstrap() {
+  if (typeof d3 === "undefined") return { ok: false, reason: "runtime-missing" };
+  if (!DATA || typeof DATA !== "object") return { ok: false, reason: "invalid-data" };
+  const requiredKeys = ["nodes", "texts", "nameos", "refs", "relations", "meta", "docs", "ui"];
+  if (requiredKeys.some((k) => !(k in DATA))) return { ok: false, reason: "invalid-data" };
+  if (!Array.isArray(DATA.nodes) || DATA.nodes.length !== 50) return { ok: false, reason: "invalid-data" };
+  const ids = DATA.nodes.map((n) => n && n.id);
+  if (new Set(ids).size !== 50 || ids.some((id) => typeof id !== "string" || !id)) {
+    return { ok: false, reason: "invalid-data" };
+  }
+  const types = new Set(DATA.nodes.map((n) => n && n.type));
+  if (!["FO", "MNO", "NameO", "RNO", "RefO", "RelO"].every((t) => types.has(t))) {
+    return { ok: false, reason: "invalid-data" };
+  }
+  return { ok: true };
+}
+function bbRenderBootstrapFailure() {
+  const app = document.getElementById("app");
+  if (!app) return;
+  app.innerHTML = "";
+  app.className = "phase-unavailable";
+  const wrap = document.createElement("div");
+  wrap.className = "bb-unavailable";
+  wrap.setAttribute("role", "alert");
+  const esc = (s) =>
+    String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  wrap.innerHTML = `
+    <div class="bb-unavailable-card">
+      <h1>THE BLACK BIRD</h1>
+      <p class="bb-unavailable-title">${esc(BB_UI_COPY.bootstrapUnavailableTitle)}</p>
+      <p class="bb-unavailable-body">${esc(BB_UI_COPY.bootstrapUnavailableBody)}</p>
+      <ul class="bb-unavailable-links">
+        <li><a href="research/">Research</a></li>
+        <li><a href="https://github.com/mozareeduge/the-black-bird/blob/main/CITATION.cff">Citation</a></li>
+        <li><a href="https://github.com/mozareeduge/the-black-bird">Source repository</a></li>
+      </ul>
+    </div>`;
+  app.appendChild(wrap);
+}
+// A global listener, not a wrapping try/catch: everything below declares its
+// top-level bindings with const/let, and this file is concatenated as one
+// flat classic <script> (see scripts/build.mjs). Wrapping the rest of this
+// file in a block would scope every one of those declarations to that block,
+// breaking every external page.evaluate() call (including this whole test
+// suite's) that reads them as script-global names. A window error listener
+// gets the same "never leave a partial page visible" guarantee with no
+// wrapping block.
+window.addEventListener("error", function () {
+  if (!document.querySelector(".bb-unavailable")) bbRenderBootstrapFailure();
+});
+window.addEventListener("unhandledrejection", function () {
+  if (!document.querySelector(".bb-unavailable")) bbRenderBootstrapFailure();
+});
+const bbBootstrap = bbValidateBootstrap();
+if (!bbBootstrap.ok) {
+  throw new Error("BB_BOOTSTRAP_FAILED:" + bbBootstrap.reason);
+}
 // ── Stable graph world (viewport-independent) ───────────────────────────────
 // The poem has one spatial world. Desktop/mobile/Reader-open camera framing
 // changes; the force topology underneath never does.
