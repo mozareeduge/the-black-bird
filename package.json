@@ -24,7 +24,8 @@
     "test:e2e": "playwright test tests/e2e tests/generated --project=chromium",
     "test:a11y": "playwright test tests/a11y --project=chromium",
     "test:cross-browser": "playwright test tests/cross-browser --project=chromium --project=firefox --project=webkit",
-    "evidence:generate": "node scripts/generate-evidence.mjs"
+    "evidence:generate": "node scripts/generate-evidence.mjs",
+    "verify:closure": "node scripts/verify-closure.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

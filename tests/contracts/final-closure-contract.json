@@ -1,0 +1,124 @@
+{
+  "schema_version": "3.0.0",
+  "source": "BLACK_BIRD_CLAUDE_FINALIZATION_AUTHORITY_v3.md",
+  "repository": "mozareeduge/the-black-bird",
+  "pull_request": 9,
+  "base_branch": "main",
+  "branch": "claude/black-bird-system-recomposition-9hpoia",
+  "terminal_state": "CANDIDATE_READY_FOR_ARTISTIC_REVIEW",
+  "canonical_data_sha256": "c5d22a4590ccd6ced0188fec0391b73fc6c1538c3f286cb85ff8a78c44a5c83d",
+  "canonical_node_count": 50,
+  "canonical_object_types": ["FO", "NameO", "RefO", "RelO", "Statement", "About"],
+  "authored_world": { "width": 1000, "height": 760 },
+  "browser_matrix": ["chromium", "firefox", "webkit"],
+  "required_scenario_count": 115,
+  "horizon_invariants": {
+    "canonical_integrity": [
+      "Canonical DATA remains byte-equivalent to the protected source and retains the fixed SHA-256.",
+      "Exactly 50 canonical nodes and the six object types remain intact.",
+      "Canonical text, relation participants, references, rights, citations, public URLs, and research annex routes remain unchanged unless a structural wrapper change is explicitly required."
+    ],
+    "single_production_architecture": [
+      "The production build imports and executes the same state, domain, transaction, layout, pointer, Reader, Route, trace, View, Solo, overlay, tooltip, accessibility, and environment modules exercised by tests.",
+      "src/app.js is a composition/bootstrap root, not a second implementation of those systems.",
+      "No semantic behavior has two independently maintained implementations.",
+      "The static GitHub Pages artifact remains deterministic, local-first, backend-free, and independent of runtime external APIs."
+    ],
+    "product_and_experience_semantics": [
+      "Reading anchor, Field attention, Reader subject, projected-edge inspection, View, Solo, Route, trace, overlays, responsive surface, and lifecycle state remain distinct.",
+      "Direct new-object commit appends exactly one Route event; same-object activation, replay, preview, inspection, View, Solo, chamber changes, About, and camera changes append none.",
+      "Route history has no semantic cap; visible presentation may be windowed without deleting events.",
+      "Route, wear, and afterglow remain materially and semantically distinct.",
+      "RelO attention appears as one continuous masked clearing without member bubbles or spokes.",
+      "Solo membership and exit restoration follow the committed contracts exactly.",
+      "Hidden targets remain addressable through Reader, Index, Route replay, and projected-edge inspection without silently restoring forbidden visibility.",
+      "Desktop and mobile are projections of one semantic session."
+    ],
+    "spatial_and_visual_system": [
+      "The authored world is fixed at 1000x760; viewport changes alter projection, not topology.",
+      "Neutral and focused geometry is deterministic.",
+      "Camera framing respects safe rectangles and occupancy contracts.",
+      "Label placement evaluates all eight candidates, scores every valid candidate, preserves required-priority labels without required-label overlap, and suppresses lower-priority labels when no valid placement exists.",
+      "The Black Bird retains its aperture role.",
+      "The apparatus recedes behind the poem without obscuring capability or state.",
+      "Compact and mobile compositions contain no sheet leak, label collision, clipped required content, or chrome/focus conflict."
+    ],
+    "accessibility_and_resilience": [
+      "Keyboard, mouse, touch, pen, screen-reader, reduced-motion, forced-colors, 200% text resize, 320 CSS-pixel reflow, missing-font, visual-viewport, orientation, suspension/resume, pointer-cancel, and mixed-input paths remain operable.",
+      "No serious or critical Axe violation is excluded.",
+      "Scanner errors fail the run.",
+      "Interface text and essential labels meet applicable contrast requirements while preserving authored recession through compliant color, weight, halo, stroke, opacity, or material differences.",
+      "Dialogs have accessible names; modal focus is contained and restored; graph focus uses one roving tab stop; tooltip lifecycle and aria-describedby association are complete."
+    ],
+    "evidence_truth": [
+      "Candidate evidence is generated from one exact frozen branch-head SHA.",
+      "Synthetic PR-merge verification is recorded separately and never substituted for the candidate SHA.",
+      "Every required screenshot, recording, and machine report is an individually required manifest entry.",
+      "Every capture proves its named state through executable preconditions and postconditions.",
+      "Contact sheets are supplementary review aids only.",
+      "Broken, blank, duplicate, stale, mixed-SHA, undersized, unprobeable, mislabeled, or partially established evidence fails the gate."
+    ]
+  },
+  "required_evidence_ids": {
+    "static_application_captures": [
+      "ARTISTIC-CORE/threshold",
+      "ARTISTIC-CORE/whole-field-1440",
+      "ARTISTIC-CORE/whole-field-1280",
+      "ARTISTIC-CORE/focus-ordinary-1280",
+      "ARTISTIC-CORE/black-bird-aperture",
+      "ARTISTIC-CORE/relo-clearing",
+      "ARTISTIC-CORE/route-wear-afterglow",
+      "ARTISTIC-CORE/reader-field-composition",
+      "ARTISTIC-CORE/mobile-field-390",
+      "ARTISTIC-CORE/mobile-read-390",
+      "STATE-AND-RECOVERY/projected-inspection",
+      "STATE-AND-RECOVERY/solo-object",
+      "STATE-AND-RECOVERY/solo-relo",
+      "STATE-AND-RECOVERY/hidden-anchor",
+      "STATE-AND-RECOVERY/all-hidden-recovery",
+      "STATE-AND-RECOVERY/index-no-results",
+      "STATE-AND-RECOVERY/route-long",
+      "STATE-AND-RECOVERY/route-cleared-trace-retained",
+      "STATE-AND-RECOVERY/trace-cleared-route-retained",
+      "STATE-AND-RECOVERY/about-return",
+      "RESPONSIVE-ACCESS/compact-1024",
+      "RESPONSIVE-ACCESS/mobile-430",
+      "RESPONSIVE-ACCESS/narrow-320",
+      "RESPONSIVE-ACCESS/landscape-mobile",
+      "RESPONSIVE-ACCESS/text-zoom-200",
+      "RESPONSIVE-ACCESS/forced-colors",
+      "RESPONSIVE-ACCESS/reduced-motion",
+      "RESPONSIVE-ACCESS/keyboard-edge-focus",
+      "RESPONSIVE-ACCESS/tooltip-edge",
+      "RESPONSIVE-ACCESS/modal-focus"
+    ],
+    "motion_recordings": [
+      "motion/entry-and-interruption",
+      "motion/rapid-latest-action",
+      "motion/preview-and-projected-inspection",
+      "motion/relation-and-solo",
+      "motion/temporal-truth-and-clears",
+      "motion/mobile-complete-path",
+      "motion/reduced-motion-parity"
+    ],
+    "machine_reports": [
+      "machine/state.json",
+      "machine/event.json",
+      "machine/geometry.json",
+      "machine/design.json",
+      "machine/accessibility.json",
+      "machine/coverage-report.json",
+      "machine/build-manifest.json"
+    ]
+  },
+  "required_primary_entry_count": 44,
+  "responsive_viewport_matrix": [
+    { "label": "1440x960", "width": 1440, "height": 960 },
+    { "label": "1280x800", "width": 1280, "height": 800 },
+    { "label": "1024x640", "width": 1024, "height": 640 },
+    { "label": "430x932", "width": 430, "height": 932 },
+    { "label": "390x844", "width": 390, "height": 844 },
+    { "label": "320x640", "width": 320, "height": 640 },
+    { "label": "844x390", "width": 844, "height": 390 }
+  ]
+}
