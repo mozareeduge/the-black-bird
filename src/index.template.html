@@ -352,7 +352,7 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
           <button class="tool-btn" id="fieldBtn">Field</button>
           <button class="tool-btn" data-action="view">View</button>
         </div>
-        <svg id="graphSvg" role="img" aria-label="hypergraph map"></svg>
+        <svg id="graphSvg" role="group" aria-label="hypergraph map"></svg>
         <div id="fieldPrompt" class="field-prompt" aria-live="polite"></div>
         <button id="mobileAboutBtn" class="map-about-btn" aria-label="About the work">ABOUT</button>
       </section>
@@ -362,8 +362,8 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
       </section>
     </main>
   </div>
-  <aside id="fieldViewDrawer" class="drawer" role="dialog" aria-modal="true" aria-hidden="true" inert>
-    <div class="drawer-head"><span>Field View</span><button class="drawer-close" data-close="fieldViewDrawer">×</button></div>
+  <aside id="fieldViewDrawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="fieldViewDrawerTitle" aria-hidden="true" inert>
+    <div class="drawer-head"><span id="fieldViewDrawerTitle">Field View</span><button class="drawer-close" data-close="fieldViewDrawer">×</button></div>
     <div class="drawer-body">
       <div class="section-label">Object groups</div>
       <div id="typeToggles"></div>
@@ -375,13 +375,13 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
       <button class="tool-btn" data-close="fieldViewDrawer">Done</button>
     </div>
   </aside>
-  <aside id="objectDrawer" class="drawer" role="dialog" aria-modal="true" aria-hidden="true" inert>
+  <aside id="objectDrawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="objectDrawerTitle" aria-hidden="true" inert>
     <div class="drawer-head"><span id="objectDrawerTitle">Index</span><button class="drawer-close" data-close="objectDrawer">×</button></div>
     <div class="drawer-body"><input id="objectSearch" class="search" placeholder="search objects" /><div id="objectList"></div></div>
     <div class="drawer-foot"><button class="tool-btn" id="showAllObjects">Show All</button><button class="tool-btn" data-close="objectDrawer">Done</button></div>
   </aside>
-  <aside id="routeDrawer" class="drawer" role="dialog" aria-modal="true" aria-hidden="true" inert>
-    <div class="drawer-head"><span>Route</span><button class="drawer-close" data-close="routeDrawer">×</button></div>
+  <aside id="routeDrawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="routeDrawerTitle" aria-hidden="true" inert>
+    <div class="drawer-head"><span id="routeDrawerTitle">Route</span><button class="drawer-close" data-close="routeDrawer">×</button></div>
     <div class="drawer-body"><div id="routeList" class="route-list"></div></div>
     <div class="drawer-foot"><button class="tool-btn" id="clearRouteDrawer">Clear Route</button><button class="tool-btn" id="clearFieldTraceDrawer">Clear field trace</button><button class="tool-btn" data-close="routeDrawer">Done</button></div>
   </aside>
