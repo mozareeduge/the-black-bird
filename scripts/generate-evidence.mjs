@@ -500,8 +500,22 @@ async function main() {
   }
 
   // ── human-review.json: every dimension left pending, never self-attested ──
-  const plan = JSON.parse(readFileSync(path.join(ROOT, '.bb-authority', 'contracts', 'evidence-plan.json'), 'utf8'));
-  const dimensions = Object.fromEntries(plan.human_review_dimensions.map((d) => [d, 'pending_user_review']));
+  // The authority overlay (.bb-authority/) is deliberately untracked and absent in a
+  // fresh CI checkout; fall back to the same fixed dimension-id list it declares so
+  // evidence generation is reproducible both locally (with the overlay) and in CI.
+  const FALLBACK_HUMAN_REVIEW_DIMENSIONS = [
+    'field-compositional-authority', 'field-reader-unity', 'morphology-legibility',
+    'black-bird-aperture', 'attention-depth', 'relo-clearing-quality',
+    'temporal-material-distinction', 'mobile-completeness', 'motion-craft', 'apparatus-recession',
+  ];
+  let humanReviewDimensionIds = FALLBACK_HUMAN_REVIEW_DIMENSIONS;
+  try {
+    const plan = JSON.parse(readFileSync(path.join(ROOT, '.bb-authority', 'contracts', 'evidence-plan.json'), 'utf8'));
+    humanReviewDimensionIds = plan.human_review_dimensions;
+  } catch {
+    // .bb-authority/ not present (CI checkout) -- use the fallback list above.
+  }
+  const dimensions = Object.fromEntries(humanReviewDimensionIds.map((d) => [d, 'pending_user_review']));
   writeFileSync(
     path.join(OUT, 'human-review.json'),
     JSON.stringify({ candidate_sha: sha, note: 'Artistic acceptance is a user/GPT decision; no dimension below is agent-attested.', dimensions }, null, 2)
