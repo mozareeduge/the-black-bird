@@ -6,6 +6,7 @@
 import { AUTHORED_HOMES, WORLD as AUTHORED_WORLD } from './layout/authored-world.js';
 import { computeFocusTargets } from './layout/focus-targets.js';
 import { computeSafeRect, computeNeutralCamera, computeFocusCamera } from './layout/camera.js';
+import { solveLabels } from './layout/label-solver.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 // Canonical, independently testable implementation: src/bootstrap.js and
@@ -1169,13 +1170,18 @@ const labelPlacementChoice = new Map(); // id -> last-accepted candidate key
 function rectsOverlap(a, b) {
   return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
 }
+// Eight-candidate cost-scored placement (F04): every valid candidate is
+// scored (src/layout/label-solver.js), not just the first collision-free
+// one, and a non-required label the solver cannot place without overlap is
+// suppressed rather than drawn on top of something else.
 function recomputeLabelPlacements() {
   const t = S.transform;
-  const safe = computeFieldSafeRect();
+  const safeRaw = computeFieldSafeRect();
+  const safeRect = { x: safeRaw.left, y: safeRaw.top, width: safeRaw.width, height: safeRaw.height };
   const visible = nodeSel
     .selectAll("text.node-label")
     .nodes()
-    .filter((el) => getComputedStyle(el).display !== "none")
+    .filter((el) => getComputedStyle(el).getPropertyValue("display") !== "none")
     .map((el) => ({ el, d: d3.select(el).datum() }))
     .filter(({ d }) => d && d.x != null && d.y != null);
   const focus = S.activeId ? buildFocusSet(S.activeId) : null;
@@ -1183,128 +1189,90 @@ function recomputeLabelPlacements() {
   const core = focus && focus.coreId ? byId[focus.coreId] : null;
   const relParticipants =
     core && core.type === "RelO" ? new Set(DATA.relations[focus.coreId] || []) : null;
-  visible.sort((a, b) => {
-    const ta = labelPriorityTier(
-      a.d,
-      a.d.id === S.activeId,
-      !!(focusIds && focusIds.has(a.d.id)),
-      !!(relParticipants && relParticipants.has(a.d.id)),
-    );
-    const tb = labelPriorityTier(
-      b.d,
-      b.d.id === S.activeId,
-      !!(focusIds && focusIds.has(b.d.id)),
-      !!(relParticipants && relParticipants.has(b.d.id)),
-    );
-    return ta - tb;
-  });
-  const accepted = [];
-  visible.forEach(({ el, d }) => {
+
+  const entries = [];
+  for (const { el, d } of visible) {
     let bbox;
     try {
       bbox = el.getBBox();
     } catch (e) {
-      return;
+      continue;
     }
-    const w = Math.max(1, bbox.width),
-      h = Math.max(1, bbox.height);
-    const gap = (nodeMetrics(d).outerR || 6) + 3;
-    const lastChoice = labelPlacementChoice.get(d.id);
-    const order = lastChoice
-      ? [lastChoice, ...LABEL_CANDIDATES.map((c) => c.key).filter((k) => k !== lastChoice)]
-      : LABEL_CANDIDATES.map((c) => c.key);
-    let chosenKey = null,
-      chosenRect = null,
-      chosenOx = 0,
-      chosenOy = 0,
-      chosenAnchor = "middle";
-    for (const key of order) {
-      const cand = LABEL_CANDIDATES.find((c) => c.key === key);
-      const ox = cand.dx * (gap + w / 2);
-      const oy = cand.dyFactor * (gap + h * 0.5) + h * 0.35;
-      const cx = d.x + ox,
-        cy = d.y + oy;
-      let rx1, rx2;
-      if (cand.anchor === "middle") {
-        rx1 = cx - w / 2;
-        rx2 = cx + w / 2;
-      } else if (cand.anchor === "start") {
-        rx1 = cx;
-        rx2 = cx + w;
-      } else {
-        rx1 = cx - w;
-        rx2 = cx;
-      }
-      const ry1 = cy - h * 0.8,
-        ry2 = cy + h * 0.3;
-      const sx1 = t.applyX(rx1),
-        sx2 = t.applyX(rx2),
-        sy1 = t.applyY(ry1),
-        sy2 = t.applyY(ry2);
-      const rect = {
-        x1: Math.min(sx1, sx2),
-        x2: Math.max(sx1, sx2),
-        y1: Math.min(sy1, sy2),
-        y2: Math.max(sy1, sy2),
-      };
-      if (rect.x1 < safe.left || rect.x2 > safe.right || rect.y1 < safe.top || rect.y2 > safe.bottom)
-        continue;
-      if (accepted.some((r) => rectsOverlap(rect, r))) continue;
-      chosenKey = key;
-      chosenRect = rect;
-      chosenOx = ox;
-      chosenOy = oy;
-      chosenAnchor = cand.anchor;
-      break;
-    }
-    if (!chosenKey) {
-      const cand = LABEL_CANDIDATES[0];
-      chosenKey = cand.key;
-      chosenOx = cand.dx * (gap + w / 2);
-      chosenOy = cand.dyFactor * (gap + h * 0.5) + h * 0.35;
-      chosenAnchor = cand.anchor;
-      chosenRect = null; // not collision-free; don't block later labels on it
-    }
-    // Active and focus-member labels must stay fully inside the safe
-    // rectangle (spec §4.6/§6) even when no candidate was collision-free —
-    // clamp the chosen position back into bounds as a last resort.
     const isActive = d.id === S.activeId;
-    if (isActive || !chosenRect) {
-      const cx = d.x + chosenOx,
-        cy = d.y + chosenOy;
-      let rx1, rx2;
-      if (chosenAnchor === "middle") {
-        rx1 = cx - w / 2;
-        rx2 = cx + w / 2;
-      } else if (chosenAnchor === "start") {
-        rx1 = cx;
-        rx2 = cx + w;
-      } else {
-        rx1 = cx - w;
-        rx2 = cx;
-      }
-      const ry1 = cy - h * 0.8,
-        ry2 = cy + h * 0.3;
-      let sx1 = t.applyX(rx1),
-        sx2 = t.applyX(rx2),
-        sy1 = t.applyY(ry1),
-        sy2 = t.applyY(ry2);
-      let shiftX = 0,
-        shiftY = 0;
-      if (sx1 < safe.left) shiftX = safe.left - sx1;
-      else if (sx2 > safe.right) shiftX = safe.right - sx2;
-      if (sy1 < safe.top) shiftY = safe.top - sy1;
-      else if (sy2 > safe.bottom) shiftY = safe.bottom - sy2;
-      if (shiftX || shiftY) {
-        const k = Math.max(0.01, t.k);
-        chosenOx += shiftX / k;
-        chosenOy += shiftY / k;
-      }
+    const isFocusMember = !!(focusIds && focusIds.has(d.id));
+    const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
+    const tier = labelPriorityTier(d, isActive, isFocusMember, isRelParticipant);
+    entries.push({ el, d, bbox, isActive, tier, isRequired: tier <= 2 });
+  }
+  entries.sort((a, b) => a.tier - b.tier);
+
+  const w = (e) => Math.max(1, e.bbox.width);
+  const h = (e) => Math.max(1, e.bbox.height);
+  const candidatesById = new Map(
+    entries.map((e) => {
+      const gap = (nodeMetrics(e.d).outerR || 6) + 3;
+      const ew = w(e),
+        eh = h(e);
+      const cands = LABEL_CANDIDATES.map((cand) => {
+        const ox = cand.dx * (gap + ew / 2);
+        const oy = cand.dyFactor * (gap + eh * 0.5) + eh * 0.35;
+        const cx = e.d.x + ox,
+          cy = e.d.y + oy;
+        let rx1, rx2;
+        if (cand.anchor === "middle") {
+          rx1 = cx - ew / 2;
+          rx2 = cx + ew / 2;
+        } else if (cand.anchor === "start") {
+          rx1 = cx;
+          rx2 = cx + ew;
+        } else {
+          rx1 = cx - ew;
+          rx2 = cx;
+        }
+        const ry1 = cy - eh * 0.8,
+          ry2 = cy + eh * 0.3;
+        const sx1 = t.applyX(rx1),
+          sx2 = t.applyX(rx2),
+          sy1 = t.applyY(ry1),
+          sy2 = t.applyY(ry2);
+        const x = Math.min(sx1, sx2),
+          y = Math.min(sy1, sy2);
+        return {
+          side: cand.key,
+          anchor: cand.anchor,
+          ox,
+          oy,
+          rect: { x, y, width: Math.abs(sx2 - sx1), height: Math.abs(sy2 - sy1) },
+        };
+      });
+      return [e.d.id, cands];
+    }),
+  );
+
+  const items = entries.map((e) => ({ id: e.d.id, isRequired: e.isRequired, isActive: e.isActive }));
+  const results = solveLabels(
+    items,
+    (item) => candidatesById.get(item.id).map((c) => ({ side: c.side, rect: c.rect })),
+    { safeRect, previousSide: undefined },
+  );
+
+  const entryById = new Map(entries.map((e) => [e.d.id, e]));
+  for (const r of results) {
+    const entry = entryById.get(r.id);
+    if (!entry) continue;
+    if (r.suppressed) {
+      d3.select(entry.el).attr("display", "none");
+      labelPlacementChoice.delete(r.id);
+      continue;
     }
-    labelPlacementChoice.set(d.id, chosenKey);
-    if (chosenRect) accepted.push(chosenRect);
-    d3.select(el).attr("text-anchor", chosenAnchor).attr("x", chosenOx).attr("y", chosenOy);
-  });
+    const cand = candidatesById.get(r.id).find((c) => c.side === r.side);
+    d3.select(entry.el)
+      .attr("display", null)
+      .attr("text-anchor", cand.anchor)
+      .attr("x", cand.ox)
+      .attr("y", cand.oy);
+    labelPlacementChoice.set(r.id, r.side);
+  }
 }
 
 // ── Resize ─────────────────────────────────────────────────────────────────

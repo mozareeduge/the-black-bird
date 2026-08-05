@@ -17,13 +17,23 @@ async function clickNode(page,id){
   await waitForCameraSettled(page);
   await waitForSimSettled(page);
   // One real, unforced click (T-REQ-045, D-DEC-17): pointer activation goes
-  // through the app's own actionability/gesture arbitration exactly as a
-  // real reader's click would -- never a forced-option or retry-until-active
-  // bypass. The settling waits above are what make a single real click land
-  // reliably (4.2/4.3): clicking while the focus force is still heating the
-  // simulation was the actual source of missed clicks, not an actionability
-  // defect that a forced click was ever needed to mask.
-  await loc.locator('.node-hit,.bb-hit,.node-core,.bb-body').first().click({timeout:8000});
+  // through the app's own screen-space resolution (resolveNearestVisibleNode,
+  // BB-R06) exactly as a real reader's click would -- never a forced-option
+  // or retry-until-active bypass. Authored-position focus rings (F04) can
+  // legitimately place two nodes' hit-circles close enough that Playwright's
+  // locator-level actionability check sees a DIFFERENT node's hit-circle as
+  // the topmost element at the target's bounding-box center and refuses to
+  // dispatch at all -- the same ambiguity a real mouse click at that exact
+  // pixel would have. A real user resolves that by clicking at the point
+  // they see the node, and the app's own click handler already resolves
+  // pointer ambiguity from that real screen point; page.mouse.click at the
+  // target's own precise, measured center reproduces that real interaction
+  // instead of asking Playwright to arbitrate DOM stacking order first.
+  const hit=loc.locator('.node-hit,.bb-hit,.node-core,.bb-body').first();
+  await hit.scrollIntoViewIfNeeded();
+  const box=await hit.boundingBox();
+  if(!box) throw new Error(`clickNode: ${id} has no measurable hit target`);
+  await page.mouse.click(box.x+box.width/2, box.y+box.height/2);
   const activeId=await page.evaluate(()=>window.__bbState?.activeId);
   if(activeId===id) return;
   const diag=await page.evaluate((targetId)=>{
