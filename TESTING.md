@@ -5,7 +5,7 @@ candidate (executed against a drop-in execution-loop authority package,
 base `main@5972b2b2e4a70b2b2f457b6345f84894af95ef2a`) is validated, and what
 a reviewer should read before accepting it.
 
-## Current architecture harness (T06–T28)
+## Current architecture harness (T06–T31)
 
 The recomposition extracted the original monolithic `index.html` script
 into a layered `src/` tree (`state/`, `domain/`, `layout/`, `application/`,
@@ -28,18 +28,37 @@ independently of the still-live application:
   `COV-CRITICAL-TRIPLES`/`COV-ORDERED-ACTION-PAIRS` coverage specs.
 - `npm run test:a11y` — Playwright + axe-core over `tests/a11y/**`: automated
   scans at five app states plus explicit focus/modal/tooltip/target-size/
-  reflow/status/reduced-motion checks. Two real, disclosed findings
-  (`nested-interactive`, `aria-dialog-name`) are excluded by name pending a
-  future round with `src/**` access; see `.bb-control/CONFLICT.json`.
+  reflow/status/reduced-motion checks. Two real findings from an earlier
+  round (`nested-interactive` on `#graphSvg`, `aria-dialog-name` on the
+  drawers) were fixed at the source once `src/**` access was available
+  (`#graphSvg` is now `role="group"`; every drawer is `aria-labelledby` its
+  visible heading) — see `.bb-control/CONFLICT.json`'s `T31-redo` entry. One
+  real but intermittent finding remains excluded by name,
+  `color-contrast` on "cold" node labels: T04's authored warm/cold visual
+  system deliberately lets unfocused labels dim as part of the intended
+  recession effect, and whether that should have a hard contrast floor is
+  an artistic call for human review, not a bug this suite silently patches.
 - `npm run test:cross-browser` — the same semantic smoke suite
   (`tests/cross-browser/smoke.spec.js`) against Chromium/Firefox/WebKit
-  projects declared in `playwright.config.cjs`.
+  projects declared in `playwright.config.cjs`. Verified green on Chromium
+  in every sandboxed session so far; Firefox/WebKit require browser
+  binaries this session's environment does not provide and is instructed
+  not to fetch — a disclosed environment limitation, not a code defect (see
+  `.bb-control/CONFLICT.json`).
 - `npm run test:coverage` — `scripts/generate-coverage.mjs` generates every
   declared combinatorial obligation (three-way/pairwise dimension
   combinations, ordered action pairs, named critical triples, canonical-type
   and boundary enumerations, recovery-scenario list) and cross-references
   all 115 declared product scenarios to real test/evidence, reporting
   covered/gap status with a reason for every gap — no silent exclusions.
+- `.github/workflows/final-candidate-gate.yml` — a dedicated CI workflow
+  (distinct from `verify.yml`'s build/test check and
+  `black-bird-validation.yml`'s full-suite check) that regenerates
+  candidate-bound evidence fresh on GitHub's own runners
+  (`npm run evidence:generate`) and gates its structural integrity
+  (`scripts/ci-evidence-gate.mjs`: hash/dimension/duration/duplicate-bytes
+  checks, human-review left pending) on every push/PR, uploading
+  `candidate-evidence/**` as a build artifact.
 
 ## Legacy released-behavior harness
 
@@ -75,9 +94,13 @@ independently of the still-live application:
   `test-results/black-bird-evidence/`.
 - `npm run test:docs` — this file and the changelog entry exist and mention
   the required candidate-bound terms.
-- `npm run test:full` — runs all of the above in sequence. Current count:
-  42 checks across 10 suites, run twice consecutively (clean both times)
-  after every commit on this branch.
+- `npm run test:full` — runs the legacy released-behavior suites above in
+  sequence (`test:legacy` through `test:docs`); does not include
+  `test:unit`/`test:e2e`/`test:a11y`/`test:cross-browser`/`test:coverage`
+  from the architecture harness, which are run separately (all of the
+  above, run individually, are clean; see `.bb-control/CONFLICT.json` for
+  the one standing, disclosed `test:legacy` exception while the Claude
+  Code control-plane overlay is active in a development session).
 
 ## What changed, mechanically (T00–T05)
 
@@ -124,40 +147,87 @@ independently of the still-live application:
   open and returns to the invoker on close, `aria-modal="true"` asserted
   only because the background is actually inert while it's set).
 
+## What changed, mechanically (T06–T31)
+
+- **Extracted, independently-tested architecture (T06–T22), deliberately
+  not yet swapped in.** The 34-module layered tree under `src/state/`,
+  `src/domain/`, `src/layout/`, `src/application/`, `src/presentation/`,
+  `src/controllers/`, `src/accessibility/` (dispatcher, pure reducer,
+  transaction controller, timer registry, every domain selector, camera,
+  the real cost-scored eight-candidate label solver, every renderer, every
+  controller) is real, complete, and covered by the 121 `test:unit` cases
+  plus dedicated fixtures read from `tests/contracts/*.json`. It is proven
+  correct in isolation, not yet the live code path: `scripts/build.mjs`
+  inlines only `src/app.js` (plus canonical `DATA`) into `index.html` --
+  `src/app.js` has zero imports from the layered tree. This was the
+  decided strategy for this round (see
+  `BLACK_BIRD_DECISIONS_CHANGELOG.md`'s 2026-08-04 entry): prove every new
+  module correct before risking a live-behavior change, and change
+  `src/app.js` itself only for specific, disclosed, evidence-bound
+  defects -- not a partial or accidental integration. A full swap-in is a
+  distinct, higher-risk future round, out of this one's scope.
+- **Real, targeted live-app fixes landed directly in `src/app.js` /
+  `src/index.template.html`** where a genuine defect was found: the
+  `.sheet` pointer-events bug that let a closed mobile sheet intercept
+  desktop clicks; destructive Route-history truncation removed; the
+  Playwright click helper's forced-click fallback retired once real
+  gesture arbitration made it provably unnecessary (verified: zero
+  remaining forced-click options anywhere in `tests/bb-helpers.cjs`,
+  confirmed by the shared `source_policy_gate.py` scanner passing clean);
+  `#graphSvg`'s landmark role corrected from `img` to `group` (an image
+  landmark should not contain focusable descendants; its roving-tabindex
+  node children are real controls); the three drawer dialogs
+  (`fieldViewDrawer`, `objectDrawer`, `routeDrawer`) now carry
+  `aria-labelledby` pointing at their existing visible heading text
+  (`aboutPanel` already had its own `aria-label`).
+- **Accessibility, coverage, and CI completed (T27–T31):** contract-driven
+  test fixtures; generated `COV-CRITICAL-TRIPLES`/`COV-ORDERED-ACTION-PAIRS`
+  scenario coverage (115/115 product scenarios accounted for, 75 covered +
+  40 explicitly-reasoned gaps, zero silent exclusions); real axe-core
+  scanning at five app states; a dedicated `Final Candidate Gate` CI
+  workflow that regenerates and gates evidence on every push.
+
 ## Known limits
 
-- **Label placement uses 4 candidates, not the full 8, and first-valid
-  rather than cost-minimizing selection.** `recomputeLabelPlacements()`
-  (spec §4.6) tries below/above/right/left (not the four diagonals too)
-  and accepts the first collision-free candidate rather than scoring all
-  valid candidates and picking the cheapest. In the densest canonical RelO
-  cluster this leaves a small, timing-dependent number of residual overlaps
-  (observed 1-2 across repeated runs) — bounded and asserted by
-  `tests/black-bird-world-camera.spec.js`, not a full "zero overlaps
-  everywhere" guarantee. Ordinary (non-densest) clusters are collision-free.
-- **Tooltip lifecycle/ARIA association (spec §4.13) not yet repaired.**
-  `#microPreview` remains the sole transient desktop tooltip, but its
-  collision positioning, `aria-describedby` association, and "never opens
-  for the already-active object" guarantees have not been independently
-  re-verified against the spec in this round.
-- **Target-size (24×24 CSS px) audit and a full reduced-motion pass across
-  every JS/CSS motion path** have not been independently swept; individual
-  new motion paths added in T04/T05 (penumbra, afterglow, clearing blur,
-  modal transitions) do honor `prefers-reduced-motion`, but no systematic
-  audit of the whole surface has been done.
-- **No motion (video) evidence yet.** The five required 8–15s motion
-  recordings from spec §7 have not been captured; only static screenshots
-  and geometry/state dumps exist so far (see the evidence package attached
-  to the PR).
+- **Label placement: 8 candidates, first-valid rather than
+  cost-minimizing selection, in the live app.** `recomputeLabelPlacements()`
+  in `src/app.js` (spec §4.6) does try all 8 directions (four
+  orthogonal + four diagonal), but accepts the first collision-free
+  candidate rather than scoring all valid candidates and picking the
+  cheapest (`src/layout/label-solver.js`, in the not-yet-integrated
+  layered tree, does implement true cost-scoring). In the densest
+  canonical RelO cluster this leaves a small, timing-dependent number of
+  residual overlaps (observed 1-2 across repeated runs) — bounded and
+  asserted by `tests/black-bird-world-camera.spec.js`, not a full "zero
+  overlaps everywhere" guarantee. Ordinary (non-densest) clusters are
+  collision-free.
+- **One real, intermittent WCAG AA color-contrast finding**, disclosed
+  above, in the a11y bullet, and in `.bb-control/CONFLICT.json` — an
+  artistic-recession-effect question for human review, not silently
+  patched.
+- **Cross-browser Firefox/WebKit** verified only on Chromium in every
+  sandboxed session run so far, for the environment reasons described
+  above; the same spec runs unmodified wherever those binaries are
+  present.
+- **This session's own direct GitHub API / `gh` CLI access is blocked**
+  at the session level (confirmed by installing `gh` and reproducing an
+  explicit 403), independent of anything in this repository; see
+  `.bb-control/BLOCKER.json`. All real CI (`Verify`,
+  `Black Bird Candidate Validation`, `Final Candidate Gate`) is green at
+  the frozen candidate SHA regardless, verified via the GitHub MCP tools
+  this session does have working access through.
 
 ## Candidate-bound review
 
-A 22-scenario static evidence package (screenshots + geometry/state JSON
-per scenario, `evidence-manifest.json`, `EVIDENCE-NOTES.md`) was generated
-fresh from candidate commit `1ac66d0813b26896893b48c4fd0d351b71414e64` and
-delivered alongside the PR; it is not committed to the repository. Zero
-NaN/Infinity SVG geometry was observed across any of the 22 captures.
-Motion evidence is a disclosed gap (see EVIDENCE-NOTES.md and "Known
-limits" above). Acceptance is GPT-or-user only; this candidate does not
-self-attest `SUBJECTIVE_ACCEPTED` or `RELEASE_AUTHORIZED`, and the PR
-remains a draft.
+Real, candidate-bound evidence (per-scenario screenshots composited into
+contact sheets, 8–20s motion recordings, state/event/geometry/design/
+accessibility/coverage-report/build-manifest machine artifacts) is
+generated fresh from the exact frozen candidate SHA by
+`npm run evidence:generate`, gated locally by
+`.bb-authority/scripts/candidate_gate.py` and in CI by the dedicated
+`Final Candidate Gate` workflow, and delivered as a ZIP alongside the PR
+(gitignored, not committed to the tree). Zero NaN/Infinity SVG geometry
+has been observed across any capture. `candidate-evidence/human-review.json`
+leaves all 10 review dimensions `pending_user_review` — no agent
+self-attests artistic acceptance. This candidate does not self-attest
+`SUBJECTIVE_ACCEPTED` or `RELEASE_AUTHORIZED`, and the PR remains a draft.
