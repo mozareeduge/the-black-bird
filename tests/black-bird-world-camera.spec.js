@@ -6,16 +6,16 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
     await page.setViewportSize({ width: 1440, height: 960 });
     await gotoField(page);
     const wide = await page.evaluate(() => ({
-      quran: clusterCenter('quran'),
-      norse: clusterCenter('norse'),
-      central: clusterCenter('central'),
+      quran: window.__bbTest.clusterCenter('quran'),
+      norse: window.__bbTest.clusterCenter('norse'),
+      central: window.__bbTest.clusterCenter('central'),
     }));
     await page.setViewportSize({ width: 390, height: 844 });
     await page.waitForTimeout(200);
     const narrow = await page.evaluate(() => ({
-      quran: clusterCenter('quran'),
-      norse: clusterCenter('norse'),
-      central: clusterCenter('central'),
+      quran: window.__bbTest.clusterCenter('quran'),
+      norse: window.__bbTest.clusterCenter('norse'),
+      central: window.__bbTest.clusterCenter('central'),
     }));
     expect(narrow).toEqual(wide);
   });
@@ -25,13 +25,13 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
     await gotoField(page);
     await page.waitForTimeout(400); // allow initial settle so homeX/homeY are captured
     const before = await page.evaluate(() => {
-      const n = byId['FO.CORPSE'];
+      const n = window.__bbTest.byId['FO.CORPSE'];
       return { x: Math.round(n.homeX), y: Math.round(n.homeY) };
     });
     await clickNode(page, 'FO.CORPSE');
     await page.waitForTimeout(300);
     const after = await page.evaluate(() => {
-      const n = byId['FO.CORPSE'];
+      const n = window.__bbTest.byId['FO.CORPSE'];
       return { x: Math.round(n.homeX), y: Math.round(n.homeY) };
     });
     expect(after).toEqual(before);
@@ -57,9 +57,9 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
       await clickNode(page, 'FO.CORPSE');
       await page.waitForTimeout(700);
       const result = await page.evaluate(() => {
-        const safe = computeFieldSafeRect();
+        const safe = window.__bbTest.computeFieldSafeRect();
         const t = window.__bbState.transform;
-        const n = byId['FO.CORPSE'];
+        const n = window.__bbTest.byId['FO.CORPSE'];
         const sx = t.x + n.x * t.k,
           sy = t.y + n.y * t.k;
         const nodeInside =
@@ -107,12 +107,12 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
   test('neutral whole-field occupancy is within 0.72-0.88 of the limiting safe dimension at 1440x960', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 960 });
     await gotoField(page);
-    await page.evaluate(() => returnToField({ source: 'test' }));
+    await page.evaluate(() => window.__bbTest.returnToField({ source: 'test' }));
     await page.waitForTimeout(1000);
     const ratio = await page.evaluate(() => {
-      const safe = computeFieldSafeRect();
-      const visible = simNodes.filter((d) => nodeVisible(d.id));
-      const envelope = getNodeBounds(visible, isMobile() ? 30 : 40);
+      const safe = window.__bbTest.computeFieldSafeRect();
+      const visible = window.__bbTest.simNodes.filter((d) => window.__bbTest.nodeVisible(d.id));
+      const envelope = window.__bbTest.getNodeBounds(visible, window.__bbTest.isMobile() ? 30 : 40);
       const t = window.__bbState.transform;
       const rx = (envelope.width * t.k) / safe.width;
       const ry = (envelope.height * t.k) / safe.height;
@@ -128,9 +128,9 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
     await clickNode(page, 'FO.CORPSE');
     await page.waitForTimeout(700);
     const ratio = await page.evaluate(() => {
-      const safe = computeFieldSafeRect();
-      const focus = buildFocusSet('FO.CORPSE');
-      const envelope = computeNodeEnvelope(focus.ids, 44);
+      const safe = window.__bbTest.computeFieldSafeRect();
+      const focus = window.__bbTest.buildFocusSet('FO.CORPSE');
+      const envelope = window.__bbTest.computeNodeEnvelope(focus.ids, 44);
       const t = window.__bbState.transform;
       const rx = (envelope.width * t.k) / safe.width;
       const ry = (envelope.height * t.k) / safe.height;

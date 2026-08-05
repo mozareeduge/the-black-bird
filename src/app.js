@@ -1,9 +1,16 @@
+// ── Production module imports (F02) ─────────────────────────────────────────
+// src/app.js is the composition/bootstrap root: it imports the independently
+// tested layered modules as its geometry authority rather than reimplementing
+// them. scripts/build.mjs bundles this file (and everything it imports) with
+// esbuild into one deterministic, backend-free <script>.
+import { AUTHORED_HOMES, WORLD as AUTHORED_WORLD } from './layout/authored-world.js';
+import { computeFocusTargets } from './layout/focus-targets.js';
+import { computeSafeRect, computeNeutralCamera, computeFocusCamera } from './layout/camera.js';
+
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 // Canonical, independently testable implementation: src/bootstrap.js and
 // src/presentation/bootstrap-renderer.js. Reimplemented inline here (not
-// imported) because scripts/build.mjs concatenates this file into a single
-// non-module <script>; those two files are the real modules pending build
-// support for actual ES module bundling.
+// imported) pending further migration of the bootstrap-failure rendering path.
 const BB_UI_COPY = {
   bootstrapUnavailableTitle: "The field could not be opened",
   bootstrapUnavailableBody:
@@ -67,9 +74,11 @@ if (!bbBootstrap.ok) {
   throw new Error("BB_BOOTSTRAP_FAILED:" + bbBootstrap.reason);
 }
 // ── Stable graph world (viewport-independent) ───────────────────────────────
-// The poem has one spatial world. Desktop/mobile/Reader-open camera framing
-// changes; the force topology underneath never does.
-const WORLD = Object.freeze({ width: 1000, height: 760, cx: 500, cy: 380 });
+// The poem has one spatial world, sourced from the authored contract
+// (src/layout/authored-world.js / src/data/world-layout.json) — not a
+// locally re-typed literal. Desktop/mobile/Reader-open camera framing
+// changes; the authored topology underneath never does.
+const WORLD = AUTHORED_WORLD;
 const WORLD_CLUSTER_CENTERS = Object.freeze({
   central: [500, 360],
   quran: [225, 225],
@@ -294,7 +303,7 @@ window.__bbDesign = {
     return this.snapshot();
   },
   simAlpha() {
-    return sim.alpha();
+    return positioningActive ? 0.2 : 0;
   },
   fieldFitted() {
     return fitted;
@@ -361,13 +370,13 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 function measureGraph() {
-  // Camera-pane geometry only (4.1) — the simulation's world center and
-  // cluster centers are fixed and never redefined here.
+  // Camera-pane geometry only (4.1) — authored world topology never changes
+  // on resize; only the camera projection (viewBox/safe-rect) does.
   width = mapWrap.clientWidth;
   height = mapWrap.clientHeight;
   if (width < 10 || height < 10) return;
   svg.attr("viewBox", `0 0 ${width} ${height}`);
-  sim.alpha(0.08).restart();
+  updateGraphGeometry();
 }
 async function setReaderOpen(open, opts = {}) {
   S.readerOpen = open;
@@ -439,6 +448,25 @@ baseEdgesRaw.forEach((e) => {
   if (baseAdj[e.source] && baseAdj[e.target]) {
     baseAdj[e.source].add(e.target);
     baseAdj[e.target].add(e.source);
+  }
+});
+// Canonical DATA order — the same tie-break convention already used by
+// resolveNearestVisibleNode's "canonical DATA order (simNodes iteration
+// order)" fallback; computeFocusTargets uses it to break angle ties.
+const nodeCanonicalIndex = new Map(nodes.map((n, i) => [n.id, i]));
+// RelOs containing each id as a participant (F04 focus-target context).
+const containingRelOsIndex = new Map(nodes.map((n) => [n.id, []]));
+Object.entries(DATA.relations).forEach(([rid, parts]) => {
+  parts.forEach((pid) => {
+    if (containingRelOsIndex.has(pid)) containingRelOsIndex.get(pid).push(rid);
+  });
+});
+// Projected-edge partners per id (F04 focus-target context, lowest tier).
+const projectedAdj = new Map(nodes.map((n) => [n.id, new Set()]));
+projectedRaw.forEach((e) => {
+  if (projectedAdj.has(e.source) && projectedAdj.has(e.target)) {
+    projectedAdj.get(e.source).add(e.target);
+    projectedAdj.get(e.target).add(e.source);
   }
 });
 
@@ -605,76 +633,22 @@ function updateGraphGeometry() {
 }
 // ── Focus force: a constrained local opening in real simulation coordinates ─
 // (4.2). Up to 14 focus-set nodes are pulled onto two rings around the
-// active core, preserving their original polar angle; every other node is
-// pulled weakly toward its captured home position. This is the sole
-// authority for focus-driven node displacement — there is no render-only
-// offset layer. All rendered bodies, labels, clearing geometry, pointer
-// targeting, and camera bounds read d.x/d.y directly.
-let focusTargets = null; // { coreId, targets: Map<id, {x,y}> } | null
-let homeCaptured = false;
-let focusHeatTimer = null;
-function captureHomePositions() {
-  simNodes.forEach((d) => {
-    if (d.homeX == null) d.homeX = d.x;
-    if (d.homeY == null) d.homeY = d.y;
-  });
-}
-function rankFocusCandidates(focus) {
-  const core = byId[focus.coreId];
-  if (!core) return [];
-  const canonicalParticipants = new Set(
-    core.type === "RelO" ? DATA.relations[focus.coreId] || [] : [],
-  );
-  const baseNeighbors = baseAdj[focus.coreId] || new Set();
-  const tiers = [[], [], [], []];
-  focus.neighborIds.forEach((id) => {
-    const n = byId[id];
-    if (!n || !nodeVisible(id) || n.x == null || n.y == null) return;
-    if (canonicalParticipants.has(id)) tiers[0].push(id);
-    else if (baseNeighbors.has(id)) tiers[1].push(id);
-    else if (n.type === "RNO" || n.type === "MNO") tiers[2].push(id);
-    else tiers[3].push(id);
-  });
-  tiers[3].sort((a, b) => {
-    const da = Math.hypot(byId[a].x - core.x, byId[a].y - core.y);
-    const db = Math.hypot(byId[b].x - core.x, byId[b].y - core.y);
-    return da - db;
-  });
-  return [...tiers[0], ...tiers[1], ...tiers[2], ...tiers[3]].slice(0, 14);
-}
-function heatFocusForce() {
-  clearTimeout(focusHeatTimer);
-  if (prefersReducedMotion()) {
-    sim.alpha(Math.max(sim.alpha(), 0.05)).restart();
-    return;
-  }
-  sim.alphaTarget(0.16).restart();
-  focusHeatTimer = setTimeout(() => sim.alphaTarget(0), 420);
-}
+// active core via computeFocusTargets' deterministic, cost-free rotation
+// search (src/layout/focus-targets.js) — the sole authority for focus-driven
+// node displacement. There is no render-only offset layer: all rendered
+// bodies, labels, clearing geometry, pointer targeting, and camera bounds
+// read d.x/d.y directly.
 function clearLocalAperture() {
-  focusTargets = null;
-  heatFocusForce();
-  updateGraphGeometry();
+  retargetPositions(computeFocusTargets(null, focusContext()));
 }
 function applyLocalAperture(focus) {
-  const core = focus && focus.coreId ? byId[focus.coreId] : null;
-  if (!core || core.x == null || core.y == null) {
-    focusTargets = null;
-    heatFocusForce();
-    updateGraphGeometry();
+  const coreId = focus && focus.coreId;
+  const core = coreId ? byId[coreId] : null;
+  if (!core || !AUTHORED_HOMES[coreId]) {
+    clearLocalAperture();
     return;
   }
-  const chosenIds = rankFocusCandidates(focus);
-  const targets = new Map();
-  chosenIds.forEach((id, i) => {
-    const d = byId[id];
-    const r = i < 8 ? 74 : 112;
-    const angle = Math.atan2(d.y - core.y, d.x - core.x);
-    targets.set(id, { x: core.x + Math.cos(angle) * r, y: core.y + Math.sin(angle) * r });
-  });
-  focusTargets = { coreId: focus.coreId, targets };
-  heatFocusForce();
-  updateGraphGeometry();
+  retargetPositions(computeFocusTargets(coreId, focusContext()));
 }
 
 // World coordinates only — never derived from viewport/pane size. Camera
@@ -937,67 +911,81 @@ function nodeShape(g, d) {
 const simNodes = nodes;
 const baseLinks = baseEdgesRaw.map((e) => ({ ...e }));
 const projectedLinks = projectedRaw.map((e) => ({ ...e }));
-const allForceLinks = [...baseLinks, ...projectedLinks.map((e) => ({ ...e, forceOnly: true }))];
 
-const sim = d3
-  .forceSimulation(simNodes)
-  .randomSource(seededUnit("bb-world-simulation"))
-  .force(
-    "link",
-    d3
-      .forceLink(allForceLinks)
-      .id((d) => d.id)
-      .distance((d) => (d.kind === "projected" ? 42 : 34))
-      .strength((d) => (d.kind === "projected" ? 0.08 : 0.42)),
-  )
-  .force(
-    "charge",
-    d3
-      .forceManyBody()
-      .strength((d) =>
-        d.id === "FO.BLACK_BIRD_FIELD"
-          ? -380
-          : d.type === "RelO"
-            ? -18
-            : d.type === "RefO"
-              ? -35
-              : -95,
-      ),
-  )
-  .force(
-    "collide",
-    d3
-      .forceCollide()
-      .radius((d) => nodeMetrics(d).collideR)
-      .strength(1)
-      .iterations(3),
-  )
-  .force("cluster", (alpha) => {
+// ── Authored world positions: the sole geometry authority (F04) ────────────
+// No runtime physics simulation, no public node dragging (removed: the
+// former d3.forceSimulation with link/charge/collide/cluster/center/focus
+// forces, and the d3.drag() call on nodeSel). Every node starts at its fixed
+// authored home from src/layout/authored-world.js; a focus change retargets
+// the affected subset via computeFocusTargets' deterministic ring geometry
+// (src/layout/focus-targets.js). Motion between positions is a plain
+// interpolated tween driven by d3.timer (an animation scheduler, not a
+// physics integrator), instant under prefers-reduced-motion.
+simNodes.forEach((d) => {
+  const home = AUTHORED_HOMES[d.id];
+  d.homeX = home ? home.x : WORLD.cx;
+  d.homeY = home ? home.y : WORLD.cy;
+  d.x = d.homeX;
+  d.y = d.homeY;
+});
+
+let positionTimer = null;
+let positioningActive = false;
+
+// Everything computeFocusTargets needs to know about the graph shape; the
+// module itself owns only ring geometry, not what "canonical participant"
+// or "structural neighbor" means (see its own header comment).
+function focusContext() {
+  return {
+    homeFor: (id) => AUTHORED_HOMES[id] || null,
+    allIds: nodes.map((n) => n.id),
+    nodeType: (id) => byId[id]?.type,
+    canonicalIndexOf: (id) => nodeCanonicalIndex.get(id) ?? 0,
+    canonicalParticipantsOf: (id) => DATA.relations[id] || [],
+    baseEdgeNeighborsOf: (id) => [...(baseAdj[id] || [])],
+    containingRelOsOf: (id) => containingRelOsIndex.get(id) || [],
+    projectedNeighborsOf: (id) => [...(projectedAdj.get(id) || [])],
+  };
+}
+
+// Retargets every node toward targetMap's positions with one deterministic
+// tween (or instantly under reduced motion / duration:0), calling
+// updateGraphGeometry() each frame so the DOM stays in sync.
+function retargetPositions(targetMap, opts = {}) {
+  if (positionTimer) positionTimer.stop();
+  const duration = prefersReducedMotion() ? 0 : (opts.duration ?? 420);
+  if (duration === 0) {
     simNodes.forEach((d) => {
-      const [cx, cy] = clusterCenter(d.cluster);
-      d.vx += (cx - d.x) * 0.035 * alpha;
-      d.vy += (cy - d.y) * 0.035 * alpha;
-    });
-  })
-  // World center is fixed and viewport-independent — never reassigned on
-  // resize/reader-open/Field-Read switch (4.1).
-  .force("center", d3.forceCenter(WORLD.cx, WORLD.cy))
-  // Constrained local opening (4.2): pulls the chosen focus-set nodes onto
-  // two rings around the active core; pulls every other node weakly toward
-  // its captured home position. No-op (home-restore only) when neutral.
-  .force("focus", (alpha) => {
-    const targets = focusTargets && focusTargets.targets;
-    simNodes.forEach((d) => {
-      const t = targets && targets.get(d.id);
+      const t = targetMap.get(d.id);
       if (t) {
-        d.vx += (t.x - d.x) * 0.18 * alpha;
-        d.vy += (t.y - d.y) * 0.18 * alpha;
-      } else if (d.homeX != null) {
-        d.vx += (d.homeX - d.x) * 0.035 * alpha;
-        d.vy += (d.homeY - d.y) * 0.035 * alpha;
+        d.x = t.x;
+        d.y = t.y;
       }
     });
+    positioningActive = false;
+    updateGraphGeometry();
+    return;
+  }
+  const startPositions = new Map(simNodes.map((d) => [d.id, { x: d.x, y: d.y }]));
+  const ease = d3.easeCubicInOut;
+  positioningActive = true;
+  positionTimer = d3.timer((elapsed) => {
+    const t = Math.min(1, elapsed / duration);
+    const e = ease(t);
+    simNodes.forEach((d) => {
+      const target = targetMap.get(d.id);
+      const start = startPositions.get(d.id);
+      if (!target || !start) return;
+      d.x = start.x + (target.x - start.x) * e;
+      d.y = start.y + (target.y - start.y) * e;
+    });
+    updateGraphGeometry();
+    if (t >= 1) {
+      positioningActive = false;
+      positionTimer.stop();
+    }
   });
+}
 
 let baseSel = baseLayer
   .selectAll("line")
@@ -1035,25 +1023,9 @@ let nodeSel = nodeLayer
   .selectAll("g.node")
   .data(simNodes)
   .join("g")
-  .attr("class", (d) => "node " + d.type)
-  .call(
-    d3
-      .drag()
-      .on("start", (ev, d) => {
-        if (!ev.active) sim.alphaTarget(0.25).restart();
-        d.fx = d.x;
-        d.fy = d.y;
-      })
-      .on("drag", (ev, d) => {
-        d.fx = ev.x;
-        d.fy = ev.y;
-      })
-      .on("end", (ev, d) => {
-        if (!ev.active) sim.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
-      }),
-  );
+  .attr("class", (d) => "node " + d.type);
+// No d3.drag() here (F04): canonical node positions are fixed authored data,
+// not publicly draggable state.
 nodeSel.each(function (d) {
   nodeShape(d3.select(this), d);
 });
@@ -1169,16 +1141,9 @@ projHitSel
     openProjectedEdge(d);
   });
 
-sim.on("tick", () => {
-  updateGraphGeometry();
-  // Capture each node's settled position once, on initial settlement only
-  // (4.1) — this is the home the weak restoring force in the "focus" force
-  // pulls toward whenever a node isn't part of the active local aperture.
-  if (!homeCaptured && sim.alpha() < 0.03) {
-    captureHomePositions();
-    homeCaptured = true;
-  }
-});
+// Initial render: authored positions are already assigned above, so a
+// single geometry pass (not a settling simulation) draws the starting Field.
+updateGraphGeometry();
 
 // ── Label candidate placement (4.6): collision-rejection pass ──────────────
 // Deliberately not run on every zoom tick — only at the trigger points spec
@@ -1343,7 +1308,8 @@ function recomputeLabelPlacements() {
 }
 
 // ── Resize ─────────────────────────────────────────────────────────────────
-let simInitialized = false;
+// Viewport changes reproject the camera only; authored topology (d.x/d.y)
+// never changes here (F04) — there is no longer a simulation to (re)start.
 function resize() {
   S.viewport = isMobile() ? "mobile" : "desktop";
   updatePhaseClass();
@@ -1352,15 +1318,10 @@ function resize() {
     return;
   }
   measureGraph();
-  if (!simInitialized) {
-    sim.alpha(0.45).restart();
-    simInitialized = true;
-  } else {
-    if (S.activeId) {
-      applyLocalAperture(buildFocusSet(S.activeId));
-      fitFocusFrame(buildFocusSet(S.activeId), { duration: 0 });
-    } else fitVisibleField({ duration: 0 });
-  }
+  if (S.activeId) {
+    applyLocalAperture(buildFocusSet(S.activeId));
+    fitFocusFrame(buildFocusSet(S.activeId), { duration: 0 });
+  } else fitVisibleField({ duration: 0 });
   recomputeLabelPlacements();
 }
 window.addEventListener("resize", () => {
@@ -1558,9 +1519,9 @@ function getNodeBounds(items, padNode = 34) {
 }
 // ── Safe rectangle & camera (4.4) ───────────────────────────────────────────
 // Pane-relative geometry only — always mapWrap.clientWidth/clientHeight,
-// never window.innerWidth/innerHeight.
-const CAMERA_SCALE_MIN = 0.55,
-  CAMERA_SCALE_MAX = 2.4;
+// never window.innerWidth/innerHeight. The actual fit/pan/refit decisions
+// are src/layout/camera.js's pure functions (F04); this file only supplies
+// pane-relative inputs and applies the returned transform via d3.zoom.
 function computeFieldSafeRect() {
   const mobile = isMobile();
   const marginX = mobile ? 16 : 24;
@@ -1572,15 +1533,19 @@ function computeFieldSafeRect() {
     titleBottom = titleEl.getBoundingClientRect().bottom - wrapRect.top;
   }
   const top = mobile ? Math.max(62, titleBottom + 12) : Math.max(72, titleBottom + 16);
-  const right = Math.max(marginX + 1, width - marginX);
-  const bottom = Math.max(top + 1, height - marginBottom);
+  const safe = computeSafeRect(
+    { x: 0, y: 0, width, height },
+    { top, right: marginX, bottom: marginBottom, left: marginX },
+  );
+  // Callers expect the pre-existing {left, top, right, bottom, width, height}
+  // shape (including Playwright specs reading it directly via page.evaluate).
   return {
-    left: marginX,
-    top,
-    right,
-    bottom,
-    width: Math.max(1, right - marginX),
-    height: Math.max(1, bottom - top),
+    left: safe.x,
+    top: safe.y,
+    right: safe.x + safe.width,
+    bottom: safe.y + safe.height,
+    width: safe.width,
+    height: safe.height,
   };
 }
 function computeNodeEnvelope(ids, padNode) {
@@ -1590,73 +1555,18 @@ function computeNodeEnvelope(ids, padNode) {
   if (!items.length) return null;
   return getNodeBounds(items, padNode ?? (isMobile() ? 30 : 40));
 }
-function kForOccupancy(envelope, safe, ratio) {
-  const limiting = Math.max(envelope.width / safe.width, envelope.height / safe.height) || 1;
-  return Math.max(CAMERA_SCALE_MIN, Math.min(CAMERA_SCALE_MAX, ratio / limiting));
+// The active-Reader vertical lift is a presentation nuance camera.js's pure
+// occupancy math doesn't know about; applied here by shifting the safe
+// rect's effective center before handing it to the pure fit functions.
+function liftedSafeRect(safe, lift) {
+  if (!lift) return { x: safe.left, y: safe.top, width: safe.width, height: safe.height };
+  return { x: safe.left, y: safe.top - lift * safe.height, width: safe.width, height: safe.height };
 }
-function safeRectCenter(safe, opts = {}) {
-  const lift = opts.liftForReader && S.readerOpen && !isMobile() ? 0.04 : 0;
-  return {
-    x: (safe.left + safe.right) / 2,
-    y: (safe.top + safe.bottom) / 2 - lift * safe.height,
-  };
+function toZoomTransform(t) {
+  return d3.zoomIdentity.translate(t.x, t.y).scale(t.k);
 }
-function envelopeOutsideFraction(envelope, safe, transform) {
-  const x1 = transform.applyX(envelope.minX),
-    x2 = transform.applyX(envelope.maxX);
-  const y1 = transform.applyY(envelope.minY),
-    y2 = transform.applyY(envelope.maxY);
-  const ex1 = Math.min(x1, x2),
-    ex2 = Math.max(x1, x2);
-  const ey1 = Math.min(y1, y2),
-    ey2 = Math.max(y1, y2);
-  const areaTotal = Math.max(1, (ex2 - ex1) * (ey2 - ey1));
-  const ix1 = Math.max(ex1, safe.left),
-    ix2 = Math.min(ex2, safe.right);
-  const iy1 = Math.max(ey1, safe.top),
-    iy2 = Math.min(ey2, safe.bottom);
-  const areaInside = Math.max(0, ix2 - ix1) * Math.max(0, iy2 - iy1);
-  return 1 - areaInside / areaTotal;
-}
-function minimalPanForEnvelope(envelope, safe, transform, margin = 12) {
-  const k = transform.k;
-  let dx = 0,
-    dy = 0;
-  const sx1 = transform.x + envelope.minX * k,
-    sx2 = transform.x + envelope.maxX * k;
-  const sy1 = transform.y + envelope.minY * k,
-    sy2 = transform.y + envelope.maxY * k;
-  if (sx1 < safe.left + margin) dx = safe.left + margin - sx1;
-  else if (sx2 > safe.right - margin) dx = safe.right - margin - sx2;
-  if (sy1 < safe.top + margin) dy = safe.top + margin - sy1;
-  else if (sy2 > safe.bottom - margin) dy = safe.bottom - margin - sy2;
-  return d3.zoomIdentity.translate(transform.x + dx, transform.y + dy).scale(k);
-}
-function fitEnvelopeToOccupancy(envelope, safe, ratio, opts = {}) {
-  const k = kForOccupancy(envelope, safe, ratio);
-  const center = safeRectCenter(safe, { liftForReader: true });
-  animateCamera(
-    d3.zoomIdentity.translate(center.x - k * envelope.cx, center.y - k * envelope.cy).scale(k),
-    { duration: opts.duration ?? 760 },
-  );
-}
-// Later selections: preserve zoom and pan minimally; only recompute scale
-// when more than 20% of the envelope has drifted outside the safe rect.
-function ensureEnvelopeVisible(envelope, opts = {}) {
-  if (!envelope) return;
-  const safe = computeFieldSafeRect();
-  const current = S.transform || d3.zoomIdentity;
-  const outside = envelopeOutsideFraction(envelope, safe, current);
-  if (outside > (opts.refitThreshold ?? 0.2)) {
-    fitEnvelopeToOccupancy(envelope, safe, opts.occupancy ?? 0.7, {
-      duration: opts.duration ?? 760,
-    });
-    return;
-  }
-  const t = minimalPanForEnvelope(envelope, safe, current);
-  if (Math.abs(t.x - current.x) > 0.5 || Math.abs(t.y - current.y) > 0.5) {
-    animateCamera(t, { duration: Math.min(opts.duration ?? 420, 420) });
-  }
+function envelopeToRect(envelope) {
+  return { x: envelope.minX, y: envelope.minY, width: envelope.width, height: envelope.height };
 }
 // Camera and focus-force motion must not compete: wait for the local
 // aperture to have mostly settled (or a short safety timeout) before the
@@ -1665,26 +1575,34 @@ async function waitFocusForceSettled(timeoutMs = 480) {
   if (prefersReducedMotion()) return;
   await nextFrame();
   const start = performance.now();
-  while (sim.alpha() >= 0.12 && performance.now() - start < timeoutMs) {
+  while (positioningActive && performance.now() - start < timeoutMs) {
     await nextFrame();
   }
 }
 function fitFocusFrame(focus, opts = {}) {
   const envelope = computeNodeEnvelope(focus.ids, isMobile() ? 30 : 44);
   if (!envelope || width < 10 || height < 10) return;
-  const safe = computeFieldSafeRect();
-  if (opts.fromNeutral) {
-    fitEnvelopeToOccupancy(envelope, safe, 0.7, { duration: opts.duration ?? 760 });
+  const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (S.readerOpen && !isMobile() ? 1 : 0));
+  const envRect = envelopeToRect(envelope);
+  const isFirstFocus = !!opts.fromNeutral;
+  const current = isFirstFocus ? null : toZoomTransform(S.transform || d3.zoomIdentity);
+  const transform = computeFocusCamera(envRect, safe, current, { occupancy: 0.7, isFirstFocus });
+  if (isFirstFocus) {
+    animateCamera(toZoomTransform(transform), { duration: opts.duration ?? 760 });
     return;
   }
-  ensureEnvelopeVisible(envelope, { duration: opts.duration ?? 760, occupancy: 0.7 });
+  const changed = Math.abs(transform.x - current.x) > 0.5 || Math.abs(transform.y - current.y) > 0.5 || Math.abs(transform.k - current.k) > 1e-6;
+  if (!changed) return;
+  const wasRefit = Math.abs(transform.k - current.k) > 1e-6;
+  animateCamera(toZoomTransform(transform), { duration: wasRefit ? (opts.duration ?? 760) : Math.min(opts.duration ?? 420, 420) });
 }
 function fitWholeField(opts = {}) {
   const visible = simNodes.filter((d) => nodeVisible(d.id));
   if (!visible.length || width < 10 || height < 10) return;
-  const safe = computeFieldSafeRect();
+  const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (S.readerOpen && !isMobile() ? 1 : 0));
   const envelope = getNodeBounds(visible, isMobile() ? 30 : 40);
-  fitEnvelopeToOccupancy(envelope, safe, 0.8, { duration: opts.duration ?? 850 });
+  const transform = computeNeutralCamera(envelopeToRect(envelope), safe, { occupancy: 0.8 });
+  animateCamera(toZoomTransform(transform), { duration: opts.duration ?? 850 });
 }
 function fitVisibleField(opts = {}) {
   return fitWholeField(opts);
@@ -3309,19 +3227,45 @@ updatePhaseClass();
 if (location.search.includes("enter=1")) setTimeout(() => enter(), 200);
 if (location.search.includes("skipIntro=1")) setTimeout(() => enter({ skipOnboarding: true }), 200);
 let fitted = false;
-sim.on("end", () => {
-  if (!fitted && !(isMobile() && S.surface === "read")) {
-    fitted = true;
-    fitVisibleField();
-  }
-  recomputeLabelPlacements();
-});
+// Authored positions are available synchronously (no simulation to settle
+// for), so the initial fit and label pass run immediately rather than
+// waiting on a settle event or a 5s safety-net fallback.
+if (!fitted && !(isMobile() && S.surface === "read")) {
+  fitted = true;
+  fitVisibleField();
+}
+recomputeLabelPlacements();
 if (typeof document.fonts !== "undefined") {
   document.fonts.ready.then(() => recomputeLabelPlacements()).catch(() => {});
 }
-setTimeout(() => {
-  if (!fitted && !(isMobile() && S.surface === "read")) {
-    fitted = true;
-    fitVisibleField();
-  }
-}, 5000);
+
+// ── Deliberately bounded test interface (F02) ───────────────────────────────
+// Bundling src/app.js scopes its ~150 top-level functions out of global
+// reach, which the Playwright suite previously relied on via bare
+// page.evaluate(() => someTopLevelFn()) calls. Rather than re-exposing
+// everything, this is a named, reviewed allowlist of exactly what the test
+// suite legitimately needs to reach — exposed only in ?bbtest=1 sessions,
+// never in a real visitor's page.
+if (new URLSearchParams(location.search).get("bbtest") === "1") {
+  window.__bbTest = {
+    buildFocusSet,
+    closeAllDrawers,
+    clusterCenter,
+    computeFieldSafeRect,
+    computeNodeEnvelope,
+    computeSoloSet,
+    getNodeBounds,
+    isMobile,
+    nodeVisible,
+    openDrawer,
+    openIndex,
+    returnToField,
+    homeFor: (id) => AUTHORED_HOMES[id] || null,
+    get simNodes() {
+      return simNodes;
+    },
+    get byId() {
+      return byId;
+    },
+  };
+}

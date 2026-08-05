@@ -61,7 +61,7 @@ test.describe('Accessibility contract (T05)', () => {
   test('View toggles expose aria-pressed', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoField(page);
-    await page.evaluate(() => openDrawer('fieldViewDrawer'));
+    await page.evaluate(() => window.__bbTest.openDrawer('fieldViewDrawer'));
     const pressed = await page.locator('[data-view="projected"]').getAttribute('aria-pressed');
     expect(pressed).toBe('true');
     await page.locator('[data-view="projected"]').click();

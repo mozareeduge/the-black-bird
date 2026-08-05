@@ -14,27 +14,20 @@ function extractCanonicalDataText(source) {
   return m[1];
 }
 
-// Real deterministic module bundling (F02, section 2.2/4): once src/app.js
-// imports from the layered src/state|domain|application|layout|controllers|
-// presentation|accessibility tree, esbuild resolves those imports into one
-// self-contained, backend-free artifact -- not string-concatenated as an
-// opaque flat script. Until that migration lands, src/app.js has zero
-// imports and declares its ~150 top-level functions as implicit globals
-// that the existing Playwright suite reaches via page.evaluate(() =>
-// someTopLevelFn()); bundling with an IIFE/ESM wrapper would scope those
-// away and silently break every one of those tests (confirmed: it did,
-// verified against the full suite, reverted here). bundle:false with no
-// format wrapper keeps current global-scope behavior byte-for-byte
-// equivalent while still running through the same esbuild pipeline, so the
-// transition to bundle:true (paired with an explicit window.* test-hook
-// migration) is a config change here, not a second build path.
+// Real deterministic module bundling (F02, section 2.2/4): src/app.js
+// imports the layered src/state|domain|application|layout|controllers|
+// presentation|accessibility tree, and esbuild resolves those imports into
+// one self-contained, backend-free IIFE -- not string-concatenated as an
+// opaque flat script. The IIFE wrapper scopes app.js's internals out of
+// global reach; tests that need to reach specific internals do so through
+// the deliberately bounded window.__bbTest interface (exposed only in
+// ?bbtest=1 sessions), never through accidental top-level globals.
 function bundleAppScript() {
-  const hasImports = /^\s*import\s/m.test(readFileSync(path.join(ROOT, 'src/app.js'), 'utf8'));
   const result = buildSync({
     entryPoints: [path.join(ROOT, 'src/app.js')],
-    bundle: hasImports,
+    bundle: true,
     write: false,
-    format: hasImports ? 'iife' : undefined,
+    format: 'iife',
     platform: 'browser',
     target: 'es2022',
     minify: false,

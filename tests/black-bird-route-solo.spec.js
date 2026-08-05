@@ -50,7 +50,7 @@ test.describe('Route/Solo state transaction contract (T01)', () => {
     await clickNode(page, 'FO.CORPSE');
     const before = await appState(page);
     await page.evaluate(() => {
-      openIndex('all');
+      window.__bbTest.openIndex('all');
     });
     await page.locator('[data-solo="FO.BURIAL"]').click();
     await page.waitForTimeout(200);
@@ -68,8 +68,8 @@ test.describe('Route/Solo state transaction contract (T01)', () => {
     await btn.click();
     await page.locator('#aboutClose').click();
     await page.evaluate(() => {
-      openDrawer('fieldViewDrawer');
-      closeAllDrawers();
+      window.__bbTest.openDrawer('fieldViewDrawer');
+      window.__bbTest.closeAllDrawers();
     });
     const after = await appState(page);
     expect(after.routeIds).toEqual(before.routeIds);
@@ -103,7 +103,7 @@ test.describe('Route/Solo state transaction contract (T01)', () => {
   test('computeSoloSet(RelO) equals the RelO plus its canonical participants', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoField(page);
-    const set = await page.evaluate(() => [...computeSoloSet('RelO.R4CB4A8D8')].sort());
+    const set = await page.evaluate(() => [...window.__bbTest.computeSoloSet('RelO.R4CB4A8D8')].sort());
     expect(set).toEqual(
       [
         'RelO.R4CB4A8D8',
@@ -121,7 +121,7 @@ test.describe('Route/Solo state transaction contract (T01)', () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoField(page);
     const result = await page.evaluate(() => {
-      const set = computeSoloSet('FO.CORPSE');
+      const set = window.__bbTest.computeSoloSet('FO.CORPSE');
       const relIds = Object.entries(DATA.relations)
         .filter(([, parts]) => parts.includes('FO.CORPSE'))
         .map(([rid]) => rid);
@@ -141,11 +141,11 @@ test.describe('Route/Solo state transaction contract (T01)', () => {
     await clickNode(page, 'FO.CORPSE');
     const before = await appState(page);
     await page.evaluate(() => {
-      openIndex('all');
+      window.__bbTest.openIndex('all');
     });
     await page.locator('[data-solo="RelO.R4CB4A8D8"]').click();
     await page.waitForTimeout(200);
-    await page.evaluate(() => openDrawer('fieldViewDrawer'));
+    await page.evaluate(() => window.__bbTest.openDrawer('fieldViewDrawer'));
     await page.locator('#restoreField').click();
     await page.waitForTimeout(200);
     const after = await appState(page);
