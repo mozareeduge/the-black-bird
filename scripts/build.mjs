@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { buildSync } from 'esbuild';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(here, '..');
@@ -13,15 +14,49 @@ function extractCanonicalDataText(source) {
   return m[1];
 }
 
+// Real deterministic module bundling (F02, section 2.2/4): once src/app.js
+// imports from the layered src/state|domain|application|layout|controllers|
+// presentation|accessibility tree, esbuild resolves those imports into one
+// self-contained, backend-free artifact -- not string-concatenated as an
+// opaque flat script. Until that migration lands, src/app.js has zero
+// imports and declares its ~150 top-level functions as implicit globals
+// that the existing Playwright suite reaches via page.evaluate(() =>
+// someTopLevelFn()); bundling with an IIFE/ESM wrapper would scope those
+// away and silently break every one of those tests (confirmed: it did,
+// verified against the full suite, reverted here). bundle:false with no
+// format wrapper keeps current global-scope behavior byte-for-byte
+// equivalent while still running through the same esbuild pipeline, so the
+// transition to bundle:true (paired with an explicit window.* test-hook
+// migration) is a config change here, not a second build path.
+function bundleAppScript() {
+  const hasImports = /^\s*import\s/m.test(readFileSync(path.join(ROOT, 'src/app.js'), 'utf8'));
+  const result = buildSync({
+    entryPoints: [path.join(ROOT, 'src/app.js')],
+    bundle: hasImports,
+    write: false,
+    format: hasImports ? 'iife' : undefined,
+    platform: 'browser',
+    target: 'es2022',
+    minify: false,
+    sourcemap: false,
+    legalComments: 'none',
+    logLevel: 'silent',
+  });
+  if (result.errors.length) {
+    throw new Error('esbuild failed to bundle src/app.js: ' + JSON.stringify(result.errors));
+  }
+  return result.outputFiles[0].text;
+}
+
 export function build() {
   const template = readFileSync(path.join(ROOT, 'src/index.template.html'), 'utf8');
   const dataModule = readFileSync(path.join(ROOT, 'src/data/canonical-data.js'), 'utf8');
-  const appJs = readFileSync(path.join(ROOT, 'src/app.js'), 'utf8');
   if (!template.includes(PLACEHOLDER)) {
     throw new Error('src/index.template.html is missing the app-script placeholder');
   }
   const dataText = extractCanonicalDataText(dataModule);
-  const scriptContent = `const DATA = ${dataText};\n${appJs}`;
+  const bundledAppJs = bundleAppScript();
+  const scriptContent = `const DATA = ${dataText};\n${bundledAppJs}`;
   return template.replace(PLACEHOLDER, scriptContent);
 }
 
