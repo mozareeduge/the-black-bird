@@ -1090,6 +1090,32 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return results;
   }
 
+  // src/layout/pointer-ownership.js
+  var MOUSE_PEN_RADIUS = 14;
+  var TOUCH_RADIUS = 18;
+  function rectContains(rect, point) {
+    if (!rect) return false;
+    return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height;
+  }
+  function resolvePointerOwner(point, candidates, opts = {}) {
+    const { modality = "mouse", focusMemberIds = /* @__PURE__ */ new Set() } = opts;
+    const radius = modality === "touch" ? TOUCH_RADIUS : MOUSE_PEN_RADIUS;
+    const inRange = candidates.filter((c) => c.visible !== false).map((c) => ({
+      ...c,
+      distance: Math.hypot(c.screenX - point.x, c.screenY - point.y),
+      contains: rectContains(c.bodyRect, point),
+      isFocusMember: focusMemberIds.has(c.id)
+    })).filter((c) => c.contains || c.distance <= radius);
+    if (inRange.length === 0) return null;
+    inRange.sort((a, b) => {
+      if (a.contains !== b.contains) return a.contains ? -1 : 1;
+      if (a.isFocusMember !== b.isFocusMember) return a.isFocusMember ? -1 : 1;
+      if (a.distance !== b.distance) return a.distance - b.distance;
+      return a.canonicalIndex - b.canonicalIndex;
+    });
+    return inRange[0].id;
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -1678,26 +1704,31 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
   }
   function resolveNearestVisibleNode(screenPoint, opts = {}) {
-    const radius = opts.radius ?? (opts.touch ? 18 : 14);
     const t = S.transform;
     const focusIds = opts.focusIds || null;
-    let best = null, bestDist = Infinity, bestContains = false, bestInFocus = false;
-    simNodes.forEach((d) => {
+    const point = { x: screenPoint[0], y: screenPoint[1] };
+    const candidates = [];
+    simNodes.forEach((d, i) => {
       if (!nodeVisible(d.id) || d.x == null || d.y == null) return;
       const sx = t.applyX(d.x), sy = t.applyY(d.y);
-      const dist = Math.hypot(sx - screenPoint[0], sy - screenPoint[1]);
-      if (dist > radius) return;
-      const contains = dist <= nodeMetrics(d).outerR * t.k;
-      const inFocus = !!(focusIds && focusIds.has(d.id));
-      const better = !best || contains && !bestContains || contains === bestContains && inFocus && !bestInFocus || contains === bestContains && inFocus === bestInFocus && dist < bestDist;
-      if (better) {
-        best = d;
-        bestDist = dist;
-        bestContains = contains;
-        bestInFocus = inFocus;
-      }
+      const r = nodeMetrics(d).outerR * t.k;
+      candidates.push({
+        id: d.id,
+        screenX: sx,
+        screenY: sy,
+        // Circumscribing square around the node's true circular/diamond body:
+        // resolvePointerOwner's contract takes a rectangle (T-REQ-021), and the
+        // radius-gated inRange filter below is what actually governs candidacy
+        // -- this only affects containment-tier tie-breaking at the margins.
+        bodyRect: { x: sx - r, y: sy - r, width: r * 2, height: r * 2 },
+        canonicalIndex: i
+      });
     });
-    return best;
+    const ownerId = resolvePointerOwner(point, candidates, {
+      modality: opts.touch ? "touch" : "mouse",
+      focusMemberIds: focusIds || /* @__PURE__ */ new Set()
+    });
+    return ownerId ? byId[ownerId] : null;
   }
   function visibleNodesList() {
     return simNodes.filter((d) => nodeVisible(d.id) && d.x != null && d.y != null);

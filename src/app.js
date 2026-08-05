@@ -7,6 +7,7 @@ import { AUTHORED_HOMES, WORLD as AUTHORED_WORLD } from './layout/authored-world
 import { computeFocusTargets } from './layout/focus-targets.js';
 import { computeSafeRect, computeNeutralCamera, computeFocusCamera } from './layout/camera.js';
 import { solveLabels } from './layout/label-solver.js';
+import { resolvePointerOwner } from './layout/pointer-ownership.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 // Canonical, independently testable implementation: src/bootstrap.js and
@@ -762,34 +763,32 @@ function nodeR(d) {
 // Ties: prefer the node whose visible body contains the pointer; then the
 // active focus set; then canonical DATA order (simNodes iteration order).
 function resolveNearestVisibleNode(screenPoint, opts = {}) {
-  const radius = opts.radius ?? (opts.touch ? 18 : 14);
   const t = S.transform;
   const focusIds = opts.focusIds || null;
-  let best = null,
-    bestDist = Infinity,
-    bestContains = false,
-    bestInFocus = false;
-  simNodes.forEach((d) => {
+  const point = { x: screenPoint[0], y: screenPoint[1] };
+  const candidates = [];
+  simNodes.forEach((d, i) => {
     if (!nodeVisible(d.id) || d.x == null || d.y == null) return;
     const sx = t.applyX(d.x),
       sy = t.applyY(d.y);
-    const dist = Math.hypot(sx - screenPoint[0], sy - screenPoint[1]);
-    if (dist > radius) return;
-    const contains = dist <= nodeMetrics(d).outerR * t.k;
-    const inFocus = !!(focusIds && focusIds.has(d.id));
-    const better =
-      !best ||
-      (contains && !bestContains) ||
-      (contains === bestContains && inFocus && !bestInFocus) ||
-      (contains === bestContains && inFocus === bestInFocus && dist < bestDist);
-    if (better) {
-      best = d;
-      bestDist = dist;
-      bestContains = contains;
-      bestInFocus = inFocus;
-    }
+    const r = nodeMetrics(d).outerR * t.k;
+    candidates.push({
+      id: d.id,
+      screenX: sx,
+      screenY: sy,
+      // Circumscribing square around the node's true circular/diamond body:
+      // resolvePointerOwner's contract takes a rectangle (T-REQ-021), and the
+      // radius-gated inRange filter below is what actually governs candidacy
+      // -- this only affects containment-tier tie-breaking at the margins.
+      bodyRect: { x: sx - r, y: sy - r, width: r * 2, height: r * 2 },
+      canonicalIndex: i,
+    });
   });
-  return best;
+  const ownerId = resolvePointerOwner(point, candidates, {
+    modality: opts.touch ? 'touch' : 'mouse',
+    focusMemberIds: focusIds || new Set(),
+  });
+  return ownerId ? byId[ownerId] : null;
 }
 // ── Roving tabindex + directional keyboard navigation (4.15, BB-R17) ───────
 function visibleNodesList() {
