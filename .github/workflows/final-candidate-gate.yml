@@ -1,0 +1,26 @@
+name: Final Candidate Gate
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions: {contents: read}
+jobs:
+  final-candidate-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run evidence:generate
+      - run: node scripts/ci-evidence-gate.mjs
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: black-bird-final-candidate-evidence-${{ github.sha }}
+          path: candidate-evidence/
+          if-no-files-found: error
+          retention-days: 14
