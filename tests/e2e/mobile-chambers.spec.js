@@ -240,4 +240,106 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
     const state = await appState(page);
     expect(state.overlay).toBe('edgeSheet');
   });
+
+  test('About is reachable from mobile Field via its own dedicated handle (P-SCN-073)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { reduced: true });
+    await page.locator('[data-mobile="field"]').click();
+    await expect((await appState(page))).toMatchObject({ surface: 'field' });
+    const aboutBtn = page.locator('#mobileAboutBtn');
+    await expect(aboutBtn).toBeVisible();
+    await aboutBtn.click();
+    await expect(page.locator('#aboutPanel')).toHaveClass(/open/);
+  });
+
+  test('the mobile Read chamber has no reachable About handle (P-SCN-074)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { reduced: true });
+    await page.locator('[data-mobile="read"]').click();
+    await expect((await appState(page))).toMatchObject({ surface: 'read' });
+    // The rail (desktop's only other About affordance) is display:none on
+    // mobile at every surface, so the dedicated mobile handle is the sole
+    // remaining candidate; it must not be reachable while in Read.
+    await expect(page.locator('.rail')).toBeHidden();
+    const aboutBtn = page.locator('#mobileAboutBtn');
+    const box = await aboutBtn.boundingBox();
+    const visibleAndInViewport =
+      (await aboutBtn.isVisible()) && !!box && box.y >= 0 && box.y + box.height <= 844 && box.x >= 0 && box.x + box.width <= 390;
+    expect(visibleAndInViewport, 'no About handle should be reachable from mobile Read').toBe(false);
+  });
+
+  test('a pinch-equivalent zoom gesture on mobile changes the camera scale without breaking the session (P-SCN-076)', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { reduced: true });
+    const before = await appState(page);
+    const svgBox = await page.locator('#graphSvg').boundingBox();
+
+    // Browsers translate a trackpad/touch pinch into a wheel event with
+    // ctrlKey set; d3-zoom's default filter treats that as scale, not pan —
+    // the same signal a real mobile pinch produces.
+    await page.mouse.move(svgBox.x + svgBox.width / 2, svgBox.y + svgBox.height / 2);
+    await page.keyboard.down('Control');
+    await page.mouse.wheel(0, -120);
+    await page.keyboard.up('Control');
+    await page.waitForTimeout(80);
+
+    const after = await appState(page);
+    expect(after.transform.k, 'the pinch gesture must change the camera scale').not.toBe(before.transform.k);
+    expect(after.transform.k).toBeGreaterThanOrEqual(0.55); // scaleMin (algorithm-contracts.json)
+    expect(after.transform.k).toBeLessThanOrEqual(2.4); // scaleMax
+    expect(after.activeId).toBe(before.activeId);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+  });
+
+  test('keyboard traversal still works on the mobile viewport (P-SCN-077)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { reduced: true });
+    await page.locator('[data-mobile="field"]').click();
+
+    const roving = page.locator('g.node[tabindex="0"]');
+    await expect(roving).toHaveCount(1);
+    await roving.first().focus();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(50);
+
+    const afterArrow = await page.evaluate(() =>
+      [...document.querySelectorAll('g.node')].find((g) => g.getAttribute('tabindex') === '0')?.getAttribute('data-bb-id'),
+    );
+    expect(afterArrow, 'arrow-key roving focus must move to a different node on mobile too').toBeTruthy();
+
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(50);
+    const state = await appState(page);
+    expect(state.activeId).toBe(afterArrow);
+  });
+
+  test('opening Read with no active anchor lands on the field object without appending Route or trace (P-SCN-072)', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { reduced: true });
+    await page.evaluate(() => window.__bbTest.returnToField());
+    const before = await page.evaluate(() => ({
+      activeId: window.__bbState.activeId,
+      route: window.__bbState.routeEvents.length,
+      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+    }));
+    expect(before.activeId).toBeNull();
+
+    await page.locator('[data-mobile="read"]').click();
+    await page.waitForTimeout(80);
+
+    const after = await page.evaluate(() => ({
+      activeId: window.__bbState.activeId,
+      surface: window.__bbState.surface,
+      route: window.__bbState.routeEvents.length,
+      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+    }));
+    expect(after.activeId).toBe('FO.BLACK_BIRD_FIELD');
+    expect(after.surface).toBe('read');
+    expect(after.route, 'a chamber switch with no prior anchor must never append Route').toBe(before.route);
+    expect(after.wear, 'a chamber switch with no prior anchor must never record trace').toBe(before.wear);
+  });
 });

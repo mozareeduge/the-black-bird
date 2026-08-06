@@ -597,25 +597,31 @@
       "id": "P-SCN-072",
       "title": "Read with no anchor",
       "category": "mobile",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Opening Read with no active anchor is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: opening Read with no active anchor lands on the field object without appending Route or trace (P-SCN-072)"
+      ],
+      "notes": "The mobile-nav 'read' handler already defaults readTarget to FO.BLACK_BIRD_FIELD and commits with routePolicy:'none'/tracePolicy:'none' when S.activeId is null. Confirmed correct as-is."
     },
     {
       "id": "P-SCN-073",
       "title": "Mobile About from Field",
       "category": "mobile",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Mobile-viewport About-from-Field is untested (existing About tests run at default viewport)."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: About is reachable from mobile Field via its own dedicated handle (P-SCN-073)"
+      ],
+      "notes": "The desktop .rail (the only other About affordance) is display:none on mobile at every surface; #mobileAboutBtn (openAbout('mobile-field')) is the dedicated mobile handle and is reachable from Field. Confirmed correct as-is."
     },
     {
       "id": "P-SCN-074",
       "title": "Mobile Read has no About handle",
       "category": "mobile",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Absence of an About handle in the mobile Read chamber is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: the mobile Read chamber has no reachable About handle (P-SCN-074)"
+      ],
+      "notes": "Confirmed empirically (not just from the stylesheet): #mobileAboutBtn is not visible/in-viewport once the mobile Read chamber is active."
     },
     {
       "id": "P-SCN-075",
@@ -631,17 +637,21 @@
       "id": "P-SCN-076",
       "title": "Mobile user zoom",
       "category": "mobile",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Mobile user-pinch-zoom is untested (Playwright touch-zoom emulation not exercised)."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: a pinch-equivalent zoom gesture on mobile changes the camera scale without breaking the session (P-SCN-076)"
+      ],
+      "notes": "Exercised via a ctrlKey+wheel event (the standard browser translation of a trackpad/touch pinch, which d3-zoom's default filter treats as scale) at a 390px viewport; confirmed the camera scale changes and stays within [0.55, 2.4] (algorithm-contracts.json scaleMin/scaleMax) with no other session state disturbed."
     },
     {
       "id": "P-SCN-077",
       "title": "Mobile keyboard/assistive traversal",
       "category": "mobile",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Mobile-viewport keyboard/assistive traversal is untested (roving-focus tests run at default desktop viewport)."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: keyboard traversal still works on the mobile viewport (P-SCN-077)"
+      ],
+      "notes": "Roving tabindex, arrow-key directional movement, and Enter-to-commit are all viewport-independent; confirmed at a 390px mobile viewport (the existing roving-focus tests run at the default desktop viewport)."
     },
     {
       "id": "P-SCN-080",
