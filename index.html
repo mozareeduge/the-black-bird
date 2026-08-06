@@ -1116,6 +1116,338 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return inRange[0].id;
   }
 
+  // src/state/command-types.js
+  var CommandType = Object.freeze({
+    BOOTSTRAP_READY: "BOOTSTRAP_READY",
+    BOOTSTRAP_FAILED: "BOOTSTRAP_FAILED",
+    ENTER_WORK: "ENTER_WORK",
+    INTERRUPT_ONBOARDING_WITH_OBJECT: "INTERRUPT_ONBOARDING_WITH_OBJECT",
+    RETURN_TO_WHOLE_FIELD: "RETURN_TO_WHOLE_FIELD",
+    PREVIEW_OBJECT: "PREVIEW_OBJECT",
+    CLEAR_PREVIEW: "CLEAR_PREVIEW",
+    COMMIT_OBJECT: "COMMIT_OBJECT",
+    INSPECT_PROJECTED_EDGE: "INSPECT_PROJECTED_EDGE",
+    CLEAR_INSPECTION: "CLEAR_INSPECTION",
+    SET_SURFACE: "SET_SURFACE",
+    SET_TYPE_VISIBILITY: "SET_TYPE_VISIBILITY",
+    SET_OBJECT_VISIBILITY: "SET_OBJECT_VISIBILITY",
+    SET_VIEW_OPTION: "SET_VIEW_OPTION",
+    ENTER_SOLO: "ENTER_SOLO",
+    EXIT_SOLO: "EXIT_SOLO",
+    RESTORE_FIELD: "RESTORE_FIELD",
+    REPLAY_ROUTE_EVENT: "REPLAY_ROUTE_EVENT",
+    CLEAR_ROUTE: "CLEAR_ROUTE",
+    CLEAR_TRACE: "CLEAR_TRACE",
+    OPEN_OVERLAY: "OPEN_OVERLAY",
+    CLOSE_OVERLAY: "CLOSE_OVERLAY",
+    REPLACE_OVERLAY: "REPLACE_OVERLAY",
+    SET_ROVING_FOCUS: "SET_ROVING_FOCUS",
+    RECONCILE_ENVIRONMENT: "RECONCILE_ENVIRONMENT",
+    RECONCILE_DOCUMENT_VISIBILITY: "RECONCILE_DOCUMENT_VISIBILITY",
+    EXTERNAL_NAVIGATION_FAILED: "EXTERNAL_NAVIGATION_FAILED"
+  });
+  var COMMAND_SPECS = Object.freeze({
+    BOOTSTRAP_READY: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "system" },
+    BOOTSTRAP_FAILED: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "system" },
+    ENTER_WORK: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    INTERRUPT_ONBOARDING_WITH_OBJECT: { requiredFields: ["id", "source"], routePolicy: "append-on-id-change", tracePolicy: "record-on-id-change", origin: "reader" },
+    RETURN_TO_WHOLE_FIELD: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    PREVIEW_OBJECT: { requiredFields: ["id"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    CLEAR_PREVIEW: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    COMMIT_OBJECT: { requiredFields: ["id", "source"], routePolicy: "append-on-id-change", tracePolicy: "record-on-id-change", origin: "reader" },
+    INSPECT_PROJECTED_EDGE: { requiredFields: ["sourceId", "targetId", "relOIds"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    CLEAR_INSPECTION: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    SET_SURFACE: { requiredFields: ["surface"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    SET_TYPE_VISIBILITY: { requiredFields: ["objectType", "visible"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    SET_OBJECT_VISIBILITY: { requiredFields: ["id", "visible"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    SET_VIEW_OPTION: { requiredFields: ["option", "value"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    ENTER_SOLO: { requiredFields: ["id"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    EXIT_SOLO: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    RESTORE_FIELD: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    REPLAY_ROUTE_EVENT: { requiredFields: ["sequence"], routePolicy: "replay", tracePolicy: "none", origin: "reader" },
+    CLEAR_ROUTE: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    CLEAR_TRACE: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    OPEN_OVERLAY: { requiredFields: ["kind", "invoker"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    CLOSE_OVERLAY: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    REPLACE_OVERLAY: { requiredFields: ["kind", "invoker"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    SET_ROVING_FOCUS: { requiredFields: ["id"], routePolicy: "none", tracePolicy: "none", origin: "reader" },
+    RECONCILE_ENVIRONMENT: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "system" },
+    RECONCILE_DOCUMENT_VISIBILITY: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "system" },
+    EXTERNAL_NAVIGATION_FAILED: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "system" }
+  });
+
+  // src/state/guards.js
+  function validateCommand(command) {
+    const errors = [];
+    if (!command || typeof command !== "object") return { ok: false, errors: ["command is not an object"] };
+    const spec = COMMAND_SPECS[command.type];
+    if (!spec) {
+      return { ok: false, errors: [`unknown command type: ${command.type}`] };
+    }
+    for (const field of spec.requiredFields) {
+      if (!(field in command) || command[field] === void 0) {
+        errors.push(`${command.type} is missing required field "${field}"`);
+      }
+    }
+    return { ok: errors.length === 0, errors };
+  }
+
+  // src/state/reducer.js
+  function commitObject(state, id, source) {
+    const isNewId = state.reading.anchorId !== id;
+    const history = isNewId ? {
+      route: [...state.history.route, { id, seq: state.history.nextSequence, source }],
+      nextSequence: state.history.nextSequence + 1
+    } : state.history;
+    const trace = isNewId ? { ...state.trace, wear: { ...state.trace.wear, [id]: (state.trace.wear[id] || 0) + 1 } } : state.trace;
+    return {
+      ...state,
+      reading: {
+        ...state.reading,
+        anchorId: id,
+        fieldAttention: { kind: "focus", id },
+        readerSubject: { kind: "object", id },
+        inspection: null
+      },
+      history,
+      trace
+    };
+  }
+  function reduceCommand(state, command) {
+    switch (command.type) {
+      case CommandType.BOOTSTRAP_READY:
+        return { ...state, lifecycle: { ...state.lifecycle, bootstrap: "ready" } };
+      case CommandType.BOOTSTRAP_FAILED:
+        return { ...state, lifecycle: { ...state.lifecycle, bootstrap: "failed" } };
+      case CommandType.ENTER_WORK:
+        return { ...state, lifecycle: { ...state.lifecycle, phase: "field" } };
+      case CommandType.INTERRUPT_ONBOARDING_WITH_OBJECT:
+        return {
+          ...commitObject(state, command.id, command.source),
+          lifecycle: { ...state.lifecycle, phase: "focused" }
+        };
+      // P-RULE-011: returning to the whole field neutralizes field attention while
+      // retaining the reading anchor and current Reader subject — anchorId and
+      // readerSubject are deliberately left untouched here.
+      case CommandType.RETURN_TO_WHOLE_FIELD:
+        return {
+          ...state,
+          lifecycle: { ...state.lifecycle, phase: "field" },
+          reading: { ...state.reading, fieldAttention: { kind: "whole-field", id: null }, inspection: null }
+        };
+      // P-RULE-003: preview never appends Route or trace. Modeled as a transient
+      // tooltip, not a reading-region change.
+      case CommandType.PREVIEW_OBJECT:
+        return { ...state, tooltip: { ...state.tooltip, kind: "preview", targetId: command.id } };
+      case CommandType.CLEAR_PREVIEW:
+        return { ...state, tooltip: { kind: null, targetId: null, describedById: null } };
+      // T-REQ-008 / P-RULE-002/004: the one command that atomically updates anchor,
+      // field focus and Reader subject, appending Route/trace exactly once per new id.
+      case CommandType.COMMIT_OBJECT:
+        return {
+          ...commitObject(state, command.id, command.source),
+          lifecycle: { ...state.lifecycle, phase: "focused" }
+        };
+      // P-RULE-014: projected edges are derived inspectable surfaces; inspecting one
+      // may change Reader subject but never the reading anchor, Route, trace, solo, or view.
+      case CommandType.INSPECT_PROJECTED_EDGE:
+        return {
+          ...state,
+          reading: {
+            ...state.reading,
+            inspection: { sourceId: command.sourceId, targetId: command.targetId, relOIds: command.relOIds },
+            readerSubject: { kind: "projected-edge", id: `${command.sourceId}~${command.targetId}` }
+          }
+        };
+      case CommandType.CLEAR_INSPECTION:
+        return {
+          ...state,
+          reading: {
+            ...state.reading,
+            inspection: null,
+            readerSubject: state.reading.anchorId != null ? { kind: "object", id: state.reading.anchorId } : { kind: "orientation", id: null }
+          }
+        };
+      case CommandType.SET_SURFACE:
+        return { ...state, responsive: { ...state.responsive, surface: command.surface } };
+      case CommandType.SET_TYPE_VISIBILITY:
+        return {
+          ...state,
+          view: {
+            ...state.view,
+            typeVisibility: { ...state.view.typeVisibility, [command.objectType]: command.visible }
+          }
+        };
+      case CommandType.SET_OBJECT_VISIBILITY:
+        return {
+          ...state,
+          view: {
+            ...state.view,
+            objectVisibility: { ...state.view.objectVisibility, [command.id]: command.visible }
+          }
+        };
+      case CommandType.SET_VIEW_OPTION:
+        return { ...state, view: { ...state.view, [command.option]: command.value } };
+      // P-RULE-012: Solo is a lens. Entering/exiting never appends Route or trace; the
+      // snapshot is captured once on entry and restored exactly on exit.
+      case CommandType.ENTER_SOLO:
+        return {
+          ...state,
+          solo: {
+            active: true,
+            rootId: command.id,
+            members: state.solo.members,
+            snapshot: state.solo.active ? state.solo.snapshot : { view: state.view }
+          }
+        };
+      case CommandType.EXIT_SOLO: {
+        const restoredView = state.solo.snapshot ? state.solo.snapshot.view : state.view;
+        return {
+          ...state,
+          view: restoredView,
+          solo: { active: false, rootId: null, members: [], snapshot: null }
+        };
+      }
+      case CommandType.RESTORE_FIELD:
+        return {
+          ...state,
+          view: {
+            ...state.view,
+            typeVisibility: Object.fromEntries(Object.keys(state.view.typeVisibility).map((k) => [k, true])),
+            objectVisibility: {}
+          }
+        };
+      // P-RULE-007: replay changes presentation (which object is anchored/read) without
+      // adding Route or trace and without changing View/Hide/Solo state. history.route
+      // itself is untouched — replay reads it, it never mutates it.
+      case CommandType.REPLAY_ROUTE_EVENT: {
+        const entry = state.history.route.find((e) => e.seq === command.sequence);
+        if (!entry) return state;
+        return {
+          ...state,
+          lifecycle: { ...state.lifecycle, phase: "focused" },
+          reading: {
+            ...state.reading,
+            anchorId: entry.id,
+            fieldAttention: { kind: "focus", id: entry.id },
+            readerSubject: { kind: "object", id: entry.id },
+            inspection: null
+          }
+        };
+      }
+      case CommandType.CLEAR_ROUTE:
+        return { ...state, history: { route: [], nextSequence: 1 } };
+      case CommandType.CLEAR_TRACE:
+        return { ...state, trace: { wear: {}, afterglows: [] } };
+      case CommandType.OPEN_OVERLAY:
+        return { ...state, overlay: { kind: command.kind, invoker: command.invoker } };
+      case CommandType.CLOSE_OVERLAY:
+        return { ...state, overlay: { kind: null, invoker: null } };
+      case CommandType.REPLACE_OVERLAY:
+        return { ...state, overlay: { kind: command.kind, invoker: command.invoker } };
+      case CommandType.SET_ROVING_FOCUS:
+        return { ...state, focus: { ...state.focus, graphRovingId: command.id } };
+      case CommandType.RECONCILE_ENVIRONMENT:
+        return {
+          ...state,
+          responsive: {
+            ...state.responsive,
+            ..."profile" in command ? { profile: command.profile } : null,
+            ..."orientation" in command ? { orientation: command.orientation } : null,
+            ..."visualViewport" in command ? { visualViewport: command.visualViewport } : null
+          }
+        };
+      case CommandType.RECONCILE_DOCUMENT_VISIBILITY:
+        return {
+          ...state,
+          lifecycle: {
+            ...state.lifecycle,
+            ..."visibility" in command ? { documentVisibility: command.visibility } : null
+          }
+        };
+      case CommandType.EXTERNAL_NAVIGATION_FAILED:
+        return { ...state, presentation: { ...state.presentation, statusMessage: "external-navigation-failed" } };
+      default:
+        throw new Error(`reduceCommand: unknown command type "${command.type}"`);
+    }
+  }
+
+  // src/state/initial-state.js
+  function createInitialState() {
+    return {
+      "lifecycle": {
+        "phase": "threshold",
+        "bootstrap": "pending",
+        "documentVisibility": "visible",
+        "connectivity": "unknown"
+      },
+      "responsive": {
+        "profile": "derived",
+        "surface": "field",
+        "orientation": "derived",
+        "visualViewport": null
+      },
+      "reading": {
+        "anchorId": null,
+        "fieldAttention": {
+          "kind": "whole-field",
+          "id": null
+        },
+        "readerSubject": {
+          "kind": "orientation",
+          "id": null
+        },
+        "inspection": null
+      },
+      "history": {
+        "route": [],
+        "nextSequence": 1
+      },
+      "trace": {
+        "wear": {},
+        "afterglows": []
+      },
+      "view": {
+        "typeVisibility": {
+          "RNO": true,
+          "MNO": true,
+          "FO": true,
+          "NameO": true,
+          "RefO": true,
+          "RelO": true
+        },
+        "objectVisibility": {},
+        "projectedEdges": true,
+        "labels": true,
+        "sourceNames": false
+      },
+      "solo": {
+        "active": false,
+        "rootId": null,
+        "members": [],
+        "snapshot": null
+      },
+      "overlay": {
+        "kind": null,
+        "invoker": null
+      },
+      "tooltip": {
+        "kind": null,
+        "targetId": null,
+        "describedById": null
+      },
+      "focus": {
+        "graphRovingId": "FO.BLACK_BIRD_FIELD",
+        "restoreTarget": null
+      },
+      "presentation": {
+        "txId": 0,
+        "cameraIntent": null,
+        "statusMessage": null
+      }
+    };
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -1280,6 +1612,16 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
   };
   window.__bbState = S;
+  var canonicalState = createInitialState();
+  function dispatch(command) {
+    const result = validateCommand(command);
+    if (!result.ok) {
+      throw new Error(`dispatch: ${command.type} rejected: ${result.errors.join("; ")}`);
+    }
+    canonicalState = reduceCommand(canonicalState, command);
+    return canonicalState;
+  }
+  dispatch({ type: CommandType.BOOTSTRAP_READY });
   var afterglowTimers = /* @__PURE__ */ new Map();
   var pulseTimers = [];
   var travelPulseActive = false;
@@ -1423,6 +1765,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     );
     app.classList.add("phase-" + S.phase, "surface-" + S.surface);
     document.querySelectorAll("[data-mobile]").forEach((b) => b.classList.toggle("active", b.dataset.mobile === S.surface));
+  }
+  function syncSurfaceCanonical() {
+    dispatch({ type: CommandType.SET_SURFACE, surface: S.surface });
   }
   function setOverlay(name) {
     S.overlay = name;
@@ -1739,6 +2084,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     let targetId = preferredId && nodeVisible(preferredId) ? preferredId : null;
     if (!targetId)
       targetId = nodeVisible("FO.BLACK_BIRD_FIELD") ? "FO.BLACK_BIRD_FIELD" : visible[0].id;
+    dispatch({ type: CommandType.SET_ROVING_FOCUS, id: targetId });
     nodeSel.attr("tabindex", (d) => d.id === targetId ? 0 : -1);
   }
   function focusNodeElement(id) {
@@ -2028,6 +2374,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function resize() {
     S.viewport = isMobile() ? "mobile" : "desktop";
+    dispatch({ type: CommandType.RECONCILE_ENVIRONMENT, profile: S.viewport });
     updatePhaseClass();
     if (isMobile() && S.surface === "read") {
       renderRoute();
@@ -2043,6 +2390,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   window.addEventListener("resize", () => {
     resize();
     renderRoute();
+  });
+  document.addEventListener("visibilitychange", () => {
+    dispatch({ type: CommandType.RECONCILE_DOCUMENT_VISIBILITY, visibility: document.visibilityState });
   });
   resize();
   function getEdgeSourceId(e) {
@@ -2511,6 +2861,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     );
   }
   function clearFieldTrace() {
+    dispatch({ type: CommandType.CLEAR_TRACE });
     afterglowTimers.forEach((t) => clearTimeout(t));
     afterglowTimers.clear();
     clearPulseTimers();
@@ -2580,7 +2931,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     r.querySelectorAll(".route-item").forEach((el) => {
       el.onmouseenter = () => touchObject(el.dataset.id, { source: "route-hover" });
       el.onmouseleave = () => clearTouch();
-      el.onclick = () => focusObject(el.dataset.id, { source: "route", routePolicy: "replay", tracePolicy: "none" });
+      el.onclick = () => focusObject(el.dataset.id, {
+        source: "route",
+        routePolicy: "replay",
+        tracePolicy: "none",
+        sequence: Number(el.dataset.routeIndex)
+      });
     });
     const ell = r.querySelector("[data-route-open]");
     if (ell)
@@ -2589,6 +2945,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
         openDrawer("routeDrawer");
       };
     r.querySelector(".clear-route").onclick = () => {
+      dispatch({ type: CommandType.CLEAR_ROUTE });
       S.routeEvents = [];
       renderRoute();
       drawRouteMemory({ duration: 260 });
@@ -2604,14 +2961,15 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       return;
     }
     box.innerHTML = S.routeEvents.map(
-      (ev, i) => `<div class="route-row" data-id="${ev.id}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`
+      (ev, i) => `<div class="route-row" data-id="${ev.id}" data-route-index="${ev.index}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`
     ).join("");
     box.querySelectorAll(".route-row").forEach(
       (row) => row.onclick = () => {
         focusObject(row.dataset.id, {
           source: "route-drawer",
           routePolicy: "replay",
-          tracePolicy: "none"
+          tracePolicy: "none",
+          sequence: Number(row.dataset.routeIndex)
         });
         closeAllDrawers();
       }
@@ -2739,16 +3097,24 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     S.phase = "focused";
     if (surface) S.surface = surface;
     else if (isMobile() && openReader !== false) S.surface = "read";
+    syncSurfaceCanonical();
     updatePhaseClass();
     S.activeId = id;
     S.activeEdge = null;
     S.activeRelos = [];
     S.previewTarget = null;
+    dispatch({ type: CommandType.CLEAR_INSPECTION });
     closeAllDrawers();
     hidePreview();
     updateRovingTabindex(id);
-    if (routePolicy === "append" && !isSameId) {
-      registerRouteEvent(id, { from: previousId, source });
+    if (routePolicy === "append") {
+      const routeLenBefore = canonicalState.history.route.length;
+      dispatch({ type: CommandType.COMMIT_OBJECT, id, source });
+      if (canonicalState.history.route.length > routeLenBefore) {
+        registerRouteEvent(id, { from: previousId, source });
+      }
+    } else if (routePolicy === "replay" && opts.sequence != null) {
+      dispatch({ type: CommandType.REPLAY_ROUTE_EVENT, sequence: opts.sequence });
     }
     if (openReader !== false && (forceReaderOpen || !S.readerOpen)) {
       await setReaderOpen(true, { measure: !(isMobile() && S.surface === "read") });
@@ -2784,8 +3150,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     updateRouteLiveRegion();
   }
   async function returnToField(opts = {}) {
+    dispatch({ type: CommandType.RETURN_TO_WHOLE_FIELD });
+    dispatch({ type: CommandType.CLEAR_INSPECTION });
     S.phase = "field";
     S.surface = "field";
+    syncSurfaceCanonical();
     S.activeId = null;
     S.activeEdge = null;
     S.activeRelos = [];
@@ -2879,6 +3248,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function touchObject(id, opts = {}) {
     S.touchedId = id;
+    dispatch({ type: CommandType.PREVIEW_OBJECT, id });
     nodeSel.select(".node-focus-ring").attr("stroke", (n) => n.id === id ? "#c49a45" : "transparent").attr("stroke-opacity", (n) => n.id === id ? 0.42 : 0);
     if (opts.showPreview !== false && byId[id]) {
       const d = byId[id];
@@ -2888,6 +3258,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function clearTouch() {
     S.touchedId = null;
+    dispatch({ type: CommandType.CLEAR_PREVIEW });
     hidePreview();
     nodeSel.select(".node-focus-ring").attr("stroke", "transparent").attr("stroke-opacity", 0);
   }
@@ -3024,6 +3395,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     S.activeEdge = { source: s, target: t };
     S.activeRelos = e.relos || [];
     S.previewTarget = null;
+    dispatch({
+      type: CommandType.INSPECT_PROJECTED_EDGE,
+      sourceId: s,
+      targetId: t,
+      relOIds: S.activeRelos
+    });
     if (isMobile()) return showEdgeSheet(s, t, S.activeRelos);
     renderEdgePanel(s, t, S.activeRelos);
   }
@@ -3157,7 +3534,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     );
     viewBox.querySelectorAll("[data-view]").forEach(
       (btn) => btn.onclick = () => {
-        S.viewOptions[btn.dataset.view] = !S.viewOptions[btn.dataset.view];
+        const key = btn.dataset.view;
+        S.viewOptions[key] = !S.viewOptions[key];
+        dispatch({
+          type: CommandType.SET_VIEW_OPTION,
+          option: VIEW_OPTION_CANONICAL_KEY[key] || key,
+          value: S.viewOptions[key]
+        });
         renderFieldViewControls();
         updateVisibility();
         if (S.activeId) fitFocusFrame(buildFocusSet(S.activeId));
@@ -3165,8 +3548,10 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       }
     );
   }
+  var VIEW_OPTION_CANONICAL_KEY = { projected: "projectedEdges" };
   function setObjectGroup(type, value) {
     S.objectGroups[type] = value;
+    dispatch({ type: CommandType.SET_TYPE_VISIBILITY, objectType: type, visible: value });
     renderFieldViewControls();
     updateVisibility();
     if (S.activeId) fitFocusFrame(buildFocusSet(S.activeId));
@@ -3191,6 +3576,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       (el) => el.onclick = () => {
         const id = el.dataset.eye;
         S.objectVisibility[id] = S.objectVisibility[id] === false;
+        dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: S.objectVisibility[id] });
         renderFieldViewControls();
         updateVisibility();
       }
@@ -3199,6 +3585,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       (el) => el.onclick = async () => {
         const id = el.dataset.solo;
         S.soloSet = computeSoloSet(id);
+        dispatch({ type: CommandType.ENTER_SOLO, id });
         updateVisibility();
         closeAllDrawers();
         await nextFrame();
@@ -3237,6 +3624,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     S.objectVisibility = { ...defaultVisibility };
     S.soloSet = null;
     Object.keys(S.objectGroups).forEach((k) => S.objectGroups[k] = true);
+    dispatch({ type: CommandType.RESTORE_FIELD });
+    if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
     renderFieldViewControls();
     updateVisibility();
     closeAllDrawers();
@@ -3245,12 +3634,14 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   document.getElementById("showAllObjects").onclick = () => {
     S.objectVisibility = { ...defaultVisibility };
     S.soloSet = null;
+    if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
     renderObjectLists();
     updateVisibility();
     closeAllDrawers();
     returnToField({ source: "show-all" });
   };
   document.getElementById("clearRouteDrawer").onclick = () => {
+    dispatch({ type: CommandType.CLEAR_ROUTE });
     S.routeEvents = [];
     renderRoute();
     drawRouteMemory({ duration: 260 });
@@ -3280,6 +3671,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
           const fid = S.activeId;
           beginGraphHandoff();
           S.surface = "field";
+          syncSurfaceCanonical();
           updatePhaseClass();
           closeAllDrawers();
           closeSheet();
@@ -3309,6 +3701,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
         } else {
           S.phase = "focused";
           S.surface = "read";
+          syncSurfaceCanonical();
           updatePhaseClass();
           await setReaderOpen(true, { measure: false });
         }
@@ -3375,6 +3768,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   async function startTacitOnboarding() {
     S.phase = "onboarding";
     S.surface = "field";
+    syncSurfaceCanonical();
     updatePhaseClass();
     S.onboardingActive = true;
     await setReaderOpen(false);
@@ -3401,6 +3795,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       await sleep(prefersReducedMotion() ? 0 : 420);
       S.phase = "focused";
       S.surface = "field";
+      syncSurfaceCanonical();
       updatePhaseClass();
       await focusObject(id, {
         source: "onboarding",
@@ -3413,6 +3808,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     S.phase = "focused";
     S.surface = "field";
+    syncSurfaceCanonical();
     updatePhaseClass();
     await beginGraphHandoff({ fade: true, duration: 180 });
     await setReaderOpen(true, { waitTransition: true, transitionMs: 680, measure: true });
@@ -3436,6 +3832,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     await endGraphHandoff({ fade: true, duration: 260 });
   }
   async function enter(opts = {}) {
+    dispatch({ type: CommandType.ENTER_WORK });
     const th = document.getElementById("threshold");
     beginGraphHandoff();
     th.classList.add("leaving");
@@ -3444,6 +3841,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     if (opts.skipOnboarding) {
       S.phase = "focused";
       S.surface = "field";
+      syncSurfaceCanonical();
       updatePhaseClass();
       if (!isMobile()) {
         await setReaderOpen(true, { waitTransition: true, transitionMs: 520, measure: true });
@@ -3477,6 +3875,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function openAbout(origin) {
     S.aboutOpen = true;
     S.aboutOrigin = origin;
+    dispatch({ type: CommandType.OPEN_OVERLAY, kind: "about", invoker: origin || "unknown" });
     closeAllDrawers();
     closeSheet();
     hidePreview();
@@ -3493,6 +3892,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     if (!S.aboutOpen) return;
     S.aboutOpen = false;
     S.aboutOrigin = null;
+    dispatch({ type: CommandType.CLOSE_OVERLAY });
     const panel = document.getElementById("aboutPanel");
     panel.classList.remove("open", "from-threshold");
     panel.setAttribute("inert", "");

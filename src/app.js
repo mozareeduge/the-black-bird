@@ -8,6 +8,10 @@ import { computeFocusTargets } from './layout/focus-targets.js';
 import { computeSafeRect, computeNeutralCamera, computeFocusCamera } from './layout/camera.js';
 import { solveLabels } from './layout/label-solver.js';
 import { resolvePointerOwner } from './layout/pointer-ownership.js';
+import { CommandType } from './state/command-types.js';
+import { validateCommand } from './state/guards.js';
+import { reduceCommand } from './state/reducer.js';
+import { createInitialState } from './state/initial-state.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 // Canonical, independently testable implementation: src/bootstrap.js and
@@ -203,6 +207,28 @@ let S = {
 // Expose state for testing (S is let, not on window automatically)
 window.__bbState = S;
 
+// ── Canonical semantic state (F03) ──────────────────────────────────────────
+// src/state/reducer.js (tested against tests/contracts/command-contract.json)
+// is the single authority for whether a semantic change is accepted and what
+// Route/trace policy it carries. S above stays the legacy read-model the rest
+// of this file renders from and is not replaced wholesale — but every
+// semantic mutation it models now goes through dispatch() first, which is
+// the only place reduceCommand() is called. Presentation-only fields with no
+// counterpart in the canonical shape (camera-in-flight, hover timers, sheet
+// visibility) and effects the canonical model does not compute (edge-BFS
+// wear, afterglow decay — see algorithm-contracts.json's richer "trace.wear"
+// spec vs. the reducer's simpler per-id counter) remain local to S.
+let canonicalState = createInitialState();
+function dispatch(command) {
+  const result = validateCommand(command);
+  if (!result.ok) {
+    throw new Error(`dispatch: ${command.type} rejected: ${result.errors.join('; ')}`);
+  }
+  canonicalState = reduceCommand(canonicalState, command);
+  return canonicalState;
+}
+dispatch({ type: CommandType.BOOTSTRAP_READY });
+
 // ── Design-response local runtime (not stored on S; not DOM nodes) ─────────
 const afterglowTimers = new Map();
 let pulseTimers = [];
@@ -356,8 +382,12 @@ function updatePhaseClass() {
     .querySelectorAll("[data-mobile]")
     .forEach((b) => b.classList.toggle("active", b.dataset.mobile === S.surface));
 }
+function syncSurfaceCanonical() {
+  dispatch({ type: CommandType.SET_SURFACE, surface: S.surface });
+}
 async function setSurface(surface, opts = {}) {
   S.surface = surface;
+  syncSurfaceCanonical();
   updatePhaseClass();
   await nextFrame();
   if (surface === "field" && opts.measure !== false) measureGraph();
@@ -802,6 +832,7 @@ function updateRovingTabindex(preferredId) {
   let targetId = preferredId && nodeVisible(preferredId) ? preferredId : null;
   if (!targetId)
     targetId = nodeVisible("FO.BLACK_BIRD_FIELD") ? "FO.BLACK_BIRD_FIELD" : visible[0].id;
+  dispatch({ type: CommandType.SET_ROVING_FOCUS, id: targetId });
   nodeSel.attr("tabindex", (d) => (d.id === targetId ? 0 : -1));
 }
 function focusNodeElement(id) {
@@ -1279,6 +1310,7 @@ function recomputeLabelPlacements() {
 // never changes here (F04) — there is no longer a simulation to (re)start.
 function resize() {
   S.viewport = isMobile() ? "mobile" : "desktop";
+  dispatch({ type: CommandType.RECONCILE_ENVIRONMENT, profile: S.viewport });
   updatePhaseClass();
   if (isMobile() && S.surface === "read") {
     renderRoute();
@@ -1294,6 +1326,9 @@ function resize() {
 window.addEventListener("resize", () => {
   resize();
   renderRoute();
+});
+document.addEventListener("visibilitychange", () => {
+  dispatch({ type: CommandType.RECONCILE_DOCUMENT_VISIBILITY, visibility: document.visibilityState });
 });
 resize();
 
@@ -1931,6 +1966,7 @@ function updateAfterglowOverlay() {
   );
 }
 function clearFieldTrace() {
+  dispatch({ type: CommandType.CLEAR_TRACE });
   afterglowTimers.forEach((t) => clearTimeout(t));
   afterglowTimers.clear();
   clearPulseTimers();
@@ -2015,7 +2051,12 @@ function renderRoute() {
     el.onmouseenter = () => touchObject(el.dataset.id, { source: "route-hover" });
     el.onmouseleave = () => clearTouch();
     el.onclick = () =>
-      focusObject(el.dataset.id, { source: "route", routePolicy: "replay", tracePolicy: "none" });
+      focusObject(el.dataset.id, {
+        source: "route",
+        routePolicy: "replay",
+        tracePolicy: "none",
+        sequence: Number(el.dataset.routeIndex),
+      });
   });
   const ell = r.querySelector("[data-route-open]");
   if (ell)
@@ -2026,6 +2067,7 @@ function renderRoute() {
   // Route-strip clear affects Route only (4.11); field trace has its own
   // separate public control in the Route drawer footer.
   r.querySelector(".clear-route").onclick = () => {
+    dispatch({ type: CommandType.CLEAR_ROUTE });
     S.routeEvents = [];
     renderRoute();
     drawRouteMemory({ duration: 260 });
@@ -2043,7 +2085,7 @@ function renderRouteDrawer() {
   box.innerHTML = S.routeEvents
     .map(
       (ev, i) =>
-        `<div class="route-row" data-id="${ev.id}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`,
+        `<div class="route-row" data-id="${ev.id}" data-route-index="${ev.index}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`,
     )
     .join("");
   box.querySelectorAll(".route-row").forEach(
@@ -2053,6 +2095,7 @@ function renderRouteDrawer() {
           source: "route-drawer",
           routePolicy: "replay",
           tracePolicy: "none",
+          sequence: Number(row.dataset.routeIndex),
         });
         closeAllDrawers();
       }),
@@ -2242,16 +2285,27 @@ async function commitFocus(id, opts = {}) {
   S.phase = "focused";
   if (surface) S.surface = surface;
   else if (isMobile() && openReader !== false) S.surface = "read";
+  syncSurfaceCanonical();
   updatePhaseClass();
   S.activeId = id;
   S.activeEdge = null;
   S.activeRelos = [];
   S.previewTarget = null;
+  dispatch({ type: CommandType.CLEAR_INSPECTION });
   closeAllDrawers();
   hidePreview();
   updateRovingTabindex(id);
-  if (routePolicy === "append" && !isSameId) {
-    registerRouteEvent(id, { from: previousId, source });
+  if (routePolicy === "append") {
+    // Route/trace policy ("was this a genuinely new id") is decided by the
+    // tested reducer, not recomputed here — registerRouteEvent only fires
+    // when reduceCommand actually appended (P-RULE-004: same-id no-ops).
+    const routeLenBefore = canonicalState.history.route.length;
+    dispatch({ type: CommandType.COMMIT_OBJECT, id, source });
+    if (canonicalState.history.route.length > routeLenBefore) {
+      registerRouteEvent(id, { from: previousId, source });
+    }
+  } else if (routePolicy === "replay" && opts.sequence != null) {
+    dispatch({ type: CommandType.REPLAY_ROUTE_EVENT, sequence: opts.sequence });
   }
   if (openReader !== false && (forceReaderOpen || !S.readerOpen)) {
     await setReaderOpen(true, { measure: !(isMobile() && S.surface === "read") });
@@ -2293,8 +2347,11 @@ function selectNode(id, opts = {}) {
   return focusObject(id, { source: opts.from || "legacy", openReader: true });
 }
 async function returnToField(opts = {}) {
+  dispatch({ type: CommandType.RETURN_TO_WHOLE_FIELD });
+  dispatch({ type: CommandType.CLEAR_INSPECTION });
   S.phase = "field";
   S.surface = "field";
+  syncSurfaceCanonical();
   S.activeId = null;
   S.activeEdge = null;
   S.activeRelos = [];
@@ -2400,6 +2457,7 @@ function hidePreview() {
 }
 function touchObject(id, opts = {}) {
   S.touchedId = id;
+  dispatch({ type: CommandType.PREVIEW_OBJECT, id });
   // Transient hover indicator only — there is no persistent amber ring for
   // the active/selected node (4.8); that identity is carried by full
   // opacity plus the warm penumbra instead.
@@ -2415,6 +2473,7 @@ function touchObject(id, opts = {}) {
 }
 function clearTouch() {
   S.touchedId = null;
+  dispatch({ type: CommandType.CLEAR_PREVIEW });
   hidePreview();
   nodeSel.select(".node-focus-ring").attr("stroke", "transparent").attr("stroke-opacity", 0);
 }
@@ -2599,6 +2658,12 @@ function openProjectedEdge(e) {
   S.activeEdge = { source: s, target: t };
   S.activeRelos = e.relos || [];
   S.previewTarget = null;
+  dispatch({
+    type: CommandType.INSPECT_PROJECTED_EDGE,
+    sourceId: s,
+    targetId: t,
+    relOIds: S.activeRelos,
+  });
   if (isMobile()) return showEdgeSheet(s, t, S.activeRelos);
   renderEdgePanel(s, t, S.activeRelos);
 }
@@ -2768,7 +2833,13 @@ function renderFieldViewControls() {
   viewBox.querySelectorAll("[data-view]").forEach(
     (btn) =>
       (btn.onclick = () => {
-        S.viewOptions[btn.dataset.view] = !S.viewOptions[btn.dataset.view];
+        const key = btn.dataset.view;
+        S.viewOptions[key] = !S.viewOptions[key];
+        dispatch({
+          type: CommandType.SET_VIEW_OPTION,
+          option: VIEW_OPTION_CANONICAL_KEY[key] || key,
+          value: S.viewOptions[key],
+        });
         renderFieldViewControls();
         updateVisibility();
         if (S.activeId) fitFocusFrame(buildFocusSet(S.activeId));
@@ -2776,8 +2847,13 @@ function renderFieldViewControls() {
       }),
   );
 }
+// app.js's own viewOptions keys ("projected") vs. the canonical command
+// contract's SET_VIEW_OPTION option names ("projectedEdges") — see
+// src/state/initial-state.js's view.* fields.
+const VIEW_OPTION_CANONICAL_KEY = { projected: "projectedEdges" };
 function setObjectGroup(type, value) {
   S.objectGroups[type] = value;
+  dispatch({ type: CommandType.SET_TYPE_VISIBILITY, objectType: type, visible: value });
   renderFieldViewControls();
   updateVisibility();
   if (S.activeId) fitFocusFrame(buildFocusSet(S.activeId));
@@ -2810,6 +2886,7 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
       (el.onclick = () => {
         const id = el.dataset.eye;
         S.objectVisibility[id] = S.objectVisibility[id] === false;
+        dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: S.objectVisibility[id] });
         renderFieldViewControls();
         updateVisibility();
       }),
@@ -2819,6 +2896,7 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
       (el.onclick = async () => {
         const id = el.dataset.solo;
         S.soloSet = computeSoloSet(id);
+        dispatch({ type: CommandType.ENTER_SOLO, id });
         updateVisibility();
         closeAllDrawers();
         await nextFrame();
@@ -2858,6 +2936,8 @@ document.getElementById("restoreField").onclick = () => {
   S.objectVisibility = { ...defaultVisibility };
   S.soloSet = null;
   Object.keys(S.objectGroups).forEach((k) => (S.objectGroups[k] = true));
+  dispatch({ type: CommandType.RESTORE_FIELD });
+  if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
   renderFieldViewControls();
   updateVisibility();
   closeAllDrawers();
@@ -2866,6 +2946,7 @@ document.getElementById("restoreField").onclick = () => {
 document.getElementById("showAllObjects").onclick = () => {
   S.objectVisibility = { ...defaultVisibility };
   S.soloSet = null;
+  if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
   renderObjectLists();
   updateVisibility();
   closeAllDrawers();
@@ -2874,6 +2955,7 @@ document.getElementById("showAllObjects").onclick = () => {
 // Two explicit, separate public controls (4.11): Clear Route never touches
 // field trace; Clear field trace never touches Route.
 document.getElementById("clearRouteDrawer").onclick = () => {
+  dispatch({ type: CommandType.CLEAR_ROUTE });
   S.routeEvents = [];
   renderRoute();
   drawRouteMemory({ duration: 260 });
@@ -2907,6 +2989,7 @@ document.querySelectorAll("[data-mobile]").forEach(
           const fid = S.activeId;
           beginGraphHandoff();
           S.surface = "field";
+          syncSurfaceCanonical();
           updatePhaseClass();
           closeAllDrawers();
           closeSheet();
@@ -2937,6 +3020,7 @@ document.querySelectorAll("[data-mobile]").forEach(
         } else {
           S.phase = "focused";
           S.surface = "read";
+          syncSurfaceCanonical();
           updatePhaseClass();
           await setReaderOpen(true, { measure: false });
         }
@@ -3016,6 +3100,7 @@ function runOnboardingStage(i) {
 async function startTacitOnboarding() {
   S.phase = "onboarding";
   S.surface = "field";
+  syncSurfaceCanonical();
   updatePhaseClass();
   S.onboardingActive = true;
   await setReaderOpen(false);
@@ -3047,6 +3132,7 @@ async function finishOnboarding() {
     await sleep(prefersReducedMotion() ? 0 : 420);
     S.phase = "focused";
     S.surface = "field";
+    syncSurfaceCanonical();
     updatePhaseClass();
     await focusObject(id, {
       source: "onboarding",
@@ -3062,6 +3148,7 @@ async function finishOnboarding() {
   // then fade graph back in once the complete final Black Bird state is ready.
   S.phase = "focused";
   S.surface = "field";
+  syncSurfaceCanonical();
   updatePhaseClass();
   await beginGraphHandoff({ fade: true, duration: 180 });
   await setReaderOpen(true, { waitTransition: true, transitionMs: 680, measure: true });
@@ -3089,6 +3176,7 @@ async function finishOnboarding() {
 
 // ── Entry ──────────────────────────────────────────────────────────────────
 async function enter(opts = {}) {
+  dispatch({ type: CommandType.ENTER_WORK });
   const th = document.getElementById("threshold");
   beginGraphHandoff();
   th.classList.add("leaving");
@@ -3097,6 +3185,7 @@ async function enter(opts = {}) {
   if (opts.skipOnboarding) {
     S.phase = "focused";
     S.surface = "field";
+    syncSurfaceCanonical();
     updatePhaseClass();
     if (!isMobile()) {
       await setReaderOpen(true, { waitTransition: true, transitionMs: 520, measure: true });
@@ -3132,6 +3221,7 @@ function jumpAboutSection(id) {
 function openAbout(origin) {
   S.aboutOpen = true;
   S.aboutOrigin = origin;
+  dispatch({ type: CommandType.OPEN_OVERLAY, kind: "about", invoker: origin || "unknown" });
   closeAllDrawers();
   closeSheet();
   hidePreview();
@@ -3150,6 +3240,7 @@ function closeAbout() {
   if (!S.aboutOpen) return;
   S.aboutOpen = false;
   S.aboutOrigin = null;
+  dispatch({ type: CommandType.CLOSE_OVERLAY });
   const panel = document.getElementById("aboutPanel");
   panel.classList.remove("open", "from-threshold");
   panel.setAttribute("inert", "");
