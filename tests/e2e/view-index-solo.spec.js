@@ -311,4 +311,65 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     const visibleUnderSolo = await page.evaluate(() => window.__bbTest.nodeVisible('FO.CAIN'));
     expect(visibleUnderSolo, 'Solo membership supersedes View hides for every member (P-RULE-012/013)').toBe(true);
   });
+
+  test('group-hiding the field-focused object type returns to the whole field (P-SCN-047)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await clickNode(page, 'FO.CORPSE');
+    expect((await appState(page)).activeId).toBe('FO.CORPSE');
+
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-type="FO"]').first().click(); // group-hide every FO, including the active one
+
+    // setObjectGroup's own active-hidden-by-filter guard fires returnToField().
+    await expect.poll(async () => (await appState(page)).activeId).toBeNull();
+    const state = await appState(page);
+    expect(state.phase).toBe('field');
+  });
+
+  test('attempting to hide the Solo core while Solo is active has no visible effect (P-SCN-048)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await page.locator('#objectSearch').fill('Cain');
+    const soloBtn = page.locator('[data-solo="FO.CAIN"]').first();
+    await expect(soloBtn).toBeVisible();
+    await soloBtn.click();
+    expect(await page.evaluate(() => !!window.__bbState.soloSet)).toBe(true);
+
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await page.locator('#objectSearch').fill('Cain');
+    await page.locator('[data-eye="FO.CAIN"]').first().click();
+    // The eye toggle still records the individual-hide preference...
+    expect(await page.evaluate(() => window.__bbState.objectVisibility['FO.CAIN'])).toBe(false);
+    // ...but nodeVisible's Solo branch (S.soloSet.has(id)) supersedes it
+    // entirely while Solo is active, so the core stays visible (P-RULE-012/013).
+    expect(await page.evaluate(() => window.__bbTest.nodeVisible('FO.CAIN'))).toBe(true);
+  });
+
+  test('Solo survives a resize with membership and Route/trace untouched (P-SCN-056)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await page.locator('#objectSearch').fill('Cain');
+    const soloBtn = page.locator('[data-solo="FO.CAIN"]').first();
+    await expect(soloBtn).toBeVisible();
+    await soloBtn.click();
+    const before = await page.evaluate(() => ({
+      soloIds: [...(window.__bbState.soloSet || [])].sort(),
+      route: window.__bbState.routeEvents.length,
+      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+    }));
+    expect(before.soloIds.length).toBeGreaterThan(0);
+
+    await page.setViewportSize({ width: 900, height: 700 });
+    await page.waitForTimeout(80);
+
+    const after = await page.evaluate(() => ({
+      soloIds: [...(window.__bbState.soloSet || [])].sort(),
+      route: window.__bbState.routeEvents.length,
+      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+    }));
+    expect(after.soloIds).toEqual(before.soloIds);
+    expect(after.route).toBe(before.route);
+    expect(after.wear).toBe(before.wear);
+  });
 });

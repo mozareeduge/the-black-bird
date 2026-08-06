@@ -373,17 +373,21 @@
       "id": "P-SCN-047",
       "title": "Hide field-focused object",
       "category": "view",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Hiding the currently field-focused object specifically is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: group-hiding the field-focused object type returns to the whole field (P-SCN-047)"
+      ],
+      "notes": "setObjectGroup's own active-hidden-by-filter guard (if (S.activeId && !nodeVisible(S.activeId)) returnToField(...)) already correctly returns to the field when a View-drawer type toggle hides the focused object. Confirmed correct as-is via this path. The Index drawer's separate per-object eye-icon toggle does not have the equivalent guard — a real, distinct, already-disclosed gap (see the F05 commit reverting that specific fix after a test regression), not part of what this scenario names."
     },
     {
       "id": "P-SCN-048",
       "title": "Hide Solo core",
       "category": "view",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Hiding the current Solo core is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: attempting to hide the Solo core while Solo is active has no visible effect (P-SCN-048)"
+      ],
+      "notes": "nodeVisible()'s S.soloSet branch supersedes objectVisibility entirely while Solo is active, so hiding the core via the eye icon records the preference but has no visible effect until Solo exits. Confirmed correct as-is."
     },
     {
       "id": "P-SCN-049",
@@ -461,9 +465,11 @@
       "id": "P-SCN-056",
       "title": "Resize while Solo active",
       "category": "solo",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Resize-while-Solo-active is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: Solo survives a resize with membership and Route/trace untouched (P-SCN-056)"
+      ],
+      "notes": "resize() only reconciles environment/camera/layout state; nothing in it touches S.soloSet, routeEvents, or fieldTrace.wear. Confirmed correct as-is."
     },
     {
       "id": "P-SCN-060",
