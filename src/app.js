@@ -3237,6 +3237,7 @@ if (new URLSearchParams(location.search).get("bbtest") === "1") {
     computeFieldSafeRect,
     computeNodeEnvelope,
     computeSoloSet,
+    focusObject,
     getNodeBounds,
     isMobile,
     nodeVisible,

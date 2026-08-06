@@ -108,4 +108,35 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
     expect(afterTraceClear.wear).toBe(0);
     expect(afterTraceClear.route, 'clearing field trace must not clear Route').toBe(beforeTraceClear.route);
   });
+
+  test('committing a non-existent id is a safe no-op: no mutation, no crash (P-SCN-012)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    const before = await appState(page);
+    const result = await page.evaluate(async () => {
+      const r = await window.__bbTest.focusObject('NOT.A.REAL.ID', { source: 'test-invalid' });
+      return { returned: r ?? null, errorOnPage: !!document.querySelector('.bb-unavailable') };
+    });
+    const after = await appState(page);
+    expect(result.returned).toBeNull();
+    expect(result.errorOnPage, 'an invalid target must never trigger the bootstrap-failure surface').toBe(false);
+    expect(after.activeId).toBe(before.activeId);
+    expect(after.routeIds).toEqual(before.routeIds);
+    expect(after.phase).toBe(before.phase);
+  });
+
+  test('clicking the field background while focused returns to the whole field, retaining Route (P-SCN-016)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    await clickNode(page, 'FO.CORPSE');
+    const before = await appState(page);
+    expect(before.activeId).toBe('FO.CORPSE');
+
+    await page.locator('#graphSvg').click({ position: { x: 4, y: 4 } });
+
+    const after = await appState(page);
+    expect(after.activeId).toBeNull();
+    expect(after.phase).toBe('field');
+    expect(after.routeIds, 'returning to the field must not clear Route').toEqual(before.routeIds);
+  });
 });

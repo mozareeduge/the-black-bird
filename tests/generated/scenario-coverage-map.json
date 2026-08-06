@@ -82,9 +82,11 @@
       "id": "P-SCN-012",
       "title": "Invalid target",
       "category": "selection",
-      "status": "gap",
-      "evidence": [],
-      "notes": "No explicit invalid-target commit test at e2e level."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/route-trace.spec.js :: committing a non-existent id is a safe no-op: no mutation, no crash (P-SCN-012)"
+      ],
+      "notes": "commitFocus's own byId[id] guard (returns null before any mutation) already covered this; exposed focusObject via the bounded window.__bbTest interface to exercise it directly, since the app's own fixed 50-node dataset gives no realistic UI path to an invalid id."
     },
     {
       "id": "P-SCN-013",
@@ -123,9 +125,11 @@
       "id": "P-SCN-016",
       "title": "Background click from focus",
       "category": "selection",
-      "status": "gap",
-      "evidence": [],
-      "notes": "No explicit background-click-from-focus e2e test."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/route-trace.spec.js :: clicking the field background while focused returns to the whole field, retaining Route (P-SCN-016)"
+      ],
+      "notes": "svg.on('click', ...) already correctly called returnToField() only when S.activeId was set (node clicks stopPropagation so they never reach this handler) — confirmed correct as-is, no fix needed."
     },
     {
       "id": "P-SCN-017",
