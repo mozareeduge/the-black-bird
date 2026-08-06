@@ -12,54 +12,23 @@ import { CommandType } from './state/command-types.js';
 import { createInitialState } from './state/initial-state.js';
 import { createTransactionController } from './application/transaction-controller.js';
 import { createDispatcher } from './application/dispatcher.js';
+import { validateBootstrap } from './bootstrap.js';
+import { renderBootstrapFailure } from './presentation/bootstrap-renderer.js';
+import { isApertureNode, morphologyOf, computeNodeMetrics } from './presentation/field-renderer.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
-// Canonical, independently testable implementation: src/bootstrap.js and
-// src/presentation/bootstrap-renderer.js. Reimplemented inline here (not
-// imported) pending further migration of the bootstrap-failure rendering path.
 const BB_UI_COPY = {
   bootstrapUnavailableTitle: "The field could not be opened",
   bootstrapUnavailableBody:
     "The artwork did not finish loading. Reload the page. If the problem continues, use the source and citation links below.",
 };
 function bbValidateBootstrap() {
-  if (typeof d3 === "undefined") return { ok: false, reason: "runtime-missing" };
-  if (!DATA || typeof DATA !== "object") return { ok: false, reason: "invalid-data" };
-  const requiredKeys = ["nodes", "texts", "nameos", "refs", "relations", "meta", "docs", "ui"];
-  if (requiredKeys.some((k) => !(k in DATA))) return { ok: false, reason: "invalid-data" };
-  if (!Array.isArray(DATA.nodes) || DATA.nodes.length !== 50) return { ok: false, reason: "invalid-data" };
-  const ids = DATA.nodes.map((n) => n && n.id);
-  if (new Set(ids).size !== 50 || ids.some((id) => typeof id !== "string" || !id)) {
-    return { ok: false, reason: "invalid-data" };
-  }
-  const types = new Set(DATA.nodes.map((n) => n && n.type));
-  if (!["FO", "MNO", "NameO", "RNO", "RefO", "RelO"].every((t) => types.has(t))) {
-    return { ok: false, reason: "invalid-data" };
-  }
-  return { ok: true };
+  return validateBootstrap({ data: typeof DATA !== "undefined" ? DATA : null, hasD3: typeof d3 !== "undefined" });
 }
 function bbRenderBootstrapFailure() {
   const app = document.getElementById("app");
   if (!app) return;
-  app.innerHTML = "";
-  app.className = "phase-unavailable";
-  const wrap = document.createElement("div");
-  wrap.className = "bb-unavailable";
-  wrap.setAttribute("role", "alert");
-  const esc = (s) =>
-    String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  wrap.innerHTML = `
-    <div class="bb-unavailable-card">
-      <h1>THE BLACK BIRD</h1>
-      <p class="bb-unavailable-title">${esc(BB_UI_COPY.bootstrapUnavailableTitle)}</p>
-      <p class="bb-unavailable-body">${esc(BB_UI_COPY.bootstrapUnavailableBody)}</p>
-      <ul class="bb-unavailable-links">
-        <li><a href="research/">Research</a></li>
-        <li><a href="https://github.com/mozareeduge/the-black-bird/blob/main/CITATION.cff">Citation</a></li>
-        <li><a href="https://github.com/mozareeduge/the-black-bird">Source repository</a></li>
-      </ul>
-    </div>`;
-  app.appendChild(wrap);
+  renderBootstrapFailure(app, BB_UI_COPY);
 }
 // A global listener, not a wrapping try/catch: everything below declares its
 // top-level bindings with const/let, and this file is concatenated as one
@@ -703,99 +672,11 @@ function clusterCenter(cluster) {
   return WORLD_CLUSTER_CENTERS[cluster] || [WORLD.cx, WORLD.cy];
 }
 
-function isAperture(d) {
-  return d.id === "FO.BLACK_BIRD_FIELD";
-}
+const isAperture = isApertureNode;
 function renderRole(d) {
   return isAperture(d) ? "APERTURE" : d.type;
 }
-function morphologyOf(d) {
-  return isAperture(d) ? "aperture" : d.type.toLowerCase();
-}
-// Exact morphology metrics per 4.7: FO coreR=6.4; RNO coreR=6.0/outerR=11.5;
-// MNO mean radius 7.4; RefO diamond 9x9 (half-diagonal outerR = 4.5*sqrt(2));
-// RelO hollow ring r=8.5; aperture core r=9.5 / rim r=11.
-function nodeMetrics(d) {
-  if (isAperture(d))
-    return {
-      role: "aperture",
-      coreR: 9.5,
-      outerR: 11,
-      hitR: 11 + 9,
-      collideR: 11 + 9,
-      labelOffset: 11 + 9,
-      haloR: 11 + 6,
-      focusR: 11 + 8,
-    };
-  switch (d.type) {
-    case "RNO":
-      return {
-        role: "rno",
-        coreR: 6.0,
-        outerR: 11.5,
-        hitR: 11.5 + 9,
-        collideR: 11.5 + 9,
-        labelOffset: 11.5 + 9,
-        haloR: 11.5 + 6,
-        focusR: 11.5 + 8,
-      };
-    case "MNO":
-      return {
-        role: "mno",
-        coreR: 7.4,
-        outerR: 7.4,
-        hitR: 7.4 + 9,
-        collideR: 7.4 + 9,
-        labelOffset: 7.4 + 9,
-        haloR: 7.4 + 6,
-        focusR: 7.4 + 8,
-      };
-    case "NameO":
-      return {
-        role: "nameo",
-        coreR: 0,
-        outerR: 5,
-        hitR: 5 + 9,
-        collideR: 5 + 9,
-        labelOffset: 5 + 9,
-        haloR: 5 + 6,
-        focusR: 5 + 8,
-      };
-    case "RefO":
-      return {
-        role: "refo",
-        coreR: 4.5,
-        outerR: 4.5 * Math.SQRT2,
-        hitR: 4.5 * Math.SQRT2 + 9,
-        collideR: 4.5 * Math.SQRT2 + 9,
-        labelOffset: 4.5 * Math.SQRT2 + 9,
-        haloR: 4.5 * Math.SQRT2 + 6,
-        focusR: 4.5 * Math.SQRT2 + 8,
-      };
-    case "RelO":
-      return {
-        role: "relo",
-        coreR: 8.5,
-        outerR: 8.5,
-        hitR: 8.5 + 9,
-        collideR: 8.5 + 9,
-        labelOffset: 8.5 + 9,
-        haloR: 8.5 + 6,
-        focusR: 8.5 + 8,
-      };
-    default:
-      return {
-        role: "fo",
-        coreR: 6.4,
-        outerR: 6.4,
-        hitR: 6.4 + 9,
-        collideR: 6.4 + 9,
-        labelOffset: 6.4 + 9,
-        haloR: 6.4 + 6,
-        focusR: 6.4 + 8,
-      };
-  }
-}
+const nodeMetrics = computeNodeMetrics;
 function nodeR(d) {
   return nodeMetrics(d).outerR;
 }
@@ -2891,7 +2772,15 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
   container.querySelectorAll("[data-open]").forEach(
     (el) =>
       (el.onclick = () => {
-        focusObject(el.dataset.open, { source: "object-drawer" });
+        const id = el.dataset.open;
+        // P-RULE-016: Index Open clears an individual hide but never forces
+        // a group-hidden object visible — only the per-object override (not
+        // the type-group gate nodeVisible() also checks) is cleared here.
+        if (S.objectVisibility[id] === false) {
+          S.objectVisibility[id] = true;
+          dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true });
+        }
+        focusObject(id, { source: "object-drawer" });
         closeAllDrawers();
       }),
   );
@@ -2903,6 +2792,17 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
         dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: S.objectVisibility[id] });
         renderFieldViewControls();
         updateVisibility();
+        // P-RULE-015 (field attention neutralizes when the focused object
+        // becomes hidden) is deliberately NOT handled the way setObjectGroup
+        // handles it below (a full returnToField()) — the eye toggle lives
+        // inside the open object drawer itself, and returnToField()'s
+        // closeAllDrawers() would close the very drawer the reader is using,
+        // which tests/generated/ordered-pairs.spec.js's [hide, commit]
+        // scenario confirms must stay open. A correct fix needs a
+        // field-attention-only neutralization that leaves drawers/reader/
+        // camera untouched, which app.js's single S.activeId field (it
+        // conflates anchor and field attention) can't express without
+        // deeper surgery — left as disclosed, separate scope.
       }),
   );
   container.querySelectorAll("[data-solo]").forEach(

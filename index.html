@@ -1527,48 +1527,102 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { dispatch: dispatch2 };
   }
 
+  // src/bootstrap.js
+  var REQUIRED_DATA_KEYS = ["nodes", "texts", "nameos", "refs", "relations", "meta", "docs", "ui"];
+  var REQUIRED_NODE_TYPES = ["FO", "MNO", "NameO", "RNO", "RefO", "RelO"];
+  function validateBootstrap({ data, hasD3 }) {
+    if (!hasD3) return { ok: false, reason: "runtime-missing" };
+    if (!data || typeof data !== "object") return { ok: false, reason: "invalid-data" };
+    if (REQUIRED_DATA_KEYS.some((k) => !(k in data))) return { ok: false, reason: "invalid-data" };
+    if (!Array.isArray(data.nodes) || data.nodes.length !== 50) return { ok: false, reason: "invalid-data" };
+    const ids = data.nodes.map((n) => n && n.id);
+    if (new Set(ids).size !== 50 || ids.some((id) => typeof id !== "string" || !id)) {
+      return { ok: false, reason: "invalid-data" };
+    }
+    const types = new Set(data.nodes.map((n) => n && n.type));
+    if (!REQUIRED_NODE_TYPES.every((t) => types.has(t))) return { ok: false, reason: "invalid-data" };
+    return { ok: true };
+  }
+
+  // src/presentation/bootstrap-renderer.js
+  var STABLE_LINKS = [
+    { href: "research/", label: "Research" },
+    { href: "https://github.com/mozareeduge/the-black-bird/blob/main/CITATION.cff", label: "Citation" },
+    { href: "https://github.com/mozareeduge/the-black-bird", label: "Source repository" }
+  ];
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  }
+  function renderBootstrapFailure(container, copy) {
+    container.innerHTML = "";
+    container.className = "phase-unavailable";
+    const wrap = document.createElement("div");
+    wrap.className = "bb-unavailable";
+    wrap.setAttribute("role", "alert");
+    const links = STABLE_LINKS.map((l) => `<li><a href="${escapeHtml(l.href)}">${escapeHtml(l.label)}</a></li>`).join("");
+    wrap.innerHTML = `
+    <div class="bb-unavailable-card">
+      <h1>THE BLACK BIRD</h1>
+      <p class="bb-unavailable-title">${escapeHtml(copy.bootstrapUnavailableTitle)}</p>
+      <p class="bb-unavailable-body">${escapeHtml(copy.bootstrapUnavailableBody)}</p>
+      <ul class="bb-unavailable-links">${links}</ul>
+    </div>`;
+    container.appendChild(wrap);
+    return wrap;
+  }
+
+  // src/presentation/field-renderer.js
+  function isApertureNode(node) {
+    return node.id === "FO.BLACK_BIRD_FIELD";
+  }
+  function morphologyOf(node) {
+    return isApertureNode(node) ? "aperture" : node.type.toLowerCase();
+  }
+  function computeNodeMetrics(node) {
+    if (isApertureNode(node)) {
+      return radiiOf("aperture", 9.5, 11);
+    }
+    switch (node.type) {
+      case "RNO":
+        return radiiOf("rno", 6, 11.5);
+      case "MNO":
+        return radiiOf("mno", 7.4, 7.4);
+      case "NameO":
+        return radiiOf("nameo", 0, 5);
+      case "RefO":
+        return radiiOf("refo", 4.5, 4.5 * Math.SQRT2);
+      case "RelO":
+        return radiiOf("relo", 8.5, 8.5);
+      default:
+        return radiiOf("fo", 6.4, 6.4);
+    }
+  }
+  function radiiOf(role, coreR, outerR) {
+    return {
+      role,
+      coreR,
+      outerR,
+      hitR: outerR + 9,
+      collideR: outerR + 9,
+      labelOffset: outerR + 9,
+      haloR: outerR + 6,
+      focusR: outerR + 8
+    };
+  }
+  var CANONICAL_MORPHOLOGIES = Object.freeze(["fo", "rno", "mno", "nameo", "refo", "relo", "aperture"]);
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
     bootstrapUnavailableBody: "The artwork did not finish loading. Reload the page. If the problem continues, use the source and citation links below."
   };
   function bbValidateBootstrap() {
-    if (typeof d3 === "undefined") return { ok: false, reason: "runtime-missing" };
-    if (!DATA || typeof DATA !== "object") return { ok: false, reason: "invalid-data" };
-    const requiredKeys = ["nodes", "texts", "nameos", "refs", "relations", "meta", "docs", "ui"];
-    if (requiredKeys.some((k) => !(k in DATA))) return { ok: false, reason: "invalid-data" };
-    if (!Array.isArray(DATA.nodes) || DATA.nodes.length !== 50) return { ok: false, reason: "invalid-data" };
-    const ids = DATA.nodes.map((n) => n && n.id);
-    if (new Set(ids).size !== 50 || ids.some((id) => typeof id !== "string" || !id)) {
-      return { ok: false, reason: "invalid-data" };
-    }
-    const types = new Set(DATA.nodes.map((n) => n && n.type));
-    if (!["FO", "MNO", "NameO", "RNO", "RefO", "RelO"].every((t) => types.has(t))) {
-      return { ok: false, reason: "invalid-data" };
-    }
-    return { ok: true };
+    return validateBootstrap({ data: typeof DATA !== "undefined" ? DATA : null, hasD3: typeof d3 !== "undefined" });
   }
   function bbRenderBootstrapFailure() {
     const app = document.getElementById("app");
     if (!app) return;
-    app.innerHTML = "";
-    app.className = "phase-unavailable";
-    const wrap = document.createElement("div");
-    wrap.className = "bb-unavailable";
-    wrap.setAttribute("role", "alert");
-    const esc2 = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-    wrap.innerHTML = `
-    <div class="bb-unavailable-card">
-      <h1>THE BLACK BIRD</h1>
-      <p class="bb-unavailable-title">${esc2(BB_UI_COPY.bootstrapUnavailableTitle)}</p>
-      <p class="bb-unavailable-body">${esc2(BB_UI_COPY.bootstrapUnavailableBody)}</p>
-      <ul class="bb-unavailable-links">
-        <li><a href="research/">Research</a></li>
-        <li><a href="https://github.com/mozareeduge/the-black-bird/blob/main/CITATION.cff">Citation</a></li>
-        <li><a href="https://github.com/mozareeduge/the-black-bird">Source repository</a></li>
-      </ul>
-    </div>`;
-    app.appendChild(wrap);
+    renderBootstrapFailure(app, BB_UI_COPY);
   }
   window.addEventListener("error", function() {
     if (!document.querySelector(".bb-unavailable")) bbRenderBootstrapFailure();
@@ -2042,96 +2096,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function clusterCenter(cluster) {
     return WORLD_CLUSTER_CENTERS[cluster] || [WORLD2.cx, WORLD2.cy];
   }
-  function isAperture(d) {
-    return d.id === "FO.BLACK_BIRD_FIELD";
-  }
+  var isAperture = isApertureNode;
   function renderRole(d) {
     return isAperture(d) ? "APERTURE" : d.type;
   }
-  function morphologyOf(d) {
-    return isAperture(d) ? "aperture" : d.type.toLowerCase();
-  }
-  function nodeMetrics(d) {
-    if (isAperture(d))
-      return {
-        role: "aperture",
-        coreR: 9.5,
-        outerR: 11,
-        hitR: 11 + 9,
-        collideR: 11 + 9,
-        labelOffset: 11 + 9,
-        haloR: 11 + 6,
-        focusR: 11 + 8
-      };
-    switch (d.type) {
-      case "RNO":
-        return {
-          role: "rno",
-          coreR: 6,
-          outerR: 11.5,
-          hitR: 11.5 + 9,
-          collideR: 11.5 + 9,
-          labelOffset: 11.5 + 9,
-          haloR: 11.5 + 6,
-          focusR: 11.5 + 8
-        };
-      case "MNO":
-        return {
-          role: "mno",
-          coreR: 7.4,
-          outerR: 7.4,
-          hitR: 7.4 + 9,
-          collideR: 7.4 + 9,
-          labelOffset: 7.4 + 9,
-          haloR: 7.4 + 6,
-          focusR: 7.4 + 8
-        };
-      case "NameO":
-        return {
-          role: "nameo",
-          coreR: 0,
-          outerR: 5,
-          hitR: 5 + 9,
-          collideR: 5 + 9,
-          labelOffset: 5 + 9,
-          haloR: 5 + 6,
-          focusR: 5 + 8
-        };
-      case "RefO":
-        return {
-          role: "refo",
-          coreR: 4.5,
-          outerR: 4.5 * Math.SQRT2,
-          hitR: 4.5 * Math.SQRT2 + 9,
-          collideR: 4.5 * Math.SQRT2 + 9,
-          labelOffset: 4.5 * Math.SQRT2 + 9,
-          haloR: 4.5 * Math.SQRT2 + 6,
-          focusR: 4.5 * Math.SQRT2 + 8
-        };
-      case "RelO":
-        return {
-          role: "relo",
-          coreR: 8.5,
-          outerR: 8.5,
-          hitR: 8.5 + 9,
-          collideR: 8.5 + 9,
-          labelOffset: 8.5 + 9,
-          haloR: 8.5 + 6,
-          focusR: 8.5 + 8
-        };
-      default:
-        return {
-          role: "fo",
-          coreR: 6.4,
-          outerR: 6.4,
-          hitR: 6.4 + 9,
-          collideR: 6.4 + 9,
-          labelOffset: 6.4 + 9,
-          haloR: 6.4 + 6,
-          focusR: 6.4 + 8
-        };
-    }
-  }
+  var nodeMetrics = computeNodeMetrics;
   function resolveNearestVisibleNode(screenPoint, opts = {}) {
     const t = S.transform;
     const focusIds = opts.focusIds || null;
@@ -3652,7 +3621,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     container.innerHTML = rows;
     container.querySelectorAll("[data-open]").forEach(
       (el) => el.onclick = () => {
-        focusObject(el.dataset.open, { source: "object-drawer" });
+        const id = el.dataset.open;
+        if (S.objectVisibility[id] === false) {
+          S.objectVisibility[id] = true;
+          dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true });
+        }
+        focusObject(id, { source: "object-drawer" });
         closeAllDrawers();
       }
     );
