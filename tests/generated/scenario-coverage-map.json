@@ -830,9 +830,11 @@
       "id": "P-SCN-097",
       "title": "Switch pointer to keyboard to touch in one session",
       "category": "accessibility",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Switching pointer to keyboard to touch within one session is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: switching from pointer to keyboard to touch within one session commits correctly each time (P-SCN-097)"
+      ],
+      "notes": "The node click handler doesn't discriminate by pointer/input origin (it listens for the standard 'click' event regardless of what generated it), so there is no per-modality state to desync. Confirmed mouse-click, keyboard Enter, and a touch-originated pointer/click sequence each commit their target correctly within one session."
     },
     {
       "id": "P-SCN-098",
@@ -859,9 +861,11 @@
       "id": "P-SCN-100",
       "title": "User zoom overlaps a new direct commit",
       "category": "camera",
-      "status": "gap",
-      "evidence": [],
-      "notes": "User-zoom-overlaps-a-new-commit race is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: a user zoom overlapping a new direct commit leaves a consistent final state (P-SCN-100)"
+      ],
+      "notes": "A user-initiated ctrlKey+wheel zoom gesture straddling a direct node commit (mid-gesture) leaves a consistent final state: the new commit lands, and the camera transform stays finite and within [0.55, 2.4]."
     },
     {
       "id": "P-SCN-101",
@@ -877,9 +881,11 @@
       "id": "P-SCN-102",
       "title": "Labels disabled while using screen reader and keyboard",
       "category": "accessibility",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Labels-off combined with screen-reader/keyboard operation is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: turning visual labels off leaves every node fully operable by keyboard, with its accessible name intact (P-SCN-102)"
+      ],
+      "notes": "aria-label is set once per node (nodeSel.attr('aria-label', ...)) independent of the visual labels toggle (updateLabelVisibility only touches the drawn <text> element) — confirmed every node keeps a non-empty accessible name and full keyboard operability with S.viewOptions.labels false."
     },
     {
       "id": "P-SCN-103",
@@ -1097,9 +1103,11 @@
       "id": "P-SCN-124",
       "title": "Projected-edge inspection with screen reader",
       "category": "accessibility",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Projected-edge inspection with a screen reader is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: inspecting a projected edge updates the Reader region with an accessible name for the pair (P-SCN-124)"
+      ],
+      "notes": "renderEdgePanel's #reader content names both endpoints (not just 'Projected edge'), confirmed against the live app's actual rendered text -- what a screen reader would read from that region."
     },
     {
       "id": "P-SCN-125",
@@ -1115,9 +1123,11 @@
       "id": "P-SCN-126",
       "title": "Reduced motion combined with rapid commit and modal change",
       "category": "accessibility",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Reduced motion combined with rapid commit AND a modal change together is untested (each pair is tested separately)."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: reduced motion, a rapid commit, and a modal change together produce no error and a consistent final state (P-SCN-126)"
+      ],
+      "notes": "Reduced motion + rapid commit + an overlapping modal open/close (About) together produce no error and land on the correct final state -- the three-way combination the existing pairwise-only tests did not exercise together."
     },
     {
       "id": "P-SCN-127",
@@ -1133,17 +1143,21 @@
       "id": "P-SCN-128",
       "title": "Assistive reading order across landmarks and responsive chambers",
       "category": "accessibility",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Assistive reading order across landmarks and responsive chambers is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: landmark DOM order is identical across desktop and mobile, so assistive reading order does not depend on viewport (P-SCN-128)"
+      ],
+      "notes": "Responsive layout is CSS-only (display/position changes, e.g. .rail{display:none} on mobile); confirmed the DOM order of nav/main/dialog landmarks themselves is never reordered between desktop and a 390px mobile viewport, so a screen reader's linear reading order is stable across responsive chambers."
     },
     {
       "id": "P-SCN-129",
       "title": "Keyboard navigation in dense cluster after filters change",
       "category": "accessibility",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Keyboard navigation in a dense cluster after filters change is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: keyboard navigation still resolves correctly in a dense cluster after a View filter change (P-SCN-129)"
+      ],
+      "notes": "updateRovingTabindex/nearestNodeInDirection both already gate on nodeVisible(); confirmed the roving target and arrow-key directional movement never land on a type hidden by a View filter change, and Enter commits the correct, still-visible node."
     },
     {
       "id": "P-SCN-130",

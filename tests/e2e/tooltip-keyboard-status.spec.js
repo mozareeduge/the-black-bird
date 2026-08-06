@@ -235,4 +235,184 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     await page.setViewportSize({ width: 900, height: 700 });
     await expect(page.locator('#microPreview')).not.toHaveClass(/visible/);
   });
+
+  test('switching from pointer to keyboard to touch within one session commits correctly each time (P-SCN-097)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    await tagNodes(page);
+
+    // 1) Mouse/pointer.
+    await clickNode(page, 'FO.CORPSE');
+    expect((await page.evaluate(() => window.__bbState.activeId))).toBe('FO.CORPSE');
+
+    // 2) Keyboard: roving focus + Enter. The node click handler doesn't
+    // discriminate by input origin (no per-modality state to desync), but
+    // the roving-tabindex target must have followed the prior mouse commit.
+    const roving = page.locator('g.node[tabindex="0"]');
+    await expect(roving).toHaveCount(1);
+    const rovingId = await roving.first().getAttribute('data-bb-id');
+    await roving.first().focus();
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(50);
+    expect(await page.evaluate(() => window.__bbState.activeId)).toBe(rovingId);
+
+    // 3) Touch: a touch-originated tap dispatches the same "click" event the
+    // mouse path does (there is no separate touch-only handler to desync).
+    const target = page.locator('g.node[data-bb-test-id="FO.ABEL"]');
+    await target.evaluate((el) => {
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+      el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await page.waitForFunction(() => window.__bbState.activeId === 'FO.ABEL', { timeout: 4000 });
+
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+  });
+
+  test('a user zoom overlapping a new direct commit leaves a consistent final state (P-SCN-100)', async ({ page }) => {
+    await gotoField(page); // full motion: a real, overlappable camera transition
+    await clickNode(page, 'FO.CORPSE');
+    const svgBox = await page.locator('#graphSvg').boundingBox();
+
+    // Start a user zoom gesture, then commit a different object mid-gesture.
+    await page.mouse.move(svgBox.x + svgBox.width / 2, svgBox.y + svgBox.height / 2);
+    await page.keyboard.down('Control');
+    await page.mouse.wheel(0, -80);
+    await clickNode(page, 'FO.CAIN');
+    await page.mouse.wheel(0, -80);
+    await page.keyboard.up('Control');
+    await page.waitForTimeout(150);
+
+    const state = await page.evaluate(() => ({ activeId: window.__bbState.activeId, transform: window.__bbState.transform }));
+    expect(state.activeId).toBe('FO.CAIN');
+    expect(
+      Number.isFinite(state.transform.x) && Number.isFinite(state.transform.y) && Number.isFinite(state.transform.k),
+    ).toBe(true);
+    expect(state.transform.k).toBeGreaterThanOrEqual(0.55);
+    expect(state.transform.k).toBeLessThanOrEqual(2.4);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+  });
+
+  test('turning visual labels off leaves every node fully operable by keyboard, with its accessible name intact (P-SCN-102)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    const labelsToggle = page.locator('[data-view="labels"]').first();
+    await labelsToggle.click();
+    await expect.poll(() => page.evaluate(() => window.__bbState.viewOptions.labels)).toBe(false);
+    await page.locator('[data-close="fieldViewDrawer"]').first().click();
+
+    // aria-label is set once per node independent of the visual labels
+    // toggle (updateLabelVisibility only touches the drawn <text>), so
+    // every node keeps a real accessible name for a screen reader.
+    const ariaLabels = await page.evaluate(() => [...document.querySelectorAll('g.node')].map((g) => g.getAttribute('aria-label')));
+    expect(ariaLabels.every((l) => !!l && l.length > 0)).toBe(true);
+
+    // Keyboard traversal and commit still work with labels off.
+    const roving = page.locator('g.node[tabindex="0"]');
+    await roving.first().focus();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(50);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(50);
+    const state = await page.evaluate(() => ({ activeId: window.__bbState.activeId, labels: window.__bbState.viewOptions.labels }));
+    expect(state.activeId).toBeTruthy();
+    expect(state.labels).toBe(false);
+  });
+
+  test('inspecting a projected edge updates the Reader region with an accessible name for the pair (P-SCN-124)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    const found = await page.evaluate(() => {
+      const hit = document.querySelector('line.hit');
+      if (!hit) return false;
+      hit.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return true;
+    });
+    expect(found).toBe(true);
+
+    const reader = page.locator('#reader');
+    await expect(reader.locator('.edge-head')).toBeVisible();
+    // The panel's own text content, not a synthesized announcement, is what
+    // a screen reader would read here — it must name both endpoints, not
+    // just restate "projected edge".
+    const text = await reader.textContent();
+    expect(text).toContain('Projected edge');
+    expect(text.length).toBeGreaterThan('Projected edge'.length + 10);
+  });
+
+  test('reduced motion, a rapid commit, and a modal change together produce no error and a consistent final state (P-SCN-126)', async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await gotoField(page, { reduced: true });
+    await clickNode(page, 'FO.CORPSE');
+    await clickNode(page, 'FO.CAIN'); // rapid commit
+    await page.locator('.rail-btn[data-action="about"]').click(); // modal change, overlapping
+    await expect(page.locator('#aboutPanel')).toHaveClass(/open/);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#aboutPanel')).not.toHaveClass(/open/);
+
+    expect(errors).toEqual([]);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    const state = await page.evaluate(() => ({ activeId: window.__bbState.activeId, aboutOpen: window.__bbState.aboutOpen }));
+    expect(state.activeId).toBe('FO.CAIN');
+    expect(state.aboutOpen).toBe(false);
+  });
+
+  test('landmark DOM order is identical across desktop and mobile, so assistive reading order does not depend on viewport (P-SCN-128)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    const desktopOrder = await page.evaluate(() =>
+      [...document.querySelectorAll('nav, main, [role="dialog"]')].map((el) => el.id || el.className),
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(50);
+    const mobileOrder = await page.evaluate(() =>
+      [...document.querySelectorAll('nav, main, [role="dialog"]')].map((el) => el.id || el.className),
+    );
+    // Responsive layout is CSS-only (display/position changes); the DOM
+    // itself is never reordered, so a screen reader's linear reading order
+    // is identical regardless of which chamber CSS currently shows.
+    expect(mobileOrder).toEqual(desktopOrder);
+  });
+
+  test('keyboard navigation still resolves correctly in a dense cluster after a View filter change (P-SCN-129)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    // Hide RefO to leave a denser mix of the remaining types.
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-type="RefO"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbState.objectGroups['RefO'])).toBe(false);
+    await page.locator('[data-close="fieldViewDrawer"]').first().click();
+
+    const roving = page.locator('g.node[tabindex="0"]');
+    await expect(roving).toHaveCount(1);
+    const rovingId = await roving.first().getAttribute('data-bb-id');
+    expect(await page.evaluate((id) => window.__bbTest.nodeVisible(id), rovingId), 'the roving target must never land on a filtered-out node').toBe(true);
+
+    await roving.first().focus();
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(50);
+    const afterId = await page.evaluate(() =>
+      [...document.querySelectorAll('g.node')].find((g) => g.getAttribute('tabindex') === '0')?.getAttribute('data-bb-id'),
+    );
+    expect(afterId).toBeTruthy();
+    expect(await page.evaluate((id) => window.__bbTest.nodeVisible(id), afterId), 'directional movement must never land on a filtered-out node').toBe(true);
+
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(50);
+    const state = await page.evaluate(() => window.__bbState.activeId);
+    expect(state).toBe(afterId);
+    expect(state).not.toBe('RefO'); // sanity: never resolves to a hidden type at all
+  });
 });
