@@ -1611,6 +1611,52 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   var CANONICAL_MORPHOLOGIES = Object.freeze(["fo", "rno", "mno", "nameo", "refo", "relo", "aperture"]);
 
+  // src/accessibility/announcement-manager.js
+  function createAnnouncementManager({ coalesceMs = 150, publish }) {
+    let pending = null;
+    let timer = null;
+    function announce(message) {
+      pending = message;
+      if (timer) return;
+      timer = setTimeout(() => {
+        const message2 = pending;
+        pending = null;
+        timer = null;
+        publish(message2);
+      }, coalesceMs);
+    }
+    function flush() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      if (pending != null) {
+        const message = pending;
+        pending = null;
+        publish(message);
+      }
+    }
+    function cancel() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      pending = null;
+    }
+    return { announce, flush, cancel };
+  }
+
+  // src/presentation/status-renderer.js
+  function createStatusRenderer({ liveRegion, coalesceMs = 150 }) {
+    const manager = createAnnouncementManager({
+      coalesceMs,
+      publish: (message) => {
+        liveRegion.textContent = message;
+      }
+    });
+    return { announce: manager.announce, flush: manager.flush, cancel: manager.cancel };
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -3032,11 +3078,14 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       }
     );
   }
+  var routeLiveRegion = document.getElementById("routeLive");
+  var statusRenderer = routeLiveRegion ? createStatusRenderer({ liveRegion: routeLiveRegion }) : null;
+  function announceStatus(message) {
+    statusRenderer?.announce(message);
+  }
   function updateRouteLiveRegion() {
-    const el = document.getElementById("routeLive");
-    if (!el) return;
     const labels = S.routeEvents.map((ev) => ev.label).join(", ");
-    el.textContent = labels ? `Route: ${labels}.` : "Route is empty.";
+    announceStatus(labels ? `Route: ${labels}.` : "Route is empty.");
   }
   function routeStats() {
     const recent = S.routeEvents.slice(-S.recentRouteWindow);
@@ -3648,6 +3697,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
         const id = el.dataset.solo;
         S.soloSet = computeSoloSet(id);
         dispatch({ type: CommandType.ENTER_SOLO, id });
+        announceStatus(`Solo: ${byId[id]?.label || id}.`);
         updateVisibility();
         closeAllDrawers();
         await nextFrame();
@@ -3688,6 +3738,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     Object.keys(S.objectGroups).forEach((k) => S.objectGroups[k] = true);
     dispatch({ type: CommandType.RESTORE_FIELD });
     if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
+    announceStatus("Field restored.");
     renderFieldViewControls();
     updateVisibility();
     closeAllDrawers();
@@ -3697,6 +3748,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     S.objectVisibility = { ...defaultVisibility };
     S.soloSet = null;
     if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
+    announceStatus("Field restored.");
     renderObjectLists();
     updateVisibility();
     closeAllDrawers();

@@ -15,6 +15,7 @@ import { createDispatcher } from './application/dispatcher.js';
 import { validateBootstrap } from './bootstrap.js';
 import { renderBootstrapFailure } from './presentation/bootstrap-renderer.js';
 import { isApertureNode, morphologyOf, computeNodeMetrics } from './presentation/field-renderer.js';
+import { createStatusRenderer } from './presentation/status-renderer.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -2013,11 +2014,22 @@ function renderRouteDrawer() {
       }),
   );
 }
+// F05: src/presentation/status-renderer.js (tests/e2e/tooltip-keyboard-status.spec.js's
+// "rapid status messages coalesce" case) is the real coalescing authority for
+// this region -- rapid successive announcements (e.g. Solo entry immediately
+// followed by a Route update) collapse to the latest message only, rather than
+// flooding assistive technology with superseded text. #routeLive remains the
+// single polite live region tests/a11y/axe.spec.js asserts.
+const routeLiveRegion = document.getElementById("routeLive");
+const statusRenderer = routeLiveRegion
+  ? createStatusRenderer({ liveRegion: routeLiveRegion })
+  : null;
+function announceStatus(message) {
+  statusRenderer?.announce(message);
+}
 function updateRouteLiveRegion() {
-  const el = document.getElementById("routeLive");
-  if (!el) return;
   const labels = S.routeEvents.map((ev) => ev.label).join(", ");
-  el.textContent = labels ? `Route: ${labels}.` : "Route is empty.";
+  announceStatus(labels ? `Route: ${labels}.` : "Route is empty.");
 }
 
 // ── Route memory ────────────────────────────────────────────────────────────
@@ -2828,6 +2840,7 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
         const id = el.dataset.solo;
         S.soloSet = computeSoloSet(id);
         dispatch({ type: CommandType.ENTER_SOLO, id });
+        announceStatus(`Solo: ${byId[id]?.label || id}.`);
         updateVisibility();
         closeAllDrawers();
         await nextFrame();
@@ -2869,6 +2882,7 @@ document.getElementById("restoreField").onclick = () => {
   Object.keys(S.objectGroups).forEach((k) => (S.objectGroups[k] = true));
   dispatch({ type: CommandType.RESTORE_FIELD });
   if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
+  announceStatus("Field restored.");
   renderFieldViewControls();
   updateVisibility();
   closeAllDrawers();
@@ -2878,6 +2892,7 @@ document.getElementById("showAllObjects").onclick = () => {
   S.objectVisibility = { ...defaultVisibility };
   S.soloSet = null;
   if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
+  announceStatus("Field restored.");
   renderObjectLists();
   updateVisibility();
   closeAllDrawers();

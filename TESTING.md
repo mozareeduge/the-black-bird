@@ -187,6 +187,43 @@ independently of the still-live application:
   scanning at five app states; a dedicated `Final Candidate Gate` CI
   workflow that regenerates and gates evidence on every push.
 
+## F00–F07: continuation round (swap-in in progress)
+
+A second round, executed against a drop-in continuation authority package on
+top of the T00–T31 candidate above, is underway on this branch. Its explicit
+goal is the "full swap-in" T00–T31 called "a distinct, higher-risk future
+round, out of this one's scope." Real progress so far, each swap verified by
+the full suite (`test:unit`/`test:e2e`/`test:a11y`/`test:full`) before commit:
+
+- **Semantic mutation authority (F03):** `src/state/reducer.js` +
+  `src/application/dispatcher.js` + `transaction-controller.js` are now the
+  real validate → reduce → transact authority `dispatch()` calls for every
+  semantic command; `S`, the legacy read-model, is not replaced wholesale and
+  still drives rendering (disclosed, not an oversight — see `src/app.js`'s
+  own "Canonical semantic state (F03)" comment).
+- **Geometry authority (F02/F04):** `authored-world.js`, `focus-targets.js`,
+  `camera.js`, `label-solver.js`, and `pointer-ownership.js` are wired in as
+  the real authority for world coordinates, focus-force targeting, camera
+  framing, label placement, and pointer-to-node resolution.
+- **Presentation (F05, partial):** `bootstrap-renderer.js` and
+  `field-renderer.js` are wired in. `status-renderer.js` +
+  `accessibility/announcement-manager.js` now own the single `#routeLive`
+  polite live region's coalescing behavior (replacing an ad hoc
+  textContent-set), extended past Route-only announcements to also announce
+  Solo entry (`Solo: <label>.`) and Field-restore
+  (`Restore Field`/`Show All`, `Field restored.`) — previously-silent state
+  transitions a screen-reader user landing on the Index drawer had no other
+  way to learn about. The remaining seven presentation renderers
+  (`index-`, `modal-`, `reader-`, `route-`, `solo-`, `tooltip-`,
+  `trace-`, `view-renderer.js`) and all seven `src/controllers/*.js` modules
+  are still not wired into `src/app.js` — this is real, disclosed remaining
+  scope, not a gap silently left off this list.
+- **Scenario coverage (F06):** all 115 declared product scenarios are now
+  accounted for (covered or explicitly reasoned) with zero silent gaps.
+- **Accessibility (F07):** verified zero silent exclusions beyond the one
+  already-disclosed `color-contrast` finding above; no code change was
+  needed.
+
 ## Known limits
 
 - **Label placement: 8 candidates, first-valid rather than
