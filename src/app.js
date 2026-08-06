@@ -1000,6 +1000,10 @@ nodeSel
   })
   .on("click", (ev, d) => {
     ev.stopPropagation();
+    // A hover-preview timer armed by mouseenter (200ms) can still be pending
+    // when the click lands (P-SCN-020) — without this it fires after commit
+    // and shows a stale hover preview for the object just committed.
+    clearTimeout(S.previewTimer);
     hidePreview();
     // The datum bound to the DOM element under the pointer is not
     // authoritative when hit areas overlap (BB-R06) — resolve the true
@@ -1207,6 +1211,13 @@ function resize() {
   S.viewport = isMobile() ? "mobile" : "desktop";
   dispatch({ type: CommandType.RECONCILE_ENVIRONMENT, profile: S.viewport });
   updatePhaseClass();
+  // P-SCN-122: a transient hover preview is positioned from the pointer
+  // coordinates at hover time (placePreviewNearPoint) and never
+  // recalculated — after a resize those coordinates (and often the
+  // hovered node's own screen position) are stale, so dismiss it rather
+  // than leave a mispositioned tooltip standing.
+  clearTimeout(S.previewTimer);
+  clearTouch();
   if (isMobile() && S.surface === "read") {
     renderRoute();
     return;

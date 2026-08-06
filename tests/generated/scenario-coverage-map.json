@@ -141,25 +141,31 @@
       "id": "P-SCN-018",
       "title": "Preview active object",
       "category": "preview",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Preview-of-the-already-active-object policy nuance is not tested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: hovering the already-active object still previews it, with no Route/trace side effect (P-SCN-018)"
+      ],
+      "notes": "PREVIEW_OBJECT has no active-object special case in the reducer contract (route/trace policy both none regardless), and the live app matches: hovering the active object previews normally with no Route/trace mutation."
     },
     {
       "id": "P-SCN-019",
       "title": "Preview near viewport edge",
       "category": "preview",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Preview-near-viewport-edge placement (placePreviewNearPoint) is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: preview near a viewport edge stays fully on-screen (P-SCN-019)"
+      ],
+      "notes": "placePreviewNearPoint already clamped correctly (flips left/top on overflow, clamps to a 16px margin) — verified across every node at a 480x420 viewport, no fix needed."
     },
     {
       "id": "P-SCN-020",
       "title": "Commit while preview pending",
       "category": "preview",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Commit-while-preview-pending race is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: committing before the hover-preview delay elapses leaves no stale preview behind (P-SCN-020)"
+      ],
+      "notes": "Fixed a real race while closing this: the node click handler called hidePreview() but never cleared the pending 200ms hover-preview timer, so a hover immediately followed by a click could still show a stale preview ~200ms after commit. src/app.js node click handler now clearTimeout(S.previewTimer) before hidePreview()."
     },
     {
       "id": "P-SCN-021",
@@ -1021,9 +1027,11 @@
       "id": "P-SCN-122",
       "title": "Tooltip is repositioned or dismissed during resize",
       "category": "preview",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Tooltip reposition/dismiss specifically during a resize event is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/tooltip-keyboard-status.spec.js :: an open preview is dismissed on resize rather than left stale-positioned (P-SCN-122)"
+      ],
+      "notes": "Fixed a real gap while closing this: resize() never touched an open preview, which is positioned once from hover-time pointer coordinates and never recalculated, so it could be left stale-positioned after a resize. resize() now calls clearTouch() (dismiss, the simpler and safer of the two options the scenario names) and clears any pending hover timer."
     },
     {
       "id": "P-SCN-123",

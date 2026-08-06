@@ -2282,6 +2282,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     clearTouch();
   }).on("click", (ev, d) => {
     ev.stopPropagation();
+    clearTimeout(S.previewTimer);
     hidePreview();
     const focus = S.activeId ? buildFocusSet(S.activeId) : null;
     const resolved = resolveNearestVisibleNode(d3.pointer(ev, svg.node()), {
@@ -2429,6 +2430,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     S.viewport = isMobile() ? "mobile" : "desktop";
     dispatch({ type: CommandType.RECONCILE_ENVIRONMENT, profile: S.viewport });
     updatePhaseClass();
+    clearTimeout(S.previewTimer);
+    clearTouch();
     if (isMobile() && S.surface === "read") {
       renderRoute();
       return;

@@ -1,6 +1,6 @@
 'use strict';
 const { test, expect } = require('@playwright/test');
-const { gotoField } = require('../bb-helpers.cjs');
+const { gotoField, clickNode, node, tagNodes } = require('../bb-helpers.cjs');
 
 test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
   test('tooltip lifecycle: show associates aria-describedby, hide removes it, Escape dismisses (T-REQ-034/035)', async ({
@@ -159,5 +159,80 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     });
     expect(result.published.length).toBe(1);
     expect(result.finalText).toBe('Route: A, B, C.');
+  });
+
+  test('hovering the already-active object still previews it, with no Route/trace side effect (P-SCN-018)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    await clickNode(page, 'FO.CORPSE');
+    const before = await page.evaluate(() => ({
+      route: window.__bbState.routeEvents.length,
+      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+    }));
+    await node(page, 'FO.CORPSE').hover();
+    await page.waitForTimeout(260);
+    const preview = page.locator('#microPreview');
+    await expect(preview).toHaveClass(/visible/);
+    await expect(preview.locator('.micro-preview-title')).toHaveText('Corpse');
+    const after = await page.evaluate(() => ({
+      route: window.__bbState.routeEvents.length,
+      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      activeId: window.__bbState.activeId,
+    }));
+    expect(after.route).toBe(before.route);
+    expect(after.wear).toBe(before.wear);
+    expect(after.activeId).toBe('FO.CORPSE');
+  });
+
+  test('preview near a viewport edge stays fully on-screen (P-SCN-019)', async ({ page }) => {
+    await page.setViewportSize({ width: 480, height: 420 });
+    await gotoField(page, { reduced: true });
+    await tagNodes(page);
+    // Move the mouse to every node's own measured screen center (not a
+    // locator .hover(), which refuses targets outside the viewport/covered
+    // by other elements) and check every resulting preview position — at
+    // this small viewport at least one authored home lands near an edge.
+    let checked = 0;
+    const ids = await page.evaluate(() => [...document.querySelectorAll('g.node')].map((g) => g.__data__?.id).filter(Boolean));
+    for (const id of ids) {
+      const box = await node(page, id).locator('.node-hit,.bb-hit,.node-core,.bb-body').first().boundingBox();
+      if (!box) continue;
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.waitForTimeout(30);
+      const preview = await page.locator('#microPreview').boundingBox();
+      if (!preview) continue;
+      checked += 1;
+      expect(preview.x, `preview for ${id} left edge`).toBeGreaterThanOrEqual(0);
+      expect(preview.y, `preview for ${id} top edge`).toBeGreaterThanOrEqual(0);
+      expect(preview.x + preview.width, `preview for ${id} right edge`).toBeLessThanOrEqual(480);
+      expect(preview.y + preview.height, `preview for ${id} bottom edge`).toBeLessThanOrEqual(420);
+    }
+    expect(checked, 'at least one node produced a measurable preview to check').toBeGreaterThan(0);
+  });
+
+  test('committing before the hover-preview delay elapses leaves no stale preview behind (P-SCN-020)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    await tagNodes(page);
+    await node(page, 'FO.CAIN').hover();
+    // Commit immediately, well inside the 200ms hover-preview debounce.
+    await clickNode(page, 'FO.CAIN');
+    // If the armed hover timer were not cancelled on commit, it would fire
+    // here (~200ms after hover) and show a stale preview for the object
+    // that is now already the committed focus.
+    await page.waitForTimeout(320);
+    await expect(page.locator('#microPreview')).not.toHaveClass(/visible/);
+  });
+
+  test('an open preview is dismissed on resize rather than left stale-positioned (P-SCN-122)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await tagNodes(page);
+    await node(page, 'FO.ABEL').hover();
+    await page.waitForTimeout(260);
+    await expect(page.locator('#microPreview')).toHaveClass(/visible/);
+    await page.setViewportSize({ width: 900, height: 700 });
+    await expect(page.locator('#microPreview')).not.toHaveClass(/visible/);
   });
 });
