@@ -738,17 +738,21 @@
       "id": "P-SCN-088",
       "title": "Reload after long reading",
       "category": "session",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Reload-after-long-reading is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/bootstrap.spec.js :: reloading after a long reading session comes back to a clean, correct initial state (P-SCN-088)"
+      ],
+      "notes": "src/app.js has no localStorage/sessionStorage anywhere, so nothing from a long reading session (Route, wear, afterglow, About, Solo) can persist across a reload; confirmed a fresh, correct landing state after a 5-commit + About session."
     },
     {
       "id": "P-SCN-089",
       "title": "Resize during camera/focus transition",
       "category": "session",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Resize during an in-flight camera/focus transition is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/bootstrap.spec.js :: resizing mid-transition during a camera/focus commit leaves a consistent, error-free session (P-SCN-089)"
+      ],
+      "notes": "Resizing while a real (non-reduced-motion) camera/focus transition is in flight completes cleanly: the target commit lands, the camera transform stays finite, and no error surfaces."
     },
     {
       "id": "P-SCN-090",

@@ -2,6 +2,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
+const { gotoField, clickNode } = require('../bb-helpers.cjs');
 
 const UNAVAILABLE_TITLE = 'The field could not be opened';
 const UNAVAILABLE_BODY =
@@ -170,5 +171,86 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
         timeout: 3000,
       })
       .toBe('1');
+  });
+
+  test('reloading after a long reading session comes back to a clean, correct initial state (P-SCN-088)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    // A long session: many commits (building up Route/wear/afterglow),
+    // View/Index/Solo interaction, and About — all local state that has
+    // nowhere to persist (no localStorage/sessionStorage anywhere in
+    // src/app.js), so a reload must produce an identical fresh start.
+    for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.ABEL', 'FO.BURIAL', 'FO.ODIN']) await clickNode(page, id);
+    await page.locator('.rail-btn[data-action="about"]').click();
+    await page.keyboard.press('Escape');
+
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.reload();
+    // Same landing condition gotoField() waits for — the URL still carries
+    // ?skipIntro=1, so the setTimeout-scheduled enter({skipOnboarding:true})
+    // needs to actually fire and resolve before phase/activeId are settled.
+    await page.waitForFunction(
+      () =>
+        window.__bbState &&
+        document.querySelectorAll('g.node').length === 50 &&
+        window.__bbState.phase === 'focused' &&
+        !!window.__bbState.activeId,
+      { timeout: 12000 },
+    );
+
+    expect(errors).toEqual([]);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    const state = await page.evaluate(() => ({
+      route: window.__bbState.routeEvents.length,
+      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      afterglow: window.__bbState.fieldTrace.afterglows.length,
+      aboutOpen: window.__bbState.aboutOpen,
+      soloSet: window.__bbState.soloSet,
+      phase: window.__bbState.phase,
+      activeId: window.__bbState.activeId,
+    }));
+    // Reload navigates the same ?skipIntro=1&bbtest=1 URL, so the fresh
+    // landing state is the skip-intro one (phase:'focused' on the field
+    // object), not the pre-entry threshold. Route ends up 0 or 1 depending
+    // on exactly when the fresh landing commit's own append is observed
+    // relative to the phase/activeId flip (both true harmless outcomes of
+    // one fresh landing commit) — what actually matters here, and what this
+    // scenario is really about, is that it is nowhere near the 6 events the
+    // five-commit reading session above had accumulated pre-reload: no
+    // carryover, not a specific landing-commit timing.
+    expect(state.route).toBeLessThanOrEqual(1);
+    expect(state.wear).toBe(0);
+    expect(state.afterglow).toBe(0);
+    expect(state.aboutOpen).toBe(false);
+    expect(state.soloSet).toBeNull();
+    expect(state.phase).toBe('focused');
+    expect(state.activeId).toBe('FO.BLACK_BIRD_FIELD');
+  });
+
+  test('resizing mid-transition during a camera/focus commit leaves a consistent, error-free session (P-SCN-089)', async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    // Full motion (not reduced) so the camera/focus commit has a real,
+    // resizable in-flight window rather than resolving instantly.
+    await gotoField(page);
+    await clickNode(page, 'FO.CORPSE');
+
+    const focusPromise = page.evaluate(() => window.__bbTest.focusObject('FO.CAIN', { source: 'test-transition' }));
+    await page.waitForTimeout(60); // land mid-transition, well inside the ~760ms default camera duration
+    await page.setViewportSize({ width: 900, height: 700 });
+    await focusPromise;
+    await page.waitForTimeout(200);
+
+    expect(errors).toEqual([]);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    const state = await page.evaluate(() => ({ activeId: window.__bbState.activeId, transform: window.__bbState.transform }));
+    expect(state.activeId).toBe('FO.CAIN');
+    expect(Number.isFinite(state.transform.x) && Number.isFinite(state.transform.y) && Number.isFinite(state.transform.k)).toBe(
+      true,
+    );
   });
 });
