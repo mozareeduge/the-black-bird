@@ -277,17 +277,21 @@
       "id": "P-SCN-040",
       "title": "Search Index by label",
       "category": "index",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Index search-by-label is exercised as setup in other tests but has no scenario test of its own."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: Index search by label filters to matching objects (P-SCN-040)"
+      ],
+      "notes": "Live-app Index search filters #objectList to rows whose label or id contains the (case-folded, trimmed) query."
     },
     {
       "id": "P-SCN-041",
       "title": "Search Index by id",
       "category": "index",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Index search-by-id has no dedicated test."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: Index search by opaque id filters to the matching object (P-SCN-041)"
+      ],
+      "notes": "Live-app Index search matches against the canonical id string as well as the label."
     },
     {
       "id": "P-SCN-042",
@@ -303,9 +307,11 @@
       "id": "P-SCN-043",
       "title": "Open visible object from Index",
       "category": "index",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Plain open-visible-object-from-Index has no dedicated test (only Solo-from-Index is tested)."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: opening a visible object from the Index commits it and closes the drawer (P-SCN-043)"
+      ],
+      "notes": "Distinct from the already-covered Solo-from-Index path: a plain Index Open commits focus and closes the drawer."
     },
     {
       "id": "P-SCN-044",
@@ -871,9 +877,11 @@
       "id": "P-SCN-107",
       "title": "Index search using source script, case, whitespace, and opaque id",
       "category": "index",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Index search normalization (source-script/case/whitespace/opaque-id) is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: Index search normalizes case, surrounding whitespace, and matches source-script text (P-SCN-107)"
+      ],
+      "notes": "Fixed a real gap while closing this: renderObjectRows never trimmed the search filter, so leading/trailing whitespace silently produced zero matches (src/app.js renderObjectRows now does filter.trim().toLowerCase()). Case-folding and non-Latin source-script substring matching already worked correctly."
     },
     {
       "id": "P-SCN-108",

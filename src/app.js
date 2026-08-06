@@ -2756,7 +2756,7 @@ function setObjectGroup(type, value) {
   if (S.activeId && !nodeVisible(S.activeId)) returnToField({ reason: "active-hidden-by-filter" });
 }
 function renderObjectRows(container, filter = "", typeFilter = null) {
-  const q = filter.toLowerCase();
+  const q = filter.trim().toLowerCase();
   const rows = nodes
     .filter(
       (n) =>

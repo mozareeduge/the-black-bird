@@ -152,6 +152,58 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     expect(result.label).toContain('SOLO');
   });
 
+  test('Index search by label filters to matching objects (P-SCN-040)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await expect(page.locator('#objectDrawer')).toHaveClass(/open/);
+    // "Battlefield" appears in exactly one node's label or id (FO.BATTLEFIELD).
+    await page.locator('#objectSearch').fill('Battlefield');
+    await expect(page.locator('.object-row [data-open="FO.BATTLEFIELD"]')).toBeVisible();
+    const rows = await page.locator('#objectList .object-row').count();
+    expect(rows).toBe(1);
+  });
+
+  test('Index search by opaque id filters to the matching object (P-SCN-041)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await expect(page.locator('#objectDrawer')).toHaveClass(/open/);
+    await page.locator('#objectSearch').fill('FO.CORPSE');
+    await expect(page.locator('.object-row [data-open="FO.CORPSE"]')).toBeVisible();
+    const rows = await page.locator('#objectList .object-row').count();
+    expect(rows).toBe(1);
+  });
+
+  test('opening a visible object from the Index commits it and closes the drawer (P-SCN-043)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await expect(page.locator('#objectDrawer')).toHaveClass(/open/);
+    await page.locator('#objectSearch').fill('Cain');
+    const openLink = page.locator('[data-open="FO.CAIN"]').first();
+    await expect(openLink).toBeVisible();
+    await openLink.click();
+    await expect(page.locator('#objectDrawer')).not.toHaveClass(/open/);
+    const state = await appState(page);
+    expect(state.activeId).toBe('FO.CAIN');
+  });
+
+  test('Index search normalizes case, surrounding whitespace, and matches source-script text (P-SCN-107)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await expect(page.locator('#objectDrawer')).toHaveClass(/open/);
+    const search = page.locator('#objectSearch');
+
+    await search.fill('cAiN');
+    await expect(page.locator('.object-row [data-open="FO.CAIN"]')).toBeVisible();
+
+    await search.fill('  cain  ');
+    await expect(page.locator('.object-row [data-open="FO.CAIN"]')).toBeVisible();
+
+    await search.fill('غراب');
+    await expect(page.locator('.object-row [data-open="NameO.AR.GHURAB"]')).toBeVisible();
+  });
+
   test('entering Solo (live app) creates no Route or trace history (P-RULE-012)', async ({ page }) => {
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CORPSE');

@@ -3612,7 +3612,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     if (S.activeId && !nodeVisible(S.activeId)) returnToField({ reason: "active-hidden-by-filter" });
   }
   function renderObjectRows(container, filter = "", typeFilter = null) {
-    const q = filter.toLowerCase();
+    const q = filter.trim().toLowerCase();
     const rows = nodes.filter(
       (n) => (!typeFilter || n.type === typeFilter) && (!q || n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q))
     ).map(
