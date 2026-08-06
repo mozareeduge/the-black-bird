@@ -116,4 +116,26 @@ test.describe('Reader subject view models and renderer (T18)', () => {
     const normalize = (s) => s.replace(/\s+/g, ' ').trim();
     expect(normalize(rendered)).toContain(normalize(plainBody).slice(0, 40));
   });
+
+  test('following an inline MNO link commits its target (P-SCN-027)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    // MNO.WINDOW_DARKNESS body links to FO.WINDOW (verified against canonical-data.js).
+    await clickNode(page, 'MNO.WINDOW_DARKNESS__F488DD0A');
+    const link = page.locator('#reader .fl[data-id="FO.WINDOW"]').first();
+    await expect(link).toBeVisible();
+    await link.click();
+    const activeId = await page.evaluate(() => window.__bbState.activeId);
+    expect(activeId).toBe('FO.WINDOW');
+  });
+
+  test('following an RNO chip/list link commits its target (P-SCN-028)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    // RNO.GHURAB_BURIAL's objects chip-row includes FO.CAIN (verified against canonical-data.js).
+    await clickNode(page, 'RNO.GHURAB_BURIAL__424A0ECF');
+    const chip = page.locator('#reader .chip[data-id="FO.CAIN"]').first();
+    await expect(chip).toBeVisible();
+    await chip.click();
+    const activeId = await page.evaluate(() => window.__bbState.activeId);
+    expect(activeId).toBe('FO.CAIN');
+  });
 });

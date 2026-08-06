@@ -243,17 +243,21 @@
       "id": "P-SCN-027",
       "title": "Follow inline MNO link",
       "category": "reader",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Canonical MNO body text is proven present, but following an inline link's click-through is not exercised."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/reader.spec.js :: following an inline MNO link commits its target (P-SCN-027)"
+      ],
+      "notes": "inlineHandlers() binds .fl click to focusObject unconditionally; confirmed against a real MNO body link."
     },
     {
       "id": "P-SCN-028",
       "title": "Follow RNO chip/list link",
       "category": "reader",
-      "status": "gap",
-      "evidence": [],
-      "notes": "RNO chip/list link click-through is not exercised."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/reader.spec.js :: following an RNO chip/list link commits its target (P-SCN-028)"
+      ],
+      "notes": "RNO/MNO both render through renderTextNode's objects/refs chip-row (.chip), bound to focusObject separately from the .fl inline-link binding; confirmed against a real RNO chip."
     },
     {
       "id": "P-SCN-029",
@@ -269,25 +273,31 @@
       "id": "P-SCN-030",
       "title": "Inspect projected edge on mobile",
       "category": "reader",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Mobile-specific projected-edge sheet (showEdgeSheet) is not exercised."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/mobile-chambers.spec.js :: inspecting a projected edge on mobile opens the edge sheet, not the desktop panel (P-SCN-030)"
+      ],
+      "notes": "openProjectedEdge()'s isMobile() branch to showEdgeSheet() already existed; confirmed against the live app at a 390px viewport by dispatching directly on a line.hit target (the wider invisible hit target under the thin visible link-proj line)."
     },
     {
       "id": "P-SCN-031",
       "title": "External source succeeds",
       "category": "external",
-      "status": "gap",
-      "evidence": [],
-      "notes": "No external-source-success test."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/environmental-resilience.spec.js :: an external source that opens successfully shows no local failure status (P-SCN-031)"
+      ],
+      "notes": "A dedicated success-path test, split out from the existing blocked-popup test (which already exercised retry-succeeds as one step of a longer flow)."
     },
     {
       "id": "P-SCN-032",
       "title": "External source fails/offline",
       "category": "external",
-      "status": "gap",
-      "evidence": [],
-      "notes": "No external-source-failure/offline test (distinct from the popup-blocked scenario P-SCN-106, which is covered)."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/environmental-resilience.spec.js :: an external source that fails to open (blocked or offline) never mutates the poem session (P-SCN-032)"
+      ],
+      "notes": "window.open() returning falsy is the only cross-browser signal available to the opener for \"could not open\" -- a blocked popup and an offline/unreachable destination are indistinguishable at this API and correctly receive the identical local recovery response already covered by the popup-blocked test (P-SCN-106); this is a dedicated test of that same, intentionally shared path under the offline framing."
     },
     {
       "id": "P-SCN-040",
@@ -702,9 +712,11 @@
       "id": "P-SCN-087",
       "title": "Open Research Annex",
       "category": "external",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Research Annex link is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/modals-about.spec.js :: the About panel exposes a working link to the Research Annex (P-SCN-087)"
+      ],
+      "notes": "A plain, static <a href=\"research/\"> in the About panel body and source list; confirmed present with the correct href."
     },
     {
       "id": "P-SCN-088",

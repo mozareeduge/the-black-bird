@@ -103,4 +103,13 @@ test.describe('One modal controller and state-pure About (T21)', () => {
     const after = await appState(page);
     expect(after).toEqual(before);
   });
+
+  test('the About panel exposes a working link to the Research Annex (P-SCN-087)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="about"]').click();
+    await expect(page.locator('#aboutPanel')).toHaveClass(/open/);
+    const link = page.locator('#aboutPanel a[href="research/"]', { hasText: 'Research Annex' }).first();
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('href', 'research/');
+  });
 });

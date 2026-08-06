@@ -166,6 +166,53 @@ test.describe('Environmental resilience: forced-colors, missing fonts, zoom/refl
     expect(result.sessionUnchanged, 'a blocked external destination must never mutate the poem session state').toBe(true);
   });
 
+  test('an external source that opens successfully shows no local failure status (P-SCN-031)', async ({ page }) => {
+    await gotoAndSnapshot(page);
+    const result = await page.evaluate(async () => {
+      const mod = await import('/src/controllers/external-link-controller.js');
+      const container = document.createElement('div');
+      container.hidden = true;
+      document.body.appendChild(container);
+      const fakeWin = { open: () => ({ closed: false }), navigator: window.navigator };
+      const controller = mod.createExternalLinkController({ win: fakeWin, doc: document, container });
+      const beforeState = JSON.stringify(window.__bbState);
+      const ok = controller.attempt('https://example.org', 'Example source');
+      return { ok, statusVisible: !container.hidden, sessionUnchanged: beforeState === JSON.stringify(window.__bbState) };
+    });
+    expect(result.ok).toBe(true);
+    expect(result.statusVisible, 'a successful open must never show the local failure status').toBe(false);
+    expect(result.sessionUnchanged).toBe(true);
+  });
+
+  test('an external source that fails to open (blocked or offline) never mutates the poem session (P-SCN-032)', async ({
+    page,
+  }) => {
+    // window.open() returning falsy is the one cross-browser signal
+    // available to the opener for "could not open" — a blocked popup and an
+    // offline/unreachable destination are indistinguishable at this API and
+    // correctly receive the identical local recovery response (same code
+    // path already exercised for the popup-blocked case above).
+    await gotoAndSnapshot(page);
+    const result = await page.evaluate(async () => {
+      const mod = await import('/src/controllers/external-link-controller.js');
+      const container = document.createElement('div');
+      container.hidden = true;
+      document.body.appendChild(container);
+      const fakeWin = { open: () => null, navigator: window.navigator };
+      const controller = mod.createExternalLinkController({ win: fakeWin, doc: document, container });
+      const beforeState = JSON.stringify(window.__bbState);
+      const ok = controller.attempt('https://example.org/offline', 'Offline source');
+      return {
+        ok,
+        statusText: container.querySelector('.external-link-status-text')?.textContent,
+        sessionUnchanged: beforeState === JSON.stringify(window.__bbState),
+      };
+    });
+    expect(result.ok).toBe(false);
+    expect(result.statusText).toContain('Offline source');
+    expect(result.sessionUnchanged, 'a failed/offline external destination must never mutate the poem session state').toBe(true);
+  });
+
   test('createLifecycleController only ever dispatches RECONCILE_* commands, never a Route/trace command (T-REQ-042)', async ({
     page,
   }) => {

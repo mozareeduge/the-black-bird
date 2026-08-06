@@ -1,6 +1,6 @@
 'use strict';
 const { test, expect } = require('@playwright/test');
-const { gotoField, clickNode } = require('../bb-helpers.cjs');
+const { gotoField, clickNode, appState } = require('../bb-helpers.cjs');
 
 // createNavigationController (T24, T-REQ-040/041) is exercised directly via
 // dynamic import with fake dispatch/env/doc collaborators, matching the
@@ -218,5 +218,26 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
     const after = await page.evaluate(() => ({ activeId: window.__bbState.activeId, surface: window.__bbState.surface }));
     expect(after.activeId).toBe(before.activeId);
     expect(after.surface).toBe(before.surface);
+  });
+
+  test('inspecting a projected edge on mobile opens the edge sheet, not the desktop panel (P-SCN-030)', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { reduced: true });
+    // The wider invisible line.hit target (not the thin visible link-proj
+    // line) carries the click handler — dispatch directly on it rather than
+    // fighting an SVG line's near-zero-height bounding box.
+    const found = await page.evaluate(() => {
+      const hit = document.querySelector('.link-proj-layer line.hit, line.hit');
+      if (!hit) return false;
+      hit.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+      return true;
+    });
+    expect(found, 'at least one projected-edge hit target must exist in the field').toBe(true);
+
+    await expect(page.locator('#sheet')).toHaveClass(/open/);
+    const state = await appState(page);
+    expect(state.overlay).toBe('edgeSheet');
   });
 });
