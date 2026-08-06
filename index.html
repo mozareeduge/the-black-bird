@@ -1176,6 +1176,105 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     EXTERNAL_NAVIGATION_FAILED: { requiredFields: [], routePolicy: "none", tracePolicy: "none", origin: "system" }
   });
 
+  // src/state/initial-state.js
+  function createInitialState() {
+    return {
+      "lifecycle": {
+        "phase": "threshold",
+        "bootstrap": "pending",
+        "documentVisibility": "visible",
+        "connectivity": "unknown"
+      },
+      "responsive": {
+        "profile": "derived",
+        "surface": "field",
+        "orientation": "derived",
+        "visualViewport": null
+      },
+      "reading": {
+        "anchorId": null,
+        "fieldAttention": {
+          "kind": "whole-field",
+          "id": null
+        },
+        "readerSubject": {
+          "kind": "orientation",
+          "id": null
+        },
+        "inspection": null
+      },
+      "history": {
+        "route": [],
+        "nextSequence": 1
+      },
+      "trace": {
+        "wear": {},
+        "afterglows": []
+      },
+      "view": {
+        "typeVisibility": {
+          "RNO": true,
+          "MNO": true,
+          "FO": true,
+          "NameO": true,
+          "RefO": true,
+          "RelO": true
+        },
+        "objectVisibility": {},
+        "projectedEdges": true,
+        "labels": true,
+        "sourceNames": false
+      },
+      "solo": {
+        "active": false,
+        "rootId": null,
+        "members": [],
+        "snapshot": null
+      },
+      "overlay": {
+        "kind": null,
+        "invoker": null
+      },
+      "tooltip": {
+        "kind": null,
+        "targetId": null,
+        "describedById": null
+      },
+      "focus": {
+        "graphRovingId": "FO.BLACK_BIRD_FIELD",
+        "restoreTarget": null
+      },
+      "presentation": {
+        "txId": 0,
+        "cameraIntent": null,
+        "statusMessage": null
+      }
+    };
+  }
+
+  // src/application/transaction-controller.js
+  function createTransactionController() {
+    let currentTxId = 0;
+    let currentController = null;
+    function begin() {
+      if (currentController) currentController.abort();
+      currentTxId += 1;
+      currentController = new AbortController();
+      return { txId: currentTxId, signal: currentController.signal };
+    }
+    function isActive(txId) {
+      return txId === currentTxId && !!currentController && !currentController.signal.aborted;
+    }
+    function abortCurrent() {
+      if (currentController) currentController.abort();
+    }
+    function currentTransaction() {
+      if (!currentController) return null;
+      return { txId: currentTxId, signal: currentController.signal };
+    }
+    return { begin, isActive, abortCurrent, currentTransaction };
+  }
+
   // src/state/guards.js
   function validateCommand(command) {
     const errors = [];
@@ -1372,80 +1471,60 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
   }
 
-  // src/state/initial-state.js
-  function createInitialState() {
-    return {
-      "lifecycle": {
-        "phase": "threshold",
-        "bootstrap": "pending",
-        "documentVisibility": "visible",
-        "connectivity": "unknown"
-      },
-      "responsive": {
-        "profile": "derived",
-        "surface": "field",
-        "orientation": "derived",
-        "visualViewport": null
-      },
-      "reading": {
-        "anchorId": null,
-        "fieldAttention": {
-          "kind": "whole-field",
-          "id": null
-        },
-        "readerSubject": {
-          "kind": "orientation",
-          "id": null
-        },
-        "inspection": null
-      },
-      "history": {
-        "route": [],
-        "nextSequence": 1
-      },
-      "trace": {
-        "wear": {},
-        "afterglows": []
-      },
-      "view": {
-        "typeVisibility": {
-          "RNO": true,
-          "MNO": true,
-          "FO": true,
-          "NameO": true,
-          "RefO": true,
-          "RelO": true
-        },
-        "objectVisibility": {},
-        "projectedEdges": true,
-        "labels": true,
-        "sourceNames": false
-      },
-      "solo": {
-        "active": false,
-        "rootId": null,
-        "members": [],
-        "snapshot": null
-      },
-      "overlay": {
-        "kind": null,
-        "invoker": null
-      },
-      "tooltip": {
-        "kind": null,
-        "targetId": null,
-        "describedById": null
-      },
-      "focus": {
-        "graphRovingId": "FO.BLACK_BIRD_FIELD",
-        "restoreTarget": null
-      },
-      "presentation": {
-        "txId": 0,
-        "cameraIntent": null,
-        "statusMessage": null
+  // src/application/effect-planner.js
+  function planEffects({ command, txId, signal, previousId, nextId }) {
+    const effects = [];
+    const withOwner = (effect) => ({ ...effect, txId, signal });
+    switch (command.type) {
+      case CommandType.COMMIT_OBJECT:
+      case CommandType.INTERRUPT_ONBOARDING_WITH_OBJECT:
+        effects.push(withOwner({ type: "camera-focus", targetId: nextId, fromNeutral: previousId == null }));
+        effects.push(withOwner({ type: "reader-render", targetId: nextId, delayMs: 160 }));
+        effects.push(withOwner({ type: "route-draw", durationMs: 420 }));
+        break;
+      case CommandType.RETURN_TO_WHOLE_FIELD:
+        effects.push(withOwner({ type: "camera-neutral" }));
+        break;
+      case CommandType.REPLAY_ROUTE_EVENT:
+        effects.push(withOwner({ type: "camera-focus", targetId: nextId, fromNeutral: false }));
+        effects.push(withOwner({ type: "reader-render", targetId: nextId, delayMs: 0 }));
+        break;
+      case CommandType.ENTER_SOLO:
+      case CommandType.EXIT_SOLO:
+      case CommandType.RESTORE_FIELD:
+      case CommandType.SET_TYPE_VISIBILITY:
+      case CommandType.SET_OBJECT_VISIBILITY:
+        effects.push(withOwner({ type: "field-recompute" }));
+        break;
+      case CommandType.SET_SURFACE:
+        effects.push(withOwner({ type: "camera-refit" }));
+        break;
+      default:
+        break;
+    }
+    return effects;
+  }
+
+  // src/application/dispatcher.js
+  function createDispatcher({ getState, transactions }) {
+    function dispatch2(command) {
+      const validation = validateCommand(command);
+      if (!validation.ok) {
+        return { accepted: false, errors: validation.errors };
       }
-    };
+      const prevState = getState();
+      const nextState = reduceCommand(prevState, command);
+      const { txId, signal } = transactions.begin();
+      const effects = planEffects({
+        command,
+        txId,
+        signal,
+        previousId: prevState.reading.anchorId,
+        nextId: nextState.reading.anchorId
+      });
+      return { accepted: true, state: nextState, txId, signal, effects };
+    }
+    return { dispatch: dispatch2 };
   }
 
   // src/app.js
@@ -1613,12 +1692,17 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   };
   window.__bbState = S;
   var canonicalState = createInitialState();
+  var canonicalTransactions = createTransactionController();
+  var canonicalDispatcher = createDispatcher({
+    getState: () => canonicalState,
+    transactions: canonicalTransactions
+  });
   function dispatch(command) {
-    const result = validateCommand(command);
-    if (!result.ok) {
+    const result = canonicalDispatcher.dispatch(command);
+    if (!result.accepted) {
       throw new Error(`dispatch: ${command.type} rejected: ${result.errors.join("; ")}`);
     }
-    canonicalState = reduceCommand(canonicalState, command);
+    canonicalState = result.state;
     return canonicalState;
   }
   dispatch({ type: CommandType.BOOTSTRAP_READY });

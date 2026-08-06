@@ -9,9 +9,9 @@ import { computeSafeRect, computeNeutralCamera, computeFocusCamera } from './lay
 import { solveLabels } from './layout/label-solver.js';
 import { resolvePointerOwner } from './layout/pointer-ownership.js';
 import { CommandType } from './state/command-types.js';
-import { validateCommand } from './state/guards.js';
-import { reduceCommand } from './state/reducer.js';
 import { createInitialState } from './state/initial-state.js';
+import { createTransactionController } from './application/transaction-controller.js';
+import { createDispatcher } from './application/dispatcher.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 // Canonical, independently testable implementation: src/bootstrap.js and
@@ -210,21 +210,35 @@ window.__bbState = S;
 // ── Canonical semantic state (F03) ──────────────────────────────────────────
 // src/state/reducer.js (tested against tests/contracts/command-contract.json)
 // is the single authority for whether a semantic change is accepted and what
-// Route/trace policy it carries. S above stays the legacy read-model the rest
-// of this file renders from and is not replaced wholesale — but every
-// semantic mutation it models now goes through dispatch() first, which is
-// the only place reduceCommand() is called. Presentation-only fields with no
-// counterpart in the canonical shape (camera-in-flight, hover timers, sheet
-// visibility) and effects the canonical model does not compute (edge-BFS
-// wear, afterglow decay — see algorithm-contracts.json's richer "trace.wear"
-// spec vs. the reducer's simpler per-id counter) remain local to S.
+// Route/trace policy it carries; src/application/dispatcher.js +
+// transaction-controller.js (tests/unit/transactions.test.js) are the tested
+// modules that own validate -> reduce -> open-one-transaction, so app.js
+// calls those directly rather than re-deciding validation or transaction
+// ownership inline. S above stays the legacy read-model the rest of this
+// file renders from and is not replaced wholesale — but every semantic
+// mutation it models now goes through dispatch() first. Presentation-only
+// fields with no counterpart in the canonical shape (camera-in-flight, hover
+// timers, sheet visibility) and effects the canonical model does not compute
+// (edge-BFS wear, afterglow decay — see algorithm-contracts.json's richer
+// "trace.wear" spec vs. the reducer's simpler per-id counter) remain local
+// to S. planEffects()'s declarative effect list (camera-focus, reader-render,
+// route-draw, ...) is available on every dispatch result but not yet
+// consumed here — app.js's existing imperative orchestration in commitFocus/
+// focusObject already performs the equivalent work with call-site-specific
+// timing app.js's own opts already parameterize; wiring an effect-interpreter
+// to replace that orchestration is disclosed, separate remaining scope.
 let canonicalState = createInitialState();
+const canonicalTransactions = createTransactionController();
+const canonicalDispatcher = createDispatcher({
+  getState: () => canonicalState,
+  transactions: canonicalTransactions,
+});
 function dispatch(command) {
-  const result = validateCommand(command);
-  if (!result.ok) {
+  const result = canonicalDispatcher.dispatch(command);
+  if (!result.accepted) {
     throw new Error(`dispatch: ${command.type} rejected: ${result.errors.join('; ')}`);
   }
-  canonicalState = reduceCommand(canonicalState, command);
+  canonicalState = result.state;
   return canonicalState;
 }
 dispatch({ type: CommandType.BOOTSTRAP_READY });
