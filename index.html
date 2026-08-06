@@ -1657,6 +1657,37 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { announce: manager.announce, flush: manager.flush, cancel: manager.cancel };
   }
 
+  // src/accessibility/focus-manager.js
+  function createFocusManager({ getVisibleIds, preferredFallbackId }) {
+    let currentId = null;
+    function fallback() {
+      const visible = getVisibleIds();
+      if (!visible.length) return null;
+      const preferred = preferredFallbackId();
+      return visible.includes(preferred) ? preferred : visible[0];
+    }
+    function setRovingTarget(id) {
+      const visible = getVisibleIds();
+      currentId = visible.includes(id) ? id : fallback();
+      return currentId;
+    }
+    function getRovingTarget() {
+      if (currentId != null && !getVisibleIds().includes(currentId)) currentId = fallback();
+      return currentId;
+    }
+    function moveDirection(dx, dy, neighborInDirection) {
+      const from = getRovingTarget();
+      if (from == null) return setRovingTarget(preferredFallbackId());
+      const next = neighborInDirection(from, dx, dy);
+      if (next != null) currentId = next;
+      return currentId;
+    }
+    function tabIndexFor(id) {
+      return id === getRovingTarget() ? 0 : -1;
+    }
+    return { setRovingTarget, getRovingTarget, moveDirection, tabIndexFor };
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -2178,14 +2209,15 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function visibleNodesList() {
     return simNodes.filter((d) => nodeVisible(d.id) && d.x != null && d.y != null);
   }
+  var focusManager = createFocusManager({
+    getVisibleIds: () => visibleNodesList().map((d) => d.id),
+    preferredFallbackId: () => nodeVisible("FO.BLACK_BIRD_FIELD") ? "FO.BLACK_BIRD_FIELD" : visibleNodesList()[0]?.id ?? null
+  });
   function updateRovingTabindex(preferredId) {
-    const visible = visibleNodesList();
-    if (!visible.length) return;
-    let targetId = preferredId && nodeVisible(preferredId) ? preferredId : null;
-    if (!targetId)
-      targetId = nodeVisible("FO.BLACK_BIRD_FIELD") ? "FO.BLACK_BIRD_FIELD" : visible[0].id;
+    if (!visibleNodesList().length) return;
+    const targetId = focusManager.setRovingTarget(preferredId);
     dispatch({ type: CommandType.SET_ROVING_FOCUS, id: targetId });
-    nodeSel.attr("tabindex", (d) => d.id === targetId ? 0 : -1);
+    nodeSel.attr("tabindex", (d) => focusManager.tabIndexFor(d.id));
   }
   function focusNodeElement(id) {
     const el = nodeLayer.select(`g.node[data-bb-id="${CSS.escape(id)}"]`).node();
@@ -2364,10 +2396,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const dir = dirMap[ev.key];
     if (!dir) return;
     ev.preventDefault();
-    const next = nearestNodeInDirection(d.id, dir[0], dir[1]);
+    focusManager.moveDirection(dir[0], dir[1], (from, dx, dy) => nearestNodeInDirection(from, dx, dy)?.id ?? null);
+    const next = focusManager.getRovingTarget();
     if (next) {
-      updateRovingTabindex(next.id);
-      focusNodeElement(next.id);
+      updateRovingTabindex(next);
+      focusNodeElement(next);
     }
   });
   updateRovingTabindex(null);

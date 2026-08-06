@@ -16,6 +16,7 @@ import { validateBootstrap } from './bootstrap.js';
 import { renderBootstrapFailure } from './presentation/bootstrap-renderer.js';
 import { isApertureNode, morphologyOf, computeNodeMetrics } from './presentation/field-renderer.js';
 import { createStatusRenderer } from './presentation/status-renderer.js';
+import { createFocusManager } from './accessibility/focus-manager.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -726,16 +727,23 @@ function resolveNearestVisibleNode(screenPoint, opts = {}) {
 function visibleNodesList() {
   return simNodes.filter((d) => nodeVisible(d.id) && d.x != null && d.y != null);
 }
-// One visible node has tabindex=0 (Tab enters the graph there); all others
-// are -1. Falls back to Black Bird when neutral, or the first visible node.
+// F05: src/accessibility/focus-manager.js (tests/e2e/tooltip-keyboard-status.spec.js's
+// "directional focus movement is deterministic" / "falls back deterministically"
+// cases) is the real roving-target bookkeeping authority; this file supplies
+// geometry (visible ids, the preferred fallback, direction-based neighbor
+// lookup) and renders whatever it decides. One visible node has tabindex=0
+// (Tab enters the graph there); all others are -1. Falls back to Black Bird
+// when neutral, or the first visible node.
+const focusManager = createFocusManager({
+  getVisibleIds: () => visibleNodesList().map((d) => d.id),
+  preferredFallbackId: () =>
+    nodeVisible("FO.BLACK_BIRD_FIELD") ? "FO.BLACK_BIRD_FIELD" : visibleNodesList()[0]?.id ?? null,
+});
 function updateRovingTabindex(preferredId) {
-  const visible = visibleNodesList();
-  if (!visible.length) return;
-  let targetId = preferredId && nodeVisible(preferredId) ? preferredId : null;
-  if (!targetId)
-    targetId = nodeVisible("FO.BLACK_BIRD_FIELD") ? "FO.BLACK_BIRD_FIELD" : visible[0].id;
+  if (!visibleNodesList().length) return;
+  const targetId = focusManager.setRovingTarget(preferredId);
   dispatch({ type: CommandType.SET_ROVING_FOCUS, id: targetId });
-  nodeSel.attr("tabindex", (d) => (d.id === targetId ? 0 : -1));
+  nodeSel.attr("tabindex", (d) => focusManager.tabIndexFor(d.id));
 }
 function focusNodeElement(id) {
   const el = nodeLayer.select(`g.node[data-bb-id="${CSS.escape(id)}"]`).node();
@@ -1052,10 +1060,11 @@ nodeSel
     const dir = dirMap[ev.key];
     if (!dir) return;
     ev.preventDefault();
-    const next = nearestNodeInDirection(d.id, dir[0], dir[1]);
+    focusManager.moveDirection(dir[0], dir[1], (from, dx, dy) => nearestNodeInDirection(from, dx, dy)?.id ?? null);
+    const next = focusManager.getRovingTarget();
     if (next) {
-      updateRovingTabindex(next.id);
-      focusNodeElement(next.id);
+      updateRovingTabindex(next);
+      focusNodeElement(next);
     }
   });
 updateRovingTabindex(null);
