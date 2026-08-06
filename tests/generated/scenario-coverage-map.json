@@ -897,33 +897,41 @@
       "id": "P-SCN-108",
       "title": "Reader link targets individually hidden object",
       "category": "hidden-target",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Reader link to an individually hidden object is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: a Reader link to an individually hidden object still commits it safely (P-SCN-108)"
+      ],
+      "notes": "commitFocus has no visibility guard (only byId[id] existence) — a Reader link commits its target even when View currently hides it. Confirmed correct as-is: the object's visibility is a View preference, not a constraint on what the reader can navigate to."
     },
     {
       "id": "P-SCN-109",
       "title": "Reader link targets group-hidden object",
       "category": "hidden-target",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Reader link to a group-hidden object is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: a Reader link to a group-hidden object still commits it safely (P-SCN-109)"
+      ],
+      "notes": "Same as P-SCN-108, for a type-group hide rather than an individual one. Confirmed correct as-is."
     },
     {
       "id": "P-SCN-110",
       "title": "Projected-edge generator list opens a hidden RelO",
       "category": "hidden-target",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Projected-edge generator list opening a hidden RelO is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: the projected-edge generator list opens a hidden RelO safely (P-SCN-110)"
+      ],
+      "notes": "bindIndexItems' generator-list click handler (used for an FO's relation-objects list) has the same no-visibility-guard commit path as Reader links. Confirmed correct as-is."
     },
     {
       "id": "P-SCN-111",
       "title": "Enter Solo when core is individually or group hidden",
       "category": "solo",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Entering Solo when its core is hidden is untested."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/view-index-solo.spec.js :: entering Solo reveals a core that was individually or group hidden (P-SCN-111)"
+      ],
+      "notes": "nodeVisible()'s S.soloSet branch checks membership only (soloSet.has(id)), bypassing objectVisibility/objectGroups entirely while Solo is active — so entering Solo already correctly reveals a hidden core and its members, matching Solo's 'lens that supersedes View' framing (P-RULE-012/013). Confirmed correct as-is."
     },
     {
       "id": "P-SCN-112",

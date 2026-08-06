@@ -228,4 +228,87 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     expect(after.route).toBe(before.route);
     expect(after.wear).toBe(before.wear);
   });
+
+  test('a Reader link to an individually hidden object still commits it safely (P-SCN-108)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await page.locator('#objectSearch').fill('Abel');
+    await page.locator('[data-eye="FO.ABEL"]').first().click();
+    await expect
+      .poll(() => page.evaluate(() => window.__bbState.objectVisibility['FO.ABEL']))
+      .toBe(false);
+    await page.locator('[data-close="objectDrawer"]').first().click();
+
+    // .fl inline links only exist in RNO/MNO body text, not FO panels — this
+    // RNO's body links to FO.ABEL (verified against canonical-data.js).
+    await clickNode(page, 'RNO.GHURAB_BURIAL__424A0ECF');
+    const link = page.locator('#reader .fl[data-id="FO.ABEL"]').first();
+    await expect(link).toBeVisible();
+    await link.click();
+
+    const state = await appState(page);
+    expect(state.activeId, 'a Reader link commits its target even if View currently hides it').toBe('FO.ABEL');
+  });
+
+  test('a Reader link to a group-hidden object still commits it safely (P-SCN-109)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-type="FO"]').first().click(); // group-hide every FO
+    await expect
+      .poll(() => page.evaluate(() => window.__bbState.objectGroups['FO']))
+      .toBe(false);
+    // Hiding the FO group hides the currently-active FO.BLACK_BIRD_FIELD too,
+    // which auto-triggers returnToField() (setObjectGroup's own active-
+    // hidden-by-filter guard) — that closes the drawer itself; don't race it
+    // with a second manual close.
+    await expect(page.locator('#fieldViewDrawer')).not.toHaveClass(/open/);
+
+    // RNO nodes aren't type FO, so they stay visible/clickable and its body
+    // still links to FO.ABEL even though every FO is now group-hidden.
+    await clickNode(page, 'RNO.GHURAB_BURIAL__424A0ECF');
+    const link = page.locator('#reader .fl[data-id="FO.ABEL"]').first();
+    await expect(link).toBeVisible();
+    await link.click();
+
+    const state = await appState(page);
+    expect(state.activeId).toBe('FO.ABEL');
+  });
+
+  test('the projected-edge generator list opens a hidden RelO safely (P-SCN-110)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await page.locator('#objectSearch').fill('RelO.R7080EA25');
+    await page.locator('[data-eye="RelO.R7080EA25"]').first().click();
+    await expect
+      .poll(() => page.evaluate(() => window.__bbState.objectVisibility['RelO.R7080EA25']))
+      .toBe(false);
+    await page.locator('[data-close="objectDrawer"]').first().click();
+
+    await clickNode(page, 'FO.CAIN');
+    const genLink = page.locator('#reader .index-item[data-id="RelO.R7080EA25"]').first();
+    await expect(genLink).toBeVisible();
+    await genLink.click();
+
+    const state = await appState(page);
+    expect(state.activeId).toBe('RelO.R7080EA25');
+  });
+
+  test('entering Solo reveals a core that was individually or group hidden (P-SCN-111)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await page.locator('#objectSearch').fill('Cain');
+    await page.locator('[data-eye="FO.CAIN"]').first().click();
+    await expect
+      .poll(() => page.evaluate(() => window.__bbState.objectVisibility['FO.CAIN']))
+      .toBe(false);
+    expect(await page.evaluate(() => window.__bbTest.nodeVisible('FO.CAIN'))).toBe(false);
+
+    const soloBtn = page.locator('[data-solo="FO.CAIN"]').first();
+    await expect(soloBtn).toBeVisible();
+    await soloBtn.click();
+
+    const visibleUnderSolo = await page.evaluate(() => window.__bbTest.nodeVisible('FO.CAIN'));
+    expect(visibleUnderSolo, 'Solo membership supersedes View hides for every member (P-RULE-012/013)').toBe(true);
+  });
 });
