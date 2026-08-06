@@ -1868,7 +1868,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   };
   ["IBM Plex Mono", "Crimson Pro", "Scheherazade New"].forEach((f) => {
     try {
-      document.fonts.load(`12px "${f}"`);
+      document.fonts.load(`12px "${f}"`).catch(() => {
+      });
     } catch (e) {
     }
   });

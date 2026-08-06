@@ -37,25 +37,31 @@
       "id": "P-SCN-004",
       "title": "Interrupt onboarding with object selection",
       "category": "entry",
-      "status": "gap",
-      "evidence": [],
-      "notes": "No test interrupts the onboarding sequence mid-stage with a direct object click."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/bootstrap.spec.js :: a direct object click interrupts tacit onboarding cleanly and commits that object (P-SCN-004)"
+      ],
+      "notes": "The node click handler's S.onboardingActive branch already cleanly interrupts (clears onboardingActive, hides the field prompt, commits the clicked object with source:'onboarding-interrupt'). Confirmed correct as-is."
     },
     {
       "id": "P-SCN-005",
       "title": "Repeated Enter input",
       "category": "entry",
-      "status": "gap",
-      "evidence": [],
-      "notes": "No idempotent-repeated-Enter test."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/bootstrap.spec.js :: a repeated Enter input is structurally impossible mid-transition, so entry only ever runs once (P-SCN-005)"
+      ],
+      "notes": "CSS (.threshold.leaving { pointer-events: none }) disables the whole threshold, including the Enter button, the instant the first click applies the \"leaving\" class — confirmed this is actually in effect, not just present in the stylesheet, then confirmed a forced click against the disabled target cannot trigger a second entry."
     },
     {
       "id": "P-SCN-006",
       "title": "Font readiness delayed",
       "category": "entry",
-      "status": "gap",
-      "evidence": [],
-      "notes": "Delayed font readiness during entry is not exercised."
+      "status": "covered",
+      "evidence": [
+        "tests/e2e/bootstrap.spec.js :: the threshold card reveals within a bounded time even when custom fonts never finish loading (P-SCN-006)"
+      ],
+      "notes": "Fixed a real bug while closing this: the unawaited, uncaught document.fonts.load() preload call rejected when a font request was blocked, becoming an unhandled promise rejection that window.addEventListener('unhandledrejection', ...) treated as a genuine bootstrap failure and rendered the full '.bb-unavailable' surface for what should only be a font preload nicety. Added .catch(() => {}) in src/app.js. The threshold card's own 1600ms document.fonts.ready-or-timeout fallback was already correct."
     },
     {
       "id": "P-SCN-010",

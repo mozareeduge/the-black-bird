@@ -322,7 +322,13 @@ window.__bbDesign = {
 };
 ["IBM Plex Mono", "Crimson Pro", "Scheherazade New"].forEach((f) => {
   try {
-    document.fonts.load(`12px "${f}"`);
+    // document.fonts.load() is async and rejects on a blocked/failed font
+    // request (P-SCN-006) — the try/catch above only guards a synchronous
+    // throw. An uncaught rejection here is an unhandledrejection, which
+    // window.addEventListener("unhandledrejection", ...) treats as a real
+    // bootstrap failure and renders the full unavailable surface for what
+    // is only a font preload nicety.
+    document.fonts.load(`12px "${f}"`).catch(() => {});
   } catch (e) {}
 });
 

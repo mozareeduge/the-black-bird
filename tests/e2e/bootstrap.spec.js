@@ -89,4 +89,86 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
     expect(await page.locator('g.node').count()).toBe(0);
     await context.close();
   });
+
+  test('a direct object click interrupts tacit onboarding cleanly and commits that object (P-SCN-004)', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/?bbtest=1');
+    const enterBtn = page.getByRole('button', { name: /enter/i }).first();
+    await expect(enterBtn).toBeVisible();
+    await enterBtn.click();
+    // Reduced motion: each onboarding stage holds ~400ms; land inside stage 1.
+    await page.waitForFunction(() => window.__bbState?.onboardingActive === true, { timeout: 4000 });
+    await page.waitForTimeout(150);
+
+    await page.evaluate(() => {
+      for (const g of document.querySelectorAll('g.node')) if (g.__data__?.id) g.setAttribute('data-bb-test-id', g.__data__.id);
+    });
+    const target = page.locator('g.node[data-bb-test-id="FO.CORPSE"]');
+    await expect(target).toBeVisible();
+    const hit = target.locator('.node-hit,.bb-hit,.node-core,.bb-body').first();
+    const box = await hit.boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+    await page.waitForFunction(() => window.__bbState?.activeId === 'FO.CORPSE', { timeout: 6000 });
+    const state = await page.evaluate(() => ({
+      onboardingActive: window.__bbState.onboardingActive,
+      phase: window.__bbState.phase,
+      route: window.__bbState.routeEvents.map((e) => e.id),
+    }));
+    expect(state.onboardingActive, 'the interrupting click must end onboarding, not queue behind it').toBe(false);
+    expect(state.phase).toBe('focused');
+    expect(state.route).toEqual(['FO.CORPSE']);
+  });
+
+  test('a repeated Enter input is structurally impossible mid-transition, so entry only ever runs once (P-SCN-005)', async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/?bbtest=1');
+    const enterBtn = page.getByRole('button', { name: /enter/i }).first();
+    await expect(enterBtn).toBeVisible();
+    await enterBtn.click();
+    // CSS (.threshold.leaving { pointer-events: none }) disables the whole
+    // threshold, including this button, the instant the first click's
+    // "leaving" class is applied — verify that's actually in effect rather
+    // than assuming it from the stylesheet alone.
+    await expect(page.locator('#threshold')).toHaveClass(/leaving/);
+    await expect(page.locator('#threshold')).toHaveCSS('pointer-events', 'none');
+    // A genuine second click is therefore not deliverable to the button; a
+    // forced one lands on an unclickable target and must not be able to
+    // trigger a second entry.
+    await enterBtn.click({ force: true, timeout: 2000 }).catch(() => {});
+
+    await page.waitForFunction(() => window.__bbState?.phase === 'focused' && !!window.__bbState.activeId, {
+      timeout: 15000,
+    });
+    expect(errors).toEqual([]);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    expect(await page.locator('g.node').count()).toBe(50);
+    const state = await page.evaluate(() => ({ route: window.__bbState.routeEvents.map((e) => e.id) }));
+    // A repeated Enter must not double-run onboarding into two Route commits
+    // for the same landing object.
+    expect(new Set(state.route).size).toBe(state.route.length);
+  });
+
+  test('the threshold card reveals within a bounded time even when custom fonts never finish loading (P-SCN-006)', async ({
+    page,
+  }) => {
+    await page.route(/assets\/fonts\/.+\.woff2?$/, (route) => route.abort());
+    await page.goto('/');
+    await expect(page.locator('.threshold-card')).toBeAttached();
+    // .threshold-card starts at opacity:0 in CSS by design (T04's own font-
+    // ready gate) — the 1600ms document.fonts.ready-or-timeout fallback
+    // (src/app.js "Threshold font-ready gate") must still reveal it even
+    // though every font request above is being aborted.
+    await expect
+      .poll(async () => page.locator('.threshold-card').evaluate((el) => getComputedStyle(el).opacity), {
+        timeout: 3000,
+      })
+      .toBe('1');
+  });
 });
