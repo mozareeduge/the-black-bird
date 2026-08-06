@@ -18,6 +18,7 @@ import { isApertureNode, morphologyOf, computeNodeMetrics } from './presentation
 import { createStatusRenderer } from './presentation/status-renderer.js';
 import { createFocusManager } from './accessibility/focus-manager.js';
 import { isNodeVisible } from './domain/visibility.js';
+import { computeSoloMembership } from './domain/solo.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -2134,21 +2135,13 @@ function drawRouteMemory(opts = {}) {
 }
 
 // ── Solo computation ───────────────────────────────────────────────────────
+// F05: src/domain/solo.js's computeSoloMembership() (T10, T-REQ-028, P-RULE-013)
+// is the real RelO-vs-object membership authority; the filter against byId
+// stays here as defensive data-integrity handling, not membership logic.
 function computeSoloSet(id) {
-  const node = byId[id];
-  if (!node) return new Set();
-  if (node.type === "RelO") {
-    // RelO Solo shows the relation itself: the RelO plus every canonical participant.
-    return new Set([id, ...(DATA.relations[id] || []).filter((pid) => byId[pid])]);
-  }
-  // Object Solo = object + its RelOs + all participants in those RelOs
-  const relationIds = relosFor(id);
-  const result = new Set([id]);
-  for (const rid of relationIds) {
-    result.add(rid);
-    for (const pid of DATA.relations[rid] || []) if (byId[pid]) result.add(pid);
-  }
-  return result;
+  if (!byId[id]) return new Set();
+  const members = computeSoloMembership(id, { nodesById: byId, relations: DATA.relations });
+  return new Set([...members].filter((pid) => byId[pid]));
 }
 
 // ── Focus set ──────────────────────────────────────────────────────────────

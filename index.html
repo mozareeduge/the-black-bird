@@ -1695,6 +1695,23 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return view.typeVisibility[node.type] !== false;
   }
 
+  // src/domain/solo.js
+  function computeSoloMembership(id, { nodesById, relations }) {
+    const node = nodesById[id];
+    if (!node) return /* @__PURE__ */ new Set();
+    if (node.type === "RelO") {
+      return /* @__PURE__ */ new Set([id, ...relations[id] || []]);
+    }
+    const members = /* @__PURE__ */ new Set([id]);
+    for (const [relOId, participants] of Object.entries(relations)) {
+      if (participants.includes(id)) {
+        members.add(relOId);
+        for (const p of participants) members.add(p);
+      }
+    }
+    return members;
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -3180,18 +3197,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }).transition().duration(prefersReducedMotion() ? 0 : dur).attr("stroke-opacity", (d) => Math.max(0.06, 0.42 - d.age * 0.055));
   }
   function computeSoloSet(id) {
-    const node = byId[id];
-    if (!node) return /* @__PURE__ */ new Set();
-    if (node.type === "RelO") {
-      return /* @__PURE__ */ new Set([id, ...(DATA.relations[id] || []).filter((pid) => byId[pid])]);
-    }
-    const relationIds = relosFor(id);
-    const result = /* @__PURE__ */ new Set([id]);
-    for (const rid of relationIds) {
-      result.add(rid);
-      for (const pid of DATA.relations[rid] || []) if (byId[pid]) result.add(pid);
-    }
-    return result;
+    if (!byId[id]) return /* @__PURE__ */ new Set();
+    const members = computeSoloMembership(id, { nodesById: byId, relations: DATA.relations });
+    return new Set([...members].filter((pid) => byId[pid]));
   }
   function appearingIn(id) {
     return Object.entries(DATA.texts).filter(([, t]) => (t.objects || []).includes(id)).map(([tid]) => tid);
