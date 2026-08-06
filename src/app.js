@@ -17,6 +17,7 @@ import { renderBootstrapFailure } from './presentation/bootstrap-renderer.js';
 import { isApertureNode, morphologyOf, computeNodeMetrics } from './presentation/field-renderer.js';
 import { createStatusRenderer } from './presentation/status-renderer.js';
 import { createFocusManager } from './accessibility/focus-manager.js';
+import { isNodeVisible } from './domain/visibility.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -1261,12 +1262,14 @@ function getEdgeSourceId(e) {
 function getEdgeTargetId(e) {
   return e.target.id || e.target;
 }
+// F05: src/domain/visibility.js's isNodeVisible() (T10, T-REQ-026/027) is the
+// real type/object-visibility authority once Solo is not overriding it; Solo
+// membership itself is legacy S.soloSet until src/domain/solo.js is wired in.
 function nodeVisible(id) {
   const n = byId[id];
   if (!n) return false;
   if (S.soloSet) return S.soloSet.has(id);
-  if (S.objectVisibility[id] === false) return false;
-  return !!S.objectGroups[n.type];
+  return isNodeVisible(n, canonicalState.view);
 }
 function edgeVisible(e) {
   return nodeVisible(getEdgeSourceId(e)) && nodeVisible(getEdgeTargetId(e));

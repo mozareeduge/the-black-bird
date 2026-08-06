@@ -1688,6 +1688,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { setRovingTarget, getRovingTarget, moveDirection, tabIndexFor };
   }
 
+  // src/domain/visibility.js
+  function isNodeVisible(node, view) {
+    if (!node) return false;
+    if (view.objectVisibility[node.id] === false) return false;
+    return view.typeVisibility[node.type] !== false;
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -2541,8 +2548,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const n = byId[id];
     if (!n) return false;
     if (S.soloSet) return S.soloSet.has(id);
-    if (S.objectVisibility[id] === false) return false;
-    return !!S.objectGroups[n.type];
+    return isNodeVisible(n, canonicalState.view);
   }
   function edgeVisible(e) {
     return nodeVisible(getEdgeSourceId(e)) && nodeVisible(getEdgeTargetId(e));
