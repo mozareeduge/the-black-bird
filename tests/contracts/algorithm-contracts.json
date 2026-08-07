@@ -96,9 +96,11 @@
     "eventFields": [
       "sequence",
       "id",
+      "type",
+      "label",
       "fromId",
       "source",
-      "timestamp"
+      "committedAt"
     ],
     "semanticLimit": null,
     "presentation": "virtualized complete history; compact strip may show first plus recent tail without deleting events"

@@ -66,8 +66,8 @@ function checkRequiredContentPresent(html) {
 function main() {
   const errors = [];
 
-  const first = build();
-  const second = build();
+  const first = build().html;
+  const second = build().html;
   if (first !== second) errors.push('two consecutive builds are not byte-identical');
 
   const currentIndexPath = path.join(ROOT, 'index.html');

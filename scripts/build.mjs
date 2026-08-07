@@ -22,6 +22,10 @@ function extractCanonicalDataText(source) {
 // global reach; tests that need to reach specific internals do so through
 // the deliberately bounded window.__bbTest interface (exposed only in
 // ?bbtest=1 sessions), never through accidental top-level globals.
+// Head correction (v4, R0/R2): the same esbuild invocation also emits a
+// metafile so scripts/check-production-ownership.mjs can verify every
+// contract-required module actually contributes non-zero bytes to the real
+// production bundle -- transitive ownership, not a direct-import count.
 function bundleAppScript() {
   const result = buildSync({
     entryPoints: [path.join(ROOT, 'src/app.js')],
@@ -34,11 +38,12 @@ function bundleAppScript() {
     sourcemap: false,
     legalComments: 'none',
     logLevel: 'silent',
+    metafile: true,
   });
   if (result.errors.length) {
     throw new Error('esbuild failed to bundle src/app.js: ' + JSON.stringify(result.errors));
   }
-  return result.outputFiles[0].text;
+  return { text: result.outputFiles[0].text, metafile: result.metafile };
 }
 
 export function build() {
@@ -48,23 +53,25 @@ export function build() {
     throw new Error('src/index.template.html is missing the app-script placeholder');
   }
   const dataText = extractCanonicalDataText(dataModule);
-  const bundledAppJs = bundleAppScript();
+  const { text: bundledAppJs, metafile } = bundleAppScript();
   const scriptContent = `const DATA = ${dataText};\n${bundledAppJs}`;
-  return template.replace(PLACEHOLDER, scriptContent);
+  return { html: template.replace(PLACEHOLDER, scriptContent), metafile };
 }
 
 function main() {
-  const output = build();
+  const { html, metafile } = build();
   const outPath = path.join(ROOT, 'index.html');
-  writeFileSync(outPath, output, 'utf8');
-  process.stdout.write(`built ${outPath} (${Buffer.byteLength(output, 'utf8')} bytes)\n`);
+  writeFileSync(outPath, html, 'utf8');
+  process.stdout.write(`built ${outPath} (${Buffer.byteLength(html, 'utf8')} bytes)\n`);
   // dist/ is a generated, gitignored copy of the same deterministic output
   // (T29, T-REQ-002) -- a conventional build-artifact location CI can
   // archive, distinct from the committed root index.html that GitHub Pages
-  // actually serves.
+  // actually serves. build-meta.json is esbuild's own metafile for that same
+  // bundle, the real evidence check-production-ownership.mjs reads.
   const distDir = path.join(ROOT, 'dist');
   mkdirSync(distDir, { recursive: true });
-  writeFileSync(path.join(distDir, 'index.html'), output, 'utf8');
+  writeFileSync(path.join(distDir, 'index.html'), html, 'utf8');
+  writeFileSync(path.join(distDir, 'build-meta.json'), JSON.stringify(metafile, null, 2), 'utf8');
 }
 
 if (path.resolve(fileURLToPath(import.meta.url)) === path.resolve(process.argv[1] ?? '')) {

@@ -8,7 +8,7 @@
   "terminal_state": "CANDIDATE_READY_FOR_ARTISTIC_REVIEW",
   "canonical_data_sha256": "c5d22a4590ccd6ced0188fec0391b73fc6c1538c3f286cb85ff8a78c44a5c83d",
   "canonical_node_count": 50,
-  "canonical_object_types": ["FO", "NameO", "RefO", "RelO", "Statement", "About"],
+  "canonical_object_types": ["RNO", "MNO", "FO", "NameO", "RefO", "RelO"],
   "authored_world": { "width": 1000, "height": 760 },
   "browser_matrix": ["chromium", "firefox", "webkit"],
   "required_scenario_count": 115,
