@@ -5,6 +5,14 @@ import { CommandType } from '../../src/state/command-types.js';
 import { createTransactionController } from '../../src/application/transaction-controller.js';
 import { createDispatcher } from '../../src/application/dispatcher.js';
 import { createTimerRegistry } from '../../src/application/timer-registry.js';
+import { DATA } from '../../src/data/canonical-data.js';
+
+const nodesById = Object.fromEntries(DATA.nodes.map((n) => [n.id, n]));
+const baseLinks = [];
+Object.entries(DATA.relations).forEach(([rid, parts]) => {
+  parts.forEach((pid) => baseLinks.push([rid, pid]));
+});
+const graphContext = { nodesById, baseLinks, relations: DATA.relations };
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -51,7 +59,7 @@ test('stale callbacks are unable to commit presentation: isActive is false once 
 test('dispatcher opens exactly one new transaction per accepted command and rejects invalid commands without one', () => {
   let state = createInitialState();
   const transactions = createTransactionController();
-  const dispatcher = createDispatcher({ getState: () => state, transactions });
+  const dispatcher = createDispatcher({ getState: () => state, transactions, graphContext });
 
   const result = dispatcher.dispatch({ type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'field' });
   assert.equal(result.accepted, true);
@@ -71,7 +79,7 @@ test('dispatcher opens exactly one new transaction per accepted command and reje
 test('effects planned by the dispatcher carry the transaction txId and abort signal', () => {
   let state = createInitialState();
   const transactions = createTransactionController();
-  const dispatcher = createDispatcher({ getState: () => state, transactions });
+  const dispatcher = createDispatcher({ getState: () => state, transactions, graphContext });
   const result = dispatcher.dispatch({ type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'field' });
   assert.ok(result.effects.length > 0);
   for (const effect of result.effects) {
@@ -83,7 +91,7 @@ test('effects planned by the dispatcher carry the transaction txId and abort sig
 test('a superseding dispatch aborts the previous transaction\'s effects', () => {
   let state = createInitialState();
   const transactions = createTransactionController();
-  const dispatcher = createDispatcher({ getState: () => state, transactions });
+  const dispatcher = createDispatcher({ getState: () => state, transactions, graphContext });
   const first = dispatcher.dispatch({ type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'field' });
   state = first.state;
   assert.equal(first.signal.aborted, false);

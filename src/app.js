@@ -73,6 +73,26 @@ const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
 const typeOrder = DATA.ui.objectTypes;
 const defaultVisibility = Object.fromEntries(nodes.map((n) => [n.id, true]));
 
+// ── Edge data (moved earlier: the canonical reducer's injected graph context
+// needs baseEdgesRaw before any command can be dispatched) ─────────────────
+const relParticipant = [];
+Object.entries(DATA.relations).forEach(([rid, parts]) => {
+  parts.forEach((pid) => relParticipant.push({ source: rid, target: pid, kind: "rel" }));
+});
+const citationEdges = [];
+Object.entries(DATA.texts).forEach(([tid, t]) => {
+  (t.refs || []).forEach((rid) =>
+    citationEdges.push({ source: tid, target: rid, kind: "citation" }),
+  );
+  (t.objects || []).forEach((oid) =>
+    citationEdges.push({ source: tid, target: oid, kind: "appears" }),
+  );
+});
+Object.entries(DATA.nameos).forEach(([nid, no]) => {
+  (no.attached || []).forEach((a) => citationEdges.push({ source: nid, target: a, kind: "name" }));
+});
+const baseEdgesRaw = [...relParticipant, ...citationEdges];
+
 // ── Reference algorithms (deterministic morphology + wear path) ────────────
 function stableHash(text) {
   let h = 2166136261 >>> 0;
@@ -202,9 +222,13 @@ window.__bbState = S;
 // to replace that orchestration is disclosed, separate remaining scope.
 let canonicalState = createInitialState();
 const canonicalTransactions = createTransactionController();
+// baseEdgesRaw is [{source,target,kind},...]; the reducer's injected graph
+// context wants plain [a,b] canonical base-link pairs (F05).
+const canonicalBaseLinks = baseEdgesRaw.map((e) => [e.source, e.target]);
 const canonicalDispatcher = createDispatcher({
   getState: () => canonicalState,
   transactions: canonicalTransactions,
+  graphContext: { nodesById: byId, baseLinks: canonicalBaseLinks, relations: DATA.relations },
 });
 function dispatch(command) {
   const result = canonicalDispatcher.dispatch(command);
@@ -413,25 +437,6 @@ async function setReaderOpen(open, opts = {}) {
     if (opts.measure !== false) measureGraph();
   }
 }
-
-// ── Edge data ──────────────────────────────────────────────────────────────
-const relParticipant = [];
-Object.entries(DATA.relations).forEach(([rid, parts]) => {
-  parts.forEach((pid) => relParticipant.push({ source: rid, target: pid, kind: "rel" }));
-});
-const citationEdges = [];
-Object.entries(DATA.texts).forEach(([tid, t]) => {
-  (t.refs || []).forEach((rid) =>
-    citationEdges.push({ source: tid, target: rid, kind: "citation" }),
-  );
-  (t.objects || []).forEach((oid) =>
-    citationEdges.push({ source: tid, target: oid, kind: "appears" }),
-  );
-});
-Object.entries(DATA.nameos).forEach(([nid, no]) => {
-  (no.attached || []).forEach((a) => citationEdges.push({ source: nid, target: a, kind: "name" }));
-});
-const baseEdgesRaw = [...relParticipant, ...citationEdges];
 
 function buildProjected() {
   const map = new Map();

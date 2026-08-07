@@ -4,10 +4,30 @@ import { createInitialState } from '../../src/state/initial-state.js';
 import { assertStateInvariants } from '../../src/state/invariants.js';
 import { CommandType, COMMAND_SPECS } from '../../src/state/command-types.js';
 import { validateCommand } from '../../src/state/guards.js';
-import { reduceCommand } from '../../src/state/reducer.js';
+import { createReducer } from '../../src/state/reducer.js';
 import { readContract } from '../contracts/load.mjs';
+import { DATA } from '../../src/data/canonical-data.js';
 
 const COMMAND_CONTRACT = readContract('command-contract.json');
+
+// Real canonical graph context (head correction v4, section 5: "a
+// factory-produced pure reducer with injected immutable graph/domain
+// context is acceptable") -- built once from the same canonical DATA the
+// production reducer is built from, so these tests exercise real Route/
+// trace/Solo behavior over the real graph, not a synthetic stand-in.
+const nodesById = Object.fromEntries(DATA.nodes.map((n) => [n.id, n]));
+const baseLinks = [];
+Object.entries(DATA.relations).forEach(([rid, parts]) => {
+  parts.forEach((pid) => baseLinks.push([rid, pid]));
+});
+Object.entries(DATA.texts).forEach(([tid, t]) => {
+  (t.refs || []).forEach((rid) => baseLinks.push([tid, rid]));
+  (t.objects || []).forEach((oid) => baseLinks.push([tid, oid]));
+});
+Object.entries(DATA.nameos).forEach(([nid, no]) => {
+  (no.attached || []).forEach((a) => baseLinks.push([nid, a]));
+});
+const { reduceCommand } = createReducer({ nodesById, baseLinks, relations: DATA.relations });
 
 test('COMMAND_SPECS matches the committed command contract exactly, command by command (T26, T-REQ-044)', () => {
   const contractTypes = COMMAND_CONTRACT.commands.map((c) => c.type).sort();
@@ -90,7 +110,7 @@ test('reducer is pure: does not mutate a frozen input state, for every command',
   }
 });
 
-test('COMMIT_OBJECT with a new id appends exactly one Route event and records wear', () => {
+test('COMMIT_OBJECT with a new id from neutral state appends exactly one Route event and records no wear (no prior anchor to trace a path from)', () => {
   const s0 = createInitialState();
   const s1 = reduceCommand(s0, { type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'field' });
   assert.equal(s1.history.route.length, 1);
@@ -98,15 +118,32 @@ test('COMMIT_OBJECT with a new id appends exactly one Route event and records we
   assert.equal(s1.reading.anchorId, 'FO.CORPSE');
   assert.equal(s1.reading.fieldAttention.kind, 'focus');
   assert.equal(s1.reading.readerSubject.id, 'FO.CORPSE');
-  assert.equal(s1.trace.wear['FO.CORPSE'], 1);
+  assert.deepEqual(s1.trace.wear, {}, 'wear traces passage; there is no path from nothing to the first commit');
 });
 
-test('COMMIT_OBJECT with the same id appends nothing (P-RULE-004)', () => {
+test('a second commit records wear along the visible canonical base-link path, keyed by canonical undirected edge (not by object id)', () => {
   const s0 = createInitialState();
-  const s1 = reduceCommand(s0, { type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'field' });
+  const s1 = reduceCommand(s0, { type: CommandType.COMMIT_OBJECT, id: 'FO.CAIN', source: 'field' });
   const s2 = reduceCommand(s1, { type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'field' });
-  assert.equal(s2.history.route.length, 1);
-  assert.equal(s2.trace.wear['FO.CORPSE'], 1);
+  // FO.CAIN and FO.CORPSE are not directly linked; both are exactly two base
+  // links apart (both appear in RNO.GHURAB_BURIAL__424A0ECF and both
+  // participate in RelO.R7080EA25 -- deterministic canonical-index BFS picks
+  // the first of these equally-short paths), so wear lands on exactly one
+  // real two-hop path, keyed by canonical undirected edge, never by id.
+  assert.deepEqual(s2.trace.wear, {
+    'FO.CAIN|RNO.GHURAB_BURIAL__424A0ECF': 1,
+    'FO.CORPSE|RNO.GHURAB_BURIAL__424A0ECF': 1,
+  });
+  assert.equal(s2.trace.wear['FO.CORPSE'], undefined, 'wear must never be keyed by object id');
+});
+
+test('COMMIT_OBJECT with the same id appends nothing and records no additional wear (P-RULE-004)', () => {
+  const s0 = createInitialState();
+  const s1 = reduceCommand(s0, { type: CommandType.COMMIT_OBJECT, id: 'FO.CAIN', source: 'field' });
+  const s2 = reduceCommand(s1, { type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'field' });
+  const s3 = reduceCommand(s2, { type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'field' });
+  assert.equal(s3.history.route.length, 2);
+  assert.deepEqual(s3.trace.wear, s2.trace.wear);
 });
 
 test('RETURN_TO_WHOLE_FIELD neutralizes field attention but retains anchor and Reader subject (P-RULE-011)', () => {

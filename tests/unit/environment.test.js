@@ -4,8 +4,16 @@ import { createEnvironmentController, computeProfile, computeOrientation } from 
 import { createLifecycleController } from '../../src/controllers/lifecycle-controller.js';
 import { CommandType } from '../../src/state/command-types.js';
 import { createInitialState } from '../../src/state/initial-state.js';
-import { reduceCommand } from '../../src/state/reducer.js';
+import { createReducer } from '../../src/state/reducer.js';
 import { recordAfterglow, reconcileTraceDeadlines } from '../../src/domain/trace.js';
+import { DATA } from '../../src/data/canonical-data.js';
+
+const nodesById = Object.fromEntries(DATA.nodes.map((n) => [n.id, n]));
+const baseLinks = [];
+Object.entries(DATA.relations).forEach(([rid, parts]) => {
+  parts.forEach((pid) => baseLinks.push([rid, pid]));
+});
+const { reduceCommand } = createReducer({ nodesById, baseLinks, relations: DATA.relations });
 
 class FakeWindow extends EventTarget {
   constructor({ width, height } = { width: 1440, height: 900 }) {

@@ -58,11 +58,12 @@ export function recordWear(traceState, { fromId, toId, neighbors }) {
 }
 
 // P-RULE-009 / T-REQ-013: afterglow belongs only to departure from a successful
-// new direct commit and stores a wall-clock deadline; cap is contextual
-// (desktop/mobile counts differ) and supplied by the caller, keeping the
-// deadline semantics themselves invariant regardless of cap.
+// new direct commit and stores a wall-clock deadline plus the original
+// duration (contracts/semantic-normalization.json's afterglow_entry_fields);
+// cap is contextual (desktop/mobile counts differ) and supplied by the
+// caller, keeping the deadline semantics themselves invariant regardless of cap.
 export function recordAfterglow(traceState, { id, nowMs = Date.now(), durationMs, cap }) {
-  const entry = { id, deadline: nowMs + durationMs };
+  const entry = { id, deadline: nowMs + durationMs, totalMs: durationMs };
   let afterglows = [...traceState.afterglows, entry];
   if (afterglows.length > cap) {
     afterglows = afterglows.slice(afterglows.length - cap);

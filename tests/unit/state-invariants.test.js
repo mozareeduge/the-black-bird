@@ -38,7 +38,7 @@ test('return-to-field does not require clearing the reading anchor', () => {
   s.reading.anchorId = 'FO.CORPSE';
   s.reading.readerSubject = { kind: 'object', id: 'FO.CORPSE' };
   s.reading.fieldAttention = { kind: 'whole-field', id: null };
-  s.history.route = [{ id: 'FO.CORPSE', seq: 1 }];
+  s.history.route = [{ id: 'FO.CORPSE', sequence: 1 }];
   s.history.nextSequence = 2;
   const result = assertStateInvariants(s);
   assert.equal(result.ok, true, JSON.stringify(result.violations));
@@ -46,7 +46,7 @@ test('return-to-field does not require clearing the reading anchor', () => {
 
 test('anchorId null after a commit is a violation', () => {
   const s = createInitialState();
-  s.history.route = [{ id: 'FO.CORPSE', seq: 1 }];
+  s.history.route = [{ id: 'FO.CORPSE', sequence: 1 }];
   s.history.nextSequence = 2;
   // anchorId left at null: invalid, a commit happened but nothing anchors reading.
   const result = assertStateInvariants(s);

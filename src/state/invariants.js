@@ -48,8 +48,8 @@ export function assertStateInvariants(state) {
   // "route contains only direct commits" (structural shape of any existing entries)
   if (isPlainObject(history) && Array.isArray(history.route)) {
     history.route.forEach((entry, i) => {
-      if (!isPlainObject(entry) || typeof entry.id !== 'string' || typeof entry.seq !== 'number') {
-        fail(`history.route[${i}] is not a well-formed { id, seq } commit entry`);
+      if (!isPlainObject(entry) || typeof entry.id !== 'string' || typeof entry.sequence !== 'number') {
+        fail(`history.route[${i}] is not a well-formed { id, sequence } commit entry`);
       }
     });
     if (typeof history.nextSequence !== 'number') fail('history.nextSequence is not a number');

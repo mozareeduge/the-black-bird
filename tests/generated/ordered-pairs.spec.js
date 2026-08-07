@@ -103,6 +103,14 @@ test.describe('COV-ORDERED-ACTION-PAIRS: previously-uncovered high-risk pairs ex
       const reducerMod = await import('/src/state/reducer.js');
       const initialMod = await import('/src/state/initial-state.js');
       const { CommandType } = await import('/src/state/command-types.js');
+      const { DATA } = await import('/src/data/canonical-data.js');
+
+      const nodesById = Object.fromEntries(DATA.nodes.map((n) => [n.id, n]));
+      const baseLinks = [];
+      Object.entries(DATA.relations).forEach(([rid, parts]) => {
+        parts.forEach((pid) => baseLinks.push([rid, pid]));
+      });
+      const { reduceCommand } = reducerMod.createReducer({ nodesById, baseLinks, relations: DATA.relations });
 
       let state = initialMod.createInitialState();
       const dispatched = [];
@@ -110,7 +118,7 @@ test.describe('COV-ORDERED-ACTION-PAIRS: previously-uncovered high-risk pairs ex
       const controller = lifecycleMod.createLifecycleController({
         dispatch: (c) => {
           dispatched.push(c);
-          state = reducerMod.reduceCommand(state, c);
+          state = reduceCommand(state, c);
         },
         doc: fakeDoc,
         nav: null,
@@ -118,10 +126,10 @@ test.describe('COV-ORDERED-ACTION-PAIRS: previously-uncovered high-risk pairs ex
       // page-hide-resume: reconcile while hidden, then again as if resumed.
       controller.start();
       fakeDoc.visibilityState = 'visible';
-      state = reducerMod.reduceCommand(state, { type: CommandType.RECONCILE_DOCUMENT_VISIBILITY, visibility: 'visible' });
+      state = reduceCommand(state, { type: CommandType.RECONCILE_DOCUMENT_VISIBILITY, visibility: 'visible' });
 
       // commit: a following real commit must still work.
-      state = reducerMod.reduceCommand(state, { type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'test' });
+      state = reduceCommand(state, { type: CommandType.COMMIT_OBJECT, id: 'FO.CORPSE', source: 'test' });
       return { activeId: state.reading.anchorId, routeLength: state.history.route.length };
     });
     expect(result.activeId).toBe('FO.CORPSE');

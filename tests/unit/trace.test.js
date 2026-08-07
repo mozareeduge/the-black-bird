@@ -75,7 +75,9 @@ test('same source and target records no wear', () => {
 test('afterglow stores a wall-clock deadline and respects the mobile cap (P-RULE-009)', () => {
   const t0 = clearTrace();
   const t1 = recordAfterglow(t0, { id: 'FO.CORPSE', nowMs: 1000, durationMs: AFTERGLOW_MOBILE.durationMs, cap: AFTERGLOW_MOBILE.cap });
-  assert.deepEqual(t1.afterglows, [{ id: 'FO.CORPSE', deadline: 1000 + AFTERGLOW_MOBILE.durationMs }]);
+  assert.deepEqual(t1.afterglows, [
+    { id: 'FO.CORPSE', deadline: 1000 + AFTERGLOW_MOBILE.durationMs, totalMs: AFTERGLOW_MOBILE.durationMs },
+  ]);
 
   let trace = t0;
   for (let i = 0; i < AFTERGLOW_MOBILE.cap + 2; i++) {

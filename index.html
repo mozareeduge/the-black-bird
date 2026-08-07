@@ -1291,184 +1291,426 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { ok: errors.length === 0, errors };
   }
 
-  // src/state/reducer.js
-  function commitObject(state, id, source) {
-    const isNewId = state.reading.anchorId !== id;
-    const history = isNewId ? {
-      route: [...state.history.route, { id, seq: state.history.nextSequence, source }],
-      nextSequence: state.history.nextSequence + 1
-    } : state.history;
-    const trace = isNewId ? { ...state.trace, wear: { ...state.trace.wear, [id]: (state.trace.wear[id] || 0) + 1 } } : state.trace;
+  // src/state/invariants.js
+  function isPlainObject(v) {
+    return typeof v === "object" && v !== null && !Array.isArray(v);
+  }
+  function assertStateInvariants(state) {
+    const violations = [];
+    const fail = (msg) => violations.push(msg);
+    if (!isPlainObject(state)) {
+      return { ok: false, violations: ["state is not an object"] };
+    }
+    const { reading, history, trace, solo, overlay } = state;
+    if (isPlainObject(history) && Array.isArray(history.route) && isPlainObject(reading)) {
+      if (history.route.length > 0 && reading.anchorId === null) {
+        fail("anchorId is null but history.route is non-empty (a commit has already happened)");
+      }
+    }
+    if (isPlainObject(reading)) {
+      for (const key of ["fieldAttention", "readerSubject"]) {
+        const region = reading[key];
+        if (!isPlainObject(region) || typeof region.kind !== "string" || !("id" in region)) {
+          fail(`reading.${key} is not a well-formed { kind, id } region`);
+        }
+      }
+    }
+    if (isPlainObject(history) && Array.isArray(history.route)) {
+      history.route.forEach((entry, i) => {
+        if (!isPlainObject(entry) || typeof entry.id !== "string" || typeof entry.sequence !== "number") {
+          fail(`history.route[${i}] is not a well-formed { id, sequence } commit entry`);
+        }
+      });
+      if (typeof history.nextSequence !== "number") fail("history.nextSequence is not a number");
+    }
+    if (isPlainObject(overlay)) {
+      if (overlay.kind !== null && typeof overlay.kind !== "string") {
+        fail("overlay.kind must be null or a single string, never a list of active overlays");
+      }
+    }
+    if (isPlainObject(solo)) {
+      if (solo.active === true && solo.snapshot === null) {
+        fail("solo.active is true but solo.snapshot was never captured");
+      }
+      if (solo.active === false && solo.snapshot !== null) {
+        fail("solo.active is false but solo.snapshot was not restored/cleared on exit");
+      }
+    }
+    if (isPlainObject(trace) && Array.isArray(trace.afterglows)) {
+      trace.afterglows.forEach((entry, i) => {
+        if (!isPlainObject(entry) || typeof entry.deadline !== "number") {
+          fail(`trace.afterglows[${i}] has no numeric wall-clock deadline`);
+        }
+      });
+    }
+    return { ok: violations.length === 0, violations };
+  }
+
+  // src/domain/visibility.js
+  function isNodeVisible(node, view) {
+    if (!node) return false;
+    if (view.objectVisibility[node.id] === false) return false;
+    return view.typeVisibility[node.type] !== false;
+  }
+  function reconcileHiddenAnchor(reading, node, view) {
+    if (reading.fieldAttention.kind !== "focus") return reading;
+    if (isNodeVisible(node, view)) return reading;
+    return { ...reading, fieldAttention: { kind: "whole-field", id: null } };
+  }
+  function restoreVisibility(view) {
     return {
-      ...state,
-      reading: {
+      ...view,
+      typeVisibility: Object.fromEntries(Object.keys(view.typeVisibility).map((k) => [k, true])),
+      objectVisibility: {}
+    };
+  }
+
+  // src/domain/solo.js
+  function computeSoloMembership(id, { nodesById, relations }) {
+    const node = nodesById[id];
+    if (!node) return /* @__PURE__ */ new Set();
+    if (node.type === "RelO") {
+      return /* @__PURE__ */ new Set([id, ...relations[id] || []]);
+    }
+    const members = /* @__PURE__ */ new Set([id]);
+    for (const [relOId, participants] of Object.entries(relations)) {
+      if (participants.includes(id)) {
+        members.add(relOId);
+        for (const p of participants) members.add(p);
+      }
+    }
+    return members;
+  }
+
+  // src/domain/route.js
+  function clearRoute() {
+    return { route: [], nextSequence: 1 };
+  }
+  function appendRouteEvent(routeState, event, currentAnchorId) {
+    if (event.id === currentAnchorId) return routeState;
+    const sequence = routeState.nextSequence;
+    const entry = {
+      sequence,
+      id: event.id,
+      type: event.objectType ?? null,
+      label: event.label ?? null,
+      fromId: currentAnchorId ?? null,
+      source: event.source ?? "unknown",
+      committedAt: event.committedAt ?? Date.now()
+    };
+    return {
+      route: [...routeState.route, entry],
+      nextSequence: sequence + 1
+    };
+  }
+  function findRouteEventBySequence(routeState, sequence) {
+    return routeState.route.find((entry) => entry.sequence === sequence) ?? null;
+  }
+
+  // src/domain/trace.js
+  function edgeKey(a, b) {
+    return a < b ? `${a}|${b}` : `${b}|${a}`;
+  }
+  function shortestVisiblePath(fromId, toId, neighbors) {
+    if (fromId === toId) return [fromId];
+    const visited = /* @__PURE__ */ new Set([fromId]);
+    const parent = /* @__PURE__ */ new Map();
+    const queue = [fromId];
+    while (queue.length) {
+      const current = queue.shift();
+      for (const next of neighbors(current)) {
+        if (visited.has(next)) continue;
+        visited.add(next);
+        parent.set(next, current);
+        if (next === toId) {
+          const path = [toId];
+          let cur = toId;
+          while (cur !== fromId) {
+            cur = parent.get(cur);
+            path.push(cur);
+          }
+          return path.reverse();
+        }
+        queue.push(next);
+      }
+    }
+    return null;
+  }
+  var WEAR_CAP_PER_EDGE = 7;
+  function recordWear(traceState, { fromId, toId, neighbors }) {
+    if (fromId == null || toId == null || fromId === toId) return traceState;
+    const path = shortestVisiblePath(fromId, toId, neighbors);
+    if (!path || path.length < 2) return traceState;
+    const wear = { ...traceState.wear };
+    let changed = false;
+    for (let i = 0; i + 1 < path.length; i++) {
+      const key = edgeKey(path[i], path[i + 1]);
+      const current = wear[key] || 0;
+      if (current < WEAR_CAP_PER_EDGE) {
+        wear[key] = current + 1;
+        changed = true;
+      }
+    }
+    return changed ? { ...traceState, wear } : traceState;
+  }
+  function recordAfterglow(traceState, { id, nowMs = Date.now(), durationMs, cap }) {
+    const entry = { id, deadline: nowMs + durationMs, totalMs: durationMs };
+    let afterglows = [...traceState.afterglows, entry];
+    if (afterglows.length > cap) {
+      afterglows = afterglows.slice(afterglows.length - cap);
+    }
+    return { ...traceState, afterglows };
+  }
+  function reconcileTraceDeadlines(traceState, nowMs = Date.now()) {
+    const afterglows = traceState.afterglows.filter((a) => a.deadline > nowMs);
+    if (afterglows.length === traceState.afterglows.length) return traceState;
+    return { ...traceState, afterglows };
+  }
+  function clearTrace() {
+    return { wear: {}, afterglows: [] };
+  }
+
+  // src/state/reducer.js
+  function buildAdjacency(baseLinks2) {
+    const adj2 = /* @__PURE__ */ new Map();
+    for (const [a, b] of baseLinks2) {
+      if (!adj2.has(a)) adj2.set(a, []);
+      if (!adj2.has(b)) adj2.set(b, []);
+      adj2.get(a).push(b);
+      adj2.get(b).push(a);
+    }
+    return adj2;
+  }
+  function createReducer({ nodesById, baseLinks: baseLinks2, relations }) {
+    const adjacency = buildAdjacency(baseLinks2);
+    function isMobileProfile(state) {
+      return state.responsive.profile === "mobile";
+    }
+    function visibleIdSet(state) {
+      if (state.solo.active) return new Set(state.solo.members);
+      return new Set(
+        Object.keys(nodesById).filter((id) => isNodeVisible(nodesById[id], state.view))
+      );
+    }
+    function makeNeighbors(state) {
+      const visible = visibleIdSet(state);
+      return (id) => (adjacency.get(id) || []).filter((n) => visible.has(n)).sort();
+    }
+    function reconcileAnchorVisibility(reading, view) {
+      if (!reading.anchorId) return reading;
+      const node = nodesById[reading.anchorId];
+      if (!node) return reading;
+      return reconcileHiddenAnchor(reading, node, view);
+    }
+    function commitObject(state, id, source, now) {
+      const isNewId = state.reading.anchorId !== id;
+      const nextReading = {
         ...state.reading,
         anchorId: id,
         fieldAttention: { kind: "focus", id },
         readerSubject: { kind: "object", id },
         inspection: null
-      },
-      history,
-      trace
-    };
-  }
-  function reduceCommand(state, command) {
-    switch (command.type) {
-      case CommandType.BOOTSTRAP_READY:
-        return { ...state, lifecycle: { ...state.lifecycle, bootstrap: "ready" } };
-      case CommandType.BOOTSTRAP_FAILED:
-        return { ...state, lifecycle: { ...state.lifecycle, bootstrap: "failed" } };
-      case CommandType.ENTER_WORK:
-        return { ...state, lifecycle: { ...state.lifecycle, phase: "field" } };
-      case CommandType.INTERRUPT_ONBOARDING_WITH_OBJECT:
-        return {
-          ...commitObject(state, command.id, command.source),
-          lifecycle: { ...state.lifecycle, phase: "focused" }
-        };
-      // P-RULE-011: returning to the whole field neutralizes field attention while
-      // retaining the reading anchor and current Reader subject — anchorId and
-      // readerSubject are deliberately left untouched here.
-      case CommandType.RETURN_TO_WHOLE_FIELD:
-        return {
-          ...state,
-          lifecycle: { ...state.lifecycle, phase: "field" },
-          reading: { ...state.reading, fieldAttention: { kind: "whole-field", id: null }, inspection: null }
-        };
-      // P-RULE-003: preview never appends Route or trace. Modeled as a transient
-      // tooltip, not a reading-region change.
-      case CommandType.PREVIEW_OBJECT:
-        return { ...state, tooltip: { ...state.tooltip, kind: "preview", targetId: command.id } };
-      case CommandType.CLEAR_PREVIEW:
-        return { ...state, tooltip: { kind: null, targetId: null, describedById: null } };
-      // T-REQ-008 / P-RULE-002/004: the one command that atomically updates anchor,
-      // field focus and Reader subject, appending Route/trace exactly once per new id.
-      case CommandType.COMMIT_OBJECT:
-        return {
-          ...commitObject(state, command.id, command.source),
-          lifecycle: { ...state.lifecycle, phase: "focused" }
-        };
-      // P-RULE-014: projected edges are derived inspectable surfaces; inspecting one
-      // may change Reader subject but never the reading anchor, Route, trace, solo, or view.
-      case CommandType.INSPECT_PROJECTED_EDGE:
-        return {
-          ...state,
-          reading: {
-            ...state.reading,
-            inspection: { sourceId: command.sourceId, targetId: command.targetId, relOIds: command.relOIds },
-            readerSubject: { kind: "projected-edge", id: `${command.sourceId}~${command.targetId}` }
+      };
+      if (!isNewId) return { ...state, reading: nextReading };
+      const fromId = state.reading.anchorId;
+      const node = nodesById[id];
+      const history = appendRouteEvent(
+        state.history,
+        { id, objectType: node?.type ?? null, label: node?.label ?? null, source, committedAt: now },
+        fromId
+      );
+      let trace = state.trace;
+      if (fromId) {
+        const { wear } = recordWear(trace, { fromId, toId: id, neighbors: makeNeighbors(state) });
+        trace = recordAfterglow(
+          { ...trace, wear },
+          {
+            id: fromId,
+            nowMs: now,
+            durationMs: isMobileProfile(state) ? 4e3 : 1e4,
+            cap: isMobileProfile(state) ? 3 : 8
           }
-        };
-      case CommandType.CLEAR_INSPECTION:
-        return {
-          ...state,
-          reading: {
-            ...state.reading,
-            inspection: null,
-            readerSubject: state.reading.anchorId != null ? { kind: "object", id: state.reading.anchorId } : { kind: "orientation", id: null }
-          }
-        };
-      case CommandType.SET_SURFACE:
-        return { ...state, responsive: { ...state.responsive, surface: command.surface } };
-      case CommandType.SET_TYPE_VISIBILITY:
-        return {
-          ...state,
-          view: {
+        );
+      }
+      return { ...state, reading: nextReading, history, trace };
+    }
+    function reduceCommand(state, command) {
+      const now = command.committedAt ?? command.now ?? Date.now();
+      switch (command.type) {
+        case CommandType.BOOTSTRAP_READY:
+          return { ...state, lifecycle: { ...state.lifecycle, bootstrap: "ready" } };
+        case CommandType.BOOTSTRAP_FAILED:
+          return { ...state, lifecycle: { ...state.lifecycle, bootstrap: "failed" } };
+        case CommandType.ENTER_WORK:
+          return { ...state, lifecycle: { ...state.lifecycle, phase: "field" } };
+        case CommandType.INTERRUPT_ONBOARDING_WITH_OBJECT:
+          return {
+            ...commitObject(state, command.id, command.source, now),
+            lifecycle: { ...state.lifecycle, phase: "focused" }
+          };
+        // P-RULE-011: returning to the whole field neutralizes field attention while
+        // retaining the reading anchor and current Reader subject — anchorId and
+        // readerSubject are deliberately left untouched here.
+        case CommandType.RETURN_TO_WHOLE_FIELD:
+          return {
+            ...state,
+            lifecycle: { ...state.lifecycle, phase: "field" },
+            reading: { ...state.reading, fieldAttention: { kind: "whole-field", id: null }, inspection: null }
+          };
+        // P-RULE-003: preview never appends Route or trace. Modeled as a transient
+        // tooltip, not a reading-region change.
+        case CommandType.PREVIEW_OBJECT:
+          return { ...state, tooltip: { ...state.tooltip, kind: "preview", targetId: command.id } };
+        case CommandType.CLEAR_PREVIEW:
+          return { ...state, tooltip: { kind: null, targetId: null, describedById: null } };
+        case CommandType.COMMIT_OBJECT:
+          return {
+            ...commitObject(state, command.id, command.source, now),
+            lifecycle: { ...state.lifecycle, phase: "focused" }
+          };
+        // P-RULE-014: projected edges are derived inspectable surfaces; inspecting one
+        // may change Reader subject but never the reading anchor, Route, trace, solo, or view.
+        case CommandType.INSPECT_PROJECTED_EDGE:
+          return {
+            ...state,
+            reading: {
+              ...state.reading,
+              inspection: { sourceId: command.sourceId, targetId: command.targetId, relOIds: command.relOIds },
+              readerSubject: { kind: "projected-edge", id: `${command.sourceId}~${command.targetId}` }
+            }
+          };
+        case CommandType.CLEAR_INSPECTION:
+          return {
+            ...state,
+            reading: {
+              ...state.reading,
+              inspection: null,
+              readerSubject: state.reading.anchorId != null ? { kind: "object", id: state.reading.anchorId } : { kind: "orientation", id: null }
+            }
+          };
+        case CommandType.SET_SURFACE:
+          return { ...state, responsive: { ...state.responsive, surface: command.surface } };
+        // P-RULE-015: a type toggle can newly hide the field-focused object;
+        // reconcileHiddenAnchor neutralizes field attention only, never Route/trace/anchor.
+        case CommandType.SET_TYPE_VISIBILITY: {
+          const view = {
             ...state.view,
             typeVisibility: { ...state.view.typeVisibility, [command.objectType]: command.visible }
-          }
-        };
-      case CommandType.SET_OBJECT_VISIBILITY:
-        return {
-          ...state,
-          view: {
+          };
+          return { ...state, view, reading: reconcileAnchorVisibility(state.reading, view) };
+        }
+        case CommandType.SET_OBJECT_VISIBILITY: {
+          const view = {
             ...state.view,
             objectVisibility: { ...state.view.objectVisibility, [command.id]: command.visible }
-          }
-        };
-      case CommandType.SET_VIEW_OPTION:
-        return { ...state, view: { ...state.view, [command.option]: command.value } };
-      // P-RULE-012: Solo is a lens. Entering/exiting never appends Route or trace; the
-      // snapshot is captured once on entry and restored exactly on exit.
-      case CommandType.ENTER_SOLO:
-        return {
-          ...state,
-          solo: {
-            active: true,
-            rootId: command.id,
-            members: state.solo.members,
-            snapshot: state.solo.active ? state.solo.snapshot : { view: state.view }
-          }
-        };
-      case CommandType.EXIT_SOLO: {
-        const restoredView = state.solo.snapshot ? state.solo.snapshot.view : state.view;
-        return {
-          ...state,
-          view: restoredView,
-          solo: { active: false, rootId: null, members: [], snapshot: null }
-        };
+          };
+          return { ...state, view, reading: reconcileAnchorVisibility(state.reading, view) };
+        }
+        case CommandType.SET_VIEW_OPTION:
+          return { ...state, view: { ...state.view, [command.option]: command.value } };
+        // P-RULE-013: RelO Solo = the RelO plus every canonical participant; object
+        // Solo = the object, every RelO that contains it, and all of those RelOs'
+        // participants -- delegated to domain/solo.js exactly.
+        case CommandType.ENTER_SOLO: {
+          const members = [...computeSoloMembership(command.id, { nodesById, relations })];
+          return {
+            ...state,
+            solo: {
+              active: true,
+              rootId: command.id,
+              members,
+              // Snapshot is captured once on entry; re-entering Solo (switching root
+              // while already active) does not overwrite the original pre-lens snapshot.
+              snapshot: state.solo.active ? state.solo.snapshot : { view: state.view }
+            }
+          };
+        }
+        case CommandType.EXIT_SOLO: {
+          const view = state.solo.snapshot ? state.solo.snapshot.view : state.view;
+          return {
+            ...state,
+            view,
+            solo: { active: false, rootId: null, members: [], snapshot: null },
+            reading: reconcileAnchorVisibility(state.reading, view)
+          };
+        }
+        // contracts/semantic-normalization.json's visibility.restore_rule: exits Solo,
+        // restores all type visibility, clears individual hides, returns Field
+        // attention to whole-field, and preserves anchor/Reader subject/Route/trace.
+        case CommandType.RESTORE_FIELD: {
+          const view = restoreVisibility(state.view);
+          return {
+            ...state,
+            view,
+            solo: { active: false, rootId: null, members: [], snapshot: null },
+            reading: { ...state.reading, fieldAttention: { kind: "whole-field", id: null } }
+          };
+        }
+        // P-RULE-007: replay changes presentation (which object is anchored/read) without
+        // adding Route or trace and without changing View/Hide/Solo state. history.route
+        // itself is untouched — replay reads it, it never mutates it.
+        case CommandType.REPLAY_ROUTE_EVENT: {
+          const entry = findRouteEventBySequence(state.history, command.sequence);
+          if (!entry) return state;
+          return {
+            ...state,
+            lifecycle: { ...state.lifecycle, phase: "focused" },
+            reading: {
+              ...state.reading,
+              anchorId: entry.id,
+              fieldAttention: { kind: "focus", id: entry.id },
+              readerSubject: { kind: "object", id: entry.id },
+              inspection: null
+            }
+          };
+        }
+        case CommandType.CLEAR_ROUTE:
+          return { ...state, history: clearRoute() };
+        case CommandType.CLEAR_TRACE:
+          return { ...state, trace: clearTrace() };
+        case CommandType.OPEN_OVERLAY:
+          return { ...state, overlay: { kind: command.kind, invoker: command.invoker } };
+        case CommandType.CLOSE_OVERLAY:
+          return { ...state, overlay: { kind: null, invoker: null } };
+        case CommandType.REPLACE_OVERLAY:
+          return { ...state, overlay: { kind: command.kind, invoker: command.invoker } };
+        case CommandType.SET_ROVING_FOCUS:
+          return { ...state, focus: { ...state.focus, graphRovingId: command.id } };
+        case CommandType.RECONCILE_ENVIRONMENT:
+          return {
+            ...state,
+            responsive: {
+              ...state.responsive,
+              ..."profile" in command ? { profile: command.profile } : null,
+              ..."orientation" in command ? { orientation: command.orientation } : null,
+              ..."visualViewport" in command ? { visualViewport: command.visualViewport } : null
+            },
+            lifecycle: {
+              ...state.lifecycle,
+              ..."connectivity" in command ? { connectivity: command.connectivity } : null
+            }
+          };
+        // Resume (document becomes visible again): expired afterglow deadlines are
+        // dropped against wall-clock time, never replayed.
+        case CommandType.RECONCILE_DOCUMENT_VISIBILITY: {
+          const documentVisibility = "visibility" in command ? command.visibility : state.lifecycle.documentVisibility;
+          const trace = documentVisibility === "visible" ? reconcileTraceDeadlines(state.trace, now) : state.trace;
+          return {
+            ...state,
+            lifecycle: {
+              ...state.lifecycle,
+              ..."visibility" in command ? { documentVisibility: command.visibility } : null
+            },
+            trace
+          };
+        }
+        case CommandType.EXTERNAL_NAVIGATION_FAILED:
+          return { ...state, presentation: { ...state.presentation, statusMessage: "external-navigation-failed" } };
+        default:
+          throw new Error(`reduceCommand: unknown command type "${command.type}"`);
       }
-      case CommandType.RESTORE_FIELD:
-        return {
-          ...state,
-          view: {
-            ...state.view,
-            typeVisibility: Object.fromEntries(Object.keys(state.view.typeVisibility).map((k) => [k, true])),
-            objectVisibility: {}
-          }
-        };
-      // P-RULE-007: replay changes presentation (which object is anchored/read) without
-      // adding Route or trace and without changing View/Hide/Solo state. history.route
-      // itself is untouched — replay reads it, it never mutates it.
-      case CommandType.REPLAY_ROUTE_EVENT: {
-        const entry = state.history.route.find((e) => e.seq === command.sequence);
-        if (!entry) return state;
-        return {
-          ...state,
-          lifecycle: { ...state.lifecycle, phase: "focused" },
-          reading: {
-            ...state.reading,
-            anchorId: entry.id,
-            fieldAttention: { kind: "focus", id: entry.id },
-            readerSubject: { kind: "object", id: entry.id },
-            inspection: null
-          }
-        };
-      }
-      case CommandType.CLEAR_ROUTE:
-        return { ...state, history: { route: [], nextSequence: 1 } };
-      case CommandType.CLEAR_TRACE:
-        return { ...state, trace: { wear: {}, afterglows: [] } };
-      case CommandType.OPEN_OVERLAY:
-        return { ...state, overlay: { kind: command.kind, invoker: command.invoker } };
-      case CommandType.CLOSE_OVERLAY:
-        return { ...state, overlay: { kind: null, invoker: null } };
-      case CommandType.REPLACE_OVERLAY:
-        return { ...state, overlay: { kind: command.kind, invoker: command.invoker } };
-      case CommandType.SET_ROVING_FOCUS:
-        return { ...state, focus: { ...state.focus, graphRovingId: command.id } };
-      case CommandType.RECONCILE_ENVIRONMENT:
-        return {
-          ...state,
-          responsive: {
-            ...state.responsive,
-            ..."profile" in command ? { profile: command.profile } : null,
-            ..."orientation" in command ? { orientation: command.orientation } : null,
-            ..."visualViewport" in command ? { visualViewport: command.visualViewport } : null
-          }
-        };
-      case CommandType.RECONCILE_DOCUMENT_VISIBILITY:
-        return {
-          ...state,
-          lifecycle: {
-            ...state.lifecycle,
-            ..."visibility" in command ? { documentVisibility: command.visibility } : null
-          }
-        };
-      case CommandType.EXTERNAL_NAVIGATION_FAILED:
-        return { ...state, presentation: { ...state.presentation, statusMessage: "external-navigation-failed" } };
-      default:
-        throw new Error(`reduceCommand: unknown command type "${command.type}"`);
     }
+    return { reduceCommand };
   }
 
   // src/application/effect-planner.js
@@ -1506,7 +1748,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
 
   // src/application/dispatcher.js
-  function createDispatcher({ getState, transactions }) {
+  function createDispatcher({ getState, transactions, graphContext }) {
+    const { reduceCommand } = createReducer(graphContext);
     function dispatch2(command) {
       const validation = validateCommand(command);
       if (!validation.ok) {
@@ -1514,6 +1757,10 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       }
       const prevState = getState();
       const nextState = reduceCommand(prevState, command);
+      const invariantCheck = assertStateInvariants(nextState);
+      if (!invariantCheck.ok) {
+        return { accepted: false, errors: invariantCheck.violations };
+      }
       const { txId, signal } = transactions.begin();
       const effects = planEffects({
         command,
@@ -1688,30 +1935,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { setRovingTarget, getRovingTarget, moveDirection, tabIndexFor };
   }
 
-  // src/domain/visibility.js
-  function isNodeVisible(node, view) {
-    if (!node) return false;
-    if (view.objectVisibility[node.id] === false) return false;
-    return view.typeVisibility[node.type] !== false;
-  }
-
-  // src/domain/solo.js
-  function computeSoloMembership(id, { nodesById, relations }) {
-    const node = nodesById[id];
-    if (!node) return /* @__PURE__ */ new Set();
-    if (node.type === "RelO") {
-      return /* @__PURE__ */ new Set([id, ...relations[id] || []]);
-    }
-    const members = /* @__PURE__ */ new Set([id]);
-    for (const [relOId, participants] of Object.entries(relations)) {
-      if (participants.includes(id)) {
-        members.add(relOId);
-        for (const p of participants) members.add(p);
-      }
-    }
-    return members;
-  }
-
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -1748,6 +1971,23 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   var byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
   var typeOrder = DATA.ui.objectTypes;
   var defaultVisibility = Object.fromEntries(nodes.map((n) => [n.id, true]));
+  var relParticipant = [];
+  Object.entries(DATA.relations).forEach(([rid, parts]) => {
+    parts.forEach((pid) => relParticipant.push({ source: rid, target: pid, kind: "rel" }));
+  });
+  var citationEdges = [];
+  Object.entries(DATA.texts).forEach(([tid, t]) => {
+    (t.refs || []).forEach(
+      (rid) => citationEdges.push({ source: tid, target: rid, kind: "citation" })
+    );
+    (t.objects || []).forEach(
+      (oid) => citationEdges.push({ source: tid, target: oid, kind: "appears" })
+    );
+  });
+  Object.entries(DATA.nameos).forEach(([nid, no]) => {
+    (no.attached || []).forEach((a) => citationEdges.push({ source: nid, target: a, kind: "name" }));
+  });
+  var baseEdgesRaw = [...relParticipant, ...citationEdges];
   function stableHash(text) {
     let h = 2166136261 >>> 0;
     for (let i = 0; i < text.length; i += 1) {
@@ -1848,9 +2088,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   window.__bbState = S;
   var canonicalState = createInitialState();
   var canonicalTransactions = createTransactionController();
+  var canonicalBaseLinks = baseEdgesRaw.map((e) => [e.source, e.target]);
   var canonicalDispatcher = createDispatcher({
     getState: () => canonicalState,
-    transactions: canonicalTransactions
+    transactions: canonicalTransactions,
+    graphContext: { nodesById: byId, baseLinks: canonicalBaseLinks, relations: DATA.relations }
   });
   function dispatch(command) {
     const result = canonicalDispatcher.dispatch(command);
@@ -1928,8 +2170,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       };
     },
     wearSnapshot() {
-      const entries = Object.entries(S.fieldTrace.wear).map(([edgeKey, passCount]) => ({
-        edgeKey,
+      const entries = Object.entries(S.fieldTrace.wear).map(([edgeKey2, passCount]) => ({
+        edgeKey: edgeKey2,
         passCount
       }));
       return { entries, maxPassCount: entries.reduce((m, e) => Math.max(m, e.passCount), 0) };
@@ -2035,23 +2277,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       if (opts.measure !== false) measureGraph();
     }
   }
-  var relParticipant = [];
-  Object.entries(DATA.relations).forEach(([rid, parts]) => {
-    parts.forEach((pid) => relParticipant.push({ source: rid, target: pid, kind: "rel" }));
-  });
-  var citationEdges = [];
-  Object.entries(DATA.texts).forEach(([tid, t]) => {
-    (t.refs || []).forEach(
-      (rid) => citationEdges.push({ source: tid, target: rid, kind: "citation" })
-    );
-    (t.objects || []).forEach(
-      (oid) => citationEdges.push({ source: tid, target: oid, kind: "appears" })
-    );
-  });
-  Object.entries(DATA.nameos).forEach(([nid, no]) => {
-    (no.attached || []).forEach((a) => citationEdges.push({ source: nid, target: a, kind: "name" }));
-  });
-  var baseEdgesRaw = [...relParticipant, ...citationEdges];
   function buildProjected() {
     const map = /* @__PURE__ */ new Map();
     Object.entries(DATA.relations).forEach(([rid, parts]) => {
