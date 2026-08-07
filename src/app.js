@@ -26,6 +26,7 @@ import { createRouteRenderer } from './presentation/route-renderer.js';
 import { createTraceRenderer, wearOpacityFor, ROUTE_MARK_COLOR } from './presentation/trace-renderer.js';
 import { createViewRenderer } from './presentation/view-renderer.js';
 import { createIndexRenderer } from './presentation/index-renderer.js';
+import { createSoloRenderer } from './presentation/solo-renderer.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
 import { createNavigationController } from './controllers/navigation-controller.js';
@@ -1423,6 +1424,7 @@ function updateVisibility() {
   updateWearOverlay();
   drawRouteMemory({ duration: 0 });
   updateRovingTabindex(uiRuntime.focusedId);
+  soloRenderer.render(state.solo);
 }
 
 // ── Camera ─────────────────────────────────────────────────────────────────
@@ -2765,6 +2767,22 @@ function renderObjectLists() {
   const filteredNodes = typeFilter ? nodes.filter((n) => n.type === typeFilter) : nodes;
   indexRenderer.render(filteredNodes, state.view, document.getElementById("objectSearch")?.value || "");
 }
+// F05/R3: src/presentation/solo-renderer.js is the real Solo lens-band
+// authority (T20, T-REQ-028, D-DEC-08) -- a previously-designed, tested-in-
+// isolation "visible, explicit lens" affordance that had no live trigger:
+// Solo was only ever exitable via the unrelated Restore Field control.
+// Re-rendered from updateVisibility(), which every Solo-affecting action
+// already calls.
+const soloRenderer = createSoloRenderer({
+  container: document.getElementById("soloBand"),
+  copy: UI_COPY,
+  labelOf,
+  onExitSolo: () => {
+    dispatch({ type: CommandType.EXIT_SOLO });
+    updateVisibility();
+    fitVisibleField({ duration: 420 });
+  },
+});
 function openIndex(filter = "all") {
   uiRuntime.indexFilter = filter;
   const search = document.getElementById("objectSearch");

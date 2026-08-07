@@ -152,6 +152,12 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .drawer-backdrop.open{display:block;background:rgba(0,0,0,.38);}
 .field-prompt{position:absolute;left:50%;top:72px;transform:translateX(-50%) translateY(6px);width:min(760px,calc(100vw - 48px));z-index:20;pointer-events:none;font-family:var(--serif);font-size:clamp(20px,2.4vw,30px);line-height:1.45;color:var(--text2);text-align:center;opacity:0;transition:opacity 520ms ease,transform 520ms ease;}
 .field-prompt.visible{opacity:1;transform:translateX(-50%) translateY(0);}
+/* D-DEC-08: Solo is a visible, explicit lens band -- never impersonating a
+   direct commit. See src/presentation/solo-renderer.js. */
+.solo-band{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:12;display:flex;align-items:center;gap:10px;padding:8px 14px;border:1px solid var(--line2);background:rgba(13,12,11,.9);font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--text2);}
+.solo-band .solo-label{color:var(--amber2);}
+.solo-band .solo-exit{border:1px solid var(--line2);background:transparent;color:var(--text2);font-family:inherit;font-size:inherit;cursor:pointer;padding:3px 8px;}
+.solo-band .solo-exit:hover{color:var(--text);border-color:#65594c;}
 .micro-preview{position:fixed;z-index:50;pointer-events:none;min-width:160px;max-width:260px;padding:10px 12px;border:1px solid var(--line2);background:rgba(11,10,9,.96);box-shadow:0 12px 36px rgba(0,0,0,.42);opacity:0;transform:translateY(4px);transition:opacity 160ms ease,transform 160ms ease;font-family:var(--mono);}
 .micro-preview.visible{opacity:1;transform:translateY(0);}
 .micro-preview-title{font-size:12px;color:var(--text);letter-spacing:.08em;margin-bottom:5px;}
@@ -367,6 +373,7 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
         </div>
         <svg id="graphSvg" role="group" aria-label="hypergraph map"></svg>
         <div id="fieldPrompt" class="field-prompt" aria-live="polite"></div>
+        <div id="soloBand" hidden></div>
         <button id="mobileAboutBtn" class="map-about-btn" aria-label="About the work">ABOUT</button>
       </section>
       <section class="panel">
