@@ -104,10 +104,10 @@ test.describe('Reduced motion is the authority over every CSS and JS motion path
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CORPSE');
-    const before = await page.evaluate(() => window.__bbState.activeId);
+    const before = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
     await page.setViewportSize({ width: 844, height: 390 });
     await page.waitForTimeout(50);
-    const after = await page.evaluate(() => window.__bbState.activeId);
+    const after = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
     expect(after).toBe(before);
   });
 });

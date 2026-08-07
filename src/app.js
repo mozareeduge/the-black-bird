@@ -19,6 +19,7 @@ import { createStatusRenderer } from './presentation/status-renderer.js';
 import { createFocusManager } from './accessibility/focus-manager.js';
 import { isNodeVisible } from './domain/visibility.js';
 import { computeSoloMembership } from './domain/solo.js';
+import { createTimerRegistry } from './application/timer-registry.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -122,111 +123,43 @@ function irregularCirclePath(id, radius = 6.8, points = 12) {
     pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(3)},${p[1].toFixed(3)}`).join(" ") + " Z"
   );
 }
-function stableBfsPath(start, goal, orderedEdges, visibleIds) {
-  if (!start || !goal || start === goal) return [];
-  const visible = new Set(visibleIds);
-  if (!visible.has(start) || !visible.has(goal)) return [];
-  const adj = new Map();
-  for (const [a, b] of orderedEdges) {
-    if (!visible.has(a) || !visible.has(b)) continue;
-    if (!adj.has(a)) adj.set(a, []);
-    if (!adj.has(b)) adj.set(b, []);
-    adj.get(a).push(b);
-    adj.get(b).push(a);
-  }
-  for (const v of adj.values()) v.sort();
-  const q = [start],
-    prev = new Map([[start, null]]);
-  while (q.length) {
-    const cur = q.shift();
-    for (const next of adj.get(cur) || []) {
-      if (prev.has(next)) continue;
-      prev.set(next, cur);
-      if (next === goal) {
-        q.length = 0;
-        break;
-      }
-      q.push(next);
-    }
-  }
-  if (!prev.has(goal)) return [];
-  const path = [];
-  for (let at = goal; at != null; at = prev.get(at)) path.push(at);
-  return path.reverse();
-}
-function canonicalEdgeKey(a, b) {
-  return a < b ? `${a}::${b}` : `${b}::${a}`;
-}
 
-// ── State ──────────────────────────────────────────────────────────────────
-let S = {
-  phase: "threshold",
-  viewport: isMobile() ? "mobile" : "desktop",
-  surface: "field",
-  overlay: null,
-  activeId: null,
-  touchedId: null,
-  activeEdge: null,
-  activeRelos: [],
-  routeEvents: [],
-  // Presentation-only recent-tail window for route halos/segments (routeStats,
-  // routeSegments); Route truth itself is never capped or truncated
-  // (P-RULE-005/039, D-DEC-22) — see registerRouteEvent below.
-  recentRouteWindow: 11,
-  maxVisibleRouteSegments: 10,
-  objectGroups: { RNO: true, MNO: true, FO: true, NameO: true, RefO: true, RelO: true },
-  viewOptions: { projected: true, labels: true, sourceNames: false },
-  objectVisibility: { ...defaultVisibility },
-  soloSet: null,
-  transform: d3.zoomIdentity,
-  readerOpen: false,
-  onboardingActive: false,
-  cameraInFlight: false,
-  previewTarget: null,
-  previewTimer: null,
-  showSheet: false,
-  indexFilter: "all",
-  aboutOpen: false,
-  aboutOrigin: null,
-  fieldTrace: {
-    previousCommittedId: null,
-    wear: Object.create(null),
-    afterglows: [],
-    activeClearingId: null,
-    designContractVersion: "2.0.0",
-  },
-};
+// ── State (head correction v4, R1) ──────────────────────────────────────────
+// Presentation-only recent-tail window for route halos/segments (routeStats,
+// routeSegments); Route truth itself is never capped or truncated
+// (P-RULE-005/039, D-DEC-22) — see registerRouteEvent below.
+const RECENT_ROUTE_WINDOW = 11;
+const MAX_VISIBLE_ROUTE_SEGMENTS = 10;
 
-// Expose state for testing (S is let, not on window automatically)
-window.__bbState = S;
-
-// ── Canonical semantic state (F03) ──────────────────────────────────────────
-// src/state/reducer.js (tested against tests/contracts/command-contract.json)
-// is the single authority for whether a semantic change is accepted and what
-// Route/trace policy it carries; src/application/dispatcher.js +
+// ── Canonical semantic state (head correction v4, R1) ───────────────────────
+// One semantic store: src/state/reducer.js (tested against
+// tests/contracts/command-contract.json) is the single authority for whether
+// a semantic change is accepted and what Route/trace/visibility/Solo policy
+// it carries, delegating to src/domain/*.js; src/application/dispatcher.js +
 // transaction-controller.js (tests/unit/transactions.test.js) are the tested
-// modules that own validate -> reduce -> open-one-transaction, so app.js
-// calls those directly rather than re-deciding validation or transaction
-// ownership inline. S above stays the legacy read-model the rest of this
-// file renders from and is not replaced wholesale — but every semantic
-// mutation it models now goes through dispatch() first. Presentation-only
-// fields with no counterpart in the canonical shape (camera-in-flight, hover
-// timers, sheet visibility) and effects the canonical model does not compute
-// (edge-BFS wear, afterglow decay — see algorithm-contracts.json's richer
-// "trace.wear" spec vs. the reducer's simpler per-id counter) remain local
-// to S. planEffects()'s declarative effect list (camera-focus, reader-render,
-// route-draw, ...) is available on every dispatch result but not yet
-// consumed here — app.js's existing imperative orchestration in commitFocus/
-// focusObject already performs the equivalent work with call-site-specific
-// timing app.js's own opts already parameterize; wiring an effect-interpreter
-// to replace that orchestration is disclosed, separate remaining scope.
-let canonicalState = createInitialState();
+// modules that own validate -> reduce -> assert-invariants ->
+// open-one-transaction, so app.js calls those directly rather than
+// re-deciding validation, invariants, or transaction ownership inline.
+// `state` below is that one store; the rest of this file renders from it
+// directly -- there is no second, independently-mutable semantic mirror.
+// `uiRuntime` (declared further down, alongside the other presentation-only
+// runtime variables it joins) holds presentation-only ephemera with no
+// semantic counterpart: camera transform, hover/hold timers, sheet
+// visibility, which Index tab is selected. planEffects()'s declarative
+// effect list (camera-focus, reader-render, route-draw, ...) is available on
+// every dispatch result but not yet consumed here — app.js's existing
+// imperative orchestration in commitFocus/focusObject already performs the
+// equivalent work with call-site-specific timing app.js's own opts already
+// parameterize; wiring an effect-interpreter to replace that orchestration
+// is disclosed, separate remaining scope (narrowed, not silently dropped,
+// per the correction's effect-planner guidance).
+let state = createInitialState();
 const canonicalTransactions = createTransactionController();
 // baseEdgesRaw is [{source,target,kind},...]; the reducer's injected graph
 // context wants plain [a,b] canonical base-link pairs (F05).
 const canonicalBaseLinks = baseEdgesRaw.map((e) => [e.source, e.target]);
 const canonicalDispatcher = createDispatcher({
-  getState: () => canonicalState,
+  getState: () => state,
   transactions: canonicalTransactions,
   graphContext: { nodesById: byId, baseLinks: canonicalBaseLinks, relations: DATA.relations },
 });
@@ -235,18 +168,56 @@ function dispatch(command) {
   if (!result.accepted) {
     throw new Error(`dispatch: ${command.type} rejected: ${result.errors.join('; ')}`);
   }
-  canonicalState = result.state;
-  return canonicalState;
+  state = result.state;
+  return state;
 }
 dispatch({ type: CommandType.BOOTSTRAP_READY });
 
-// ── Design-response local runtime (not stored on S; not DOM nodes) ─────────
-const afterglowTimers = new Map();
+// ── Design-response local runtime (presentation-only; not DOM nodes) ───────
+// head correction v4, section 5: timer-registry.js owns delayed work,
+// cancellable by owner -- replaces the old ad hoc afterglowTimers Map.
+const timerRegistry = createTimerRegistry();
 let pulseTimers = [];
 let travelPulseActive = false;
 let currentLightMode = "field";
 let currentPenumbraVisible = false;
 let appliedBlurPx = 0;
+
+// Presentation-only ephemera with no semantic counterpart (head correction
+// v4, contracts/semantic-normalization.json's "one store" section):
+// zoom/pan transform, whether the Reader panel/mobile sheet is visually
+// open, in-flight camera animation, hover/hold timers, which Index tab is
+// selected, and which RelO is currently showing the clearing visual.
+let uiRuntime = {
+  // What to visually treat as focused for rendering (camera framing, focus
+  // set, label budget, roving tabindex fallback, "is this node active"
+  // highlighting). Set on every commitFocus() call regardless of Route
+  // policy -- broader than the canonical Route-anchor concept
+  // (state.reading.anchorId), because a Solo-only commit
+  // (routePolicy: 'none', by design never touching Route) still needs to be
+  // treated as "focused" for rendering purposes without appending Route. A
+  // real Route-affecting commit keeps both in step; only a Solo-only commit
+  // can make them differ, and only for rendering, never for Route/trace/
+  // Reader-subject truth, which stay exclusively canonical.
+  focusedId: null,
+  transform: d3.zoomIdentity,
+  readerOpen: false,
+  cameraInFlight: false,
+  previewTimer: null,
+  showSheet: false,
+  indexFilter: "all",
+  touchedId: null,
+  activeClearingId: null,
+  // Which drawer/sheet chrome is currently open (fieldViewDrawer,
+  // objectDrawer, routeDrawer, nodeSheet, edgeSheet), a UI-chrome tracker
+  // distinct from canonical state.overlay (the About modal only).
+  chromeOverlay: null,
+  // Whether the tacit-onboarding stage sequence is currently animating --
+  // narrower than lifecycle.phase === 'threshold' (true only during the
+  // stage animations themselves) and purely a CSS-class distinction with no
+  // product-semantic meaning of its own.
+  onboardingActive: false,
+};
 
 // ── Read-only diagnostic adapter (window.__bbDesign) ────────────────────────
 const FONT_SPECS = [
@@ -266,27 +237,27 @@ window.__bbDesign = {
   snapshot() {
     return {
       contractVersion: "2.0.0",
-      activeId: S.activeId,
-      activeType: S.activeId ? byId[S.activeId]?.type || null : null,
+      activeId: uiRuntime.focusedId,
+      activeType: uiRuntime.focusedId ? byId[uiRuntime.focusedId]?.type || null : null,
       lightMode: currentLightMode,
       penumbraVisible: currentPenumbraVisible,
       apertureCoreLit: false,
       clearing: this.clearingSnapshot(),
-      afterglowIds: S.fieldTrace.afterglows.map((a) => a.id),
+      afterglowIds: state.trace.afterglows.map((a) => a.id),
       wearEntries: this.wearSnapshot().entries,
-      routeIds: S.routeEvents.map((e) => e.id),
+      routeIds: state.history.route.map((e) => e.id),
       reducedMotion: prefersReducedMotion(),
       maxAppliedBlurPx: isMobile() || prefersReducedMotion() ? 0 : appliedBlurPx,
       travelPulseActive,
       layerCounts: {
-        clearing: S.fieldTrace.activeClearingId ? 1 : 0,
-        afterglow: S.fieldTrace.afterglows.length,
+        clearing: uiRuntime.activeClearingId ? 1 : 0,
+        afterglow: state.trace.afterglows.length,
       },
-      timerCount: afterglowTimers.size + pulseTimers.length,
+      timerCount: timerRegistry.size() + pulseTimers.length,
     };
   },
   clearingSnapshot() {
-    const relOId = S.fieldTrace.activeClearingId;
+    const relOId = uiRuntime.activeClearingId;
     if (!relOId)
       return {
         relOId: null,
@@ -310,7 +281,7 @@ window.__bbDesign = {
     };
   },
   wearSnapshot() {
-    const entries = Object.entries(S.fieldTrace.wear).map(([edgeKey, passCount]) => ({
+    const entries = Object.entries(state.trace.wear).map(([edgeKey, passCount]) => ({
       edgeKey,
       passCount,
     }));
@@ -332,9 +303,9 @@ window.__bbDesign = {
     return {
       nodeCount: simNodes.length,
       edgeCount: baseLinks.length + projectedLinks.length,
-      clearingCount: S.fieldTrace.activeClearingId ? 1 : 0,
-      afterglowCount: S.fieldTrace.afterglows.length,
-      timerCount: afterglowTimers.size + pulseTimers.length,
+      clearingCount: uiRuntime.activeClearingId ? 1 : 0,
+      afterglowCount: state.trace.afterglows.length,
+      timerCount: timerRegistry.size() + pulseTimers.length,
     };
   },
   resetTrace() {
@@ -385,7 +356,18 @@ function esc(s) {
 }
 function updatePhaseClass() {
   const app = document.getElementById("app");
-  S.viewport = isMobile() ? "mobile" : "desktop";
+  // "focused" styling follows uiRuntime.focusedId (rendering-visible focus,
+  // set on every commitFocus() call including Solo-only ones), not
+  // state.lifecycle.phase alone -- a Solo-only commit intentionally never
+  // dispatches COMMIT_OBJECT (Solo never appends Route), so canonical phase
+  // can lag behind what's actually visually focused; falling back to
+  // canonical phase only for the threshold/field distinction (which every
+  // path does dispatch unconditionally) keeps this exact and non-silent.
+  const cssPhase = uiRuntime.onboardingActive
+    ? "onboarding"
+    : uiRuntime.focusedId
+      ? "focused"
+      : state.lifecycle.phase;
   app.classList.remove(
     "phase-threshold",
     "phase-onboarding",
@@ -394,23 +376,25 @@ function updatePhaseClass() {
     "surface-field",
     "surface-read",
   );
-  app.classList.add("phase-" + S.phase, "surface-" + S.surface);
+  app.classList.add("phase-" + cssPhase, "surface-" + state.responsive.surface);
   document
     .querySelectorAll("[data-mobile]")
-    .forEach((b) => b.classList.toggle("active", b.dataset.mobile === S.surface));
+    .forEach((b) => b.classList.toggle("active", b.dataset.mobile === state.responsive.surface));
 }
-function syncSurfaceCanonical() {
-  dispatch({ type: CommandType.SET_SURFACE, surface: S.surface });
+function syncSurfaceCanonical(surface) {
+  dispatch({ type: CommandType.SET_SURFACE, surface });
 }
 async function setSurface(surface, opts = {}) {
-  S.surface = surface;
-  syncSurfaceCanonical();
+  syncSurfaceCanonical(surface);
   updatePhaseClass();
   await nextFrame();
   if (surface === "field" && opts.measure !== false) measureGraph();
 }
+// Presentation-only tracking of which drawer/sheet chrome is open (distinct
+// from canonical state.overlay, which is exclusively the About modal's
+// OPEN_OVERLAY/CLOSE_OVERLAY/REPLACE_OVERLAY-tracked kind/invoker).
 function setOverlay(name) {
-  S.overlay = name;
+  uiRuntime.chromeOverlay = name;
 }
 function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -428,7 +412,7 @@ function measureGraph() {
   updateGraphGeometry();
 }
 async function setReaderOpen(open, opts = {}) {
-  S.readerOpen = open;
+  uiRuntime.readerOpen = open;
   document.getElementById("mainLayout").classList.toggle("reader-open", open);
   await nextFrame();
   if (opts.measure !== false) measureGraph();
@@ -594,7 +578,7 @@ const zoom = d3
   .zoom()
   .scaleExtent([0.55, 2.4])
   .on("zoom", (ev) => {
-    S.transform = ev.transform;
+    uiRuntime.transform = ev.transform;
     root.attr("transform", ev.transform);
     updateLabelVisibility();
     if (+warmPenumbraCircle.attr("opacity") > 0)
@@ -605,7 +589,7 @@ const zoom = d3
   .on("end", () => recomputeLabelPlacements());
 svg.call(zoom).on("dblclick.zoom", null);
 svg.on("click", () => {
-  if (S.activeId) returnToField();
+  if (uiRuntime.focusedId) returnToField();
 });
 
 // Focus layout moves nodes in real simulation coordinates (see the "focus"
@@ -655,8 +639,8 @@ function updateGraphGeometry() {
       y = nodeY(d.node);
     if (Number.isFinite(x) && Number.isFinite(y)) d3.select(this).attr("cx", x).attr("cy", y);
   });
-  if (+warmPenumbraCircle.attr("opacity") > 0 && S.activeId) {
-    const core = byId[S.activeId];
+  if (+warmPenumbraCircle.attr("opacity") > 0 && uiRuntime.focusedId) {
+    const core = byId[uiRuntime.focusedId];
     if (core && Number.isFinite(core.x) && Number.isFinite(core.y))
       warmPenumbraCircle.attr("cx", core.x).attr("cy", core.y);
   }
@@ -703,7 +687,7 @@ function nodeR(d) {
 // Ties: prefer the node whose visible body contains the pointer; then the
 // active focus set; then canonical DATA order (simNodes iteration order).
 function resolveNearestVisibleNode(screenPoint, opts = {}) {
-  const t = S.transform;
+  const t = uiRuntime.transform;
   const focusIds = opts.focusIds || null;
   const point = { x: screenPoint[0], y: screenPoint[1] };
   const candidates = [];
@@ -863,7 +847,7 @@ const projectedLinks = projectedRaw.map((e) => ({ ...e }));
 // ── Authored world positions: the sole geometry authority (F04) ────────────
 // No runtime physics simulation, no public node dragging (removed: the
 // former d3.forceSimulation with link/charge/collide/cluster/center/focus
-// forces, and the d3.drag() call on nodeSel). Every node starts at its fixed
+// forces, and the pointer-drag behavior once attached to nodeSel). Every node starts at its fixed
 // authored home from src/layout/authored-world.js; a focus change retargets
 // the affected subset via computeFocusTargets' deterministic ring geometry
 // (src/layout/focus-targets.js). Motion between positions is a plain
@@ -972,8 +956,8 @@ let nodeSel = nodeLayer
   .data(simNodes)
   .join("g")
   .attr("class", (d) => "node " + d.type);
-// No d3.drag() here (F04): canonical node positions are fixed authored data,
-// not publicly draggable state.
+// No pointer-drag behavior here (F04): canonical node positions are fixed
+// authored data, not publicly draggable state.
 nodeSel.each(function (d) {
   nodeShape(d3.select(this), d);
 });
@@ -1012,12 +996,12 @@ nodeSel
   .attr("aria-label", (d) => `${d.type}: ${d.label}`)
   .on("mouseenter", (ev, d) => {
     if (isMobile()) return;
-    clearTimeout(S.previewTimer);
-    S.previewTimer = setTimeout(() => touchObject(d.id, { source: "graph-hover" }), 200);
+    clearTimeout(uiRuntime.previewTimer);
+    uiRuntime.previewTimer = setTimeout(() => touchObject(d.id, { source: "graph-hover" }), 200);
   })
   .on("mouseleave", () => {
     if (isMobile()) return;
-    clearTimeout(S.previewTimer);
+    clearTimeout(uiRuntime.previewTimer);
     clearTouch();
   })
   .on("click", (ev, d) => {
@@ -1025,19 +1009,19 @@ nodeSel
     // A hover-preview timer armed by mouseenter (200ms) can still be pending
     // when the click lands (P-SCN-020) — without this it fires after commit
     // and shows a stale hover preview for the object just committed.
-    clearTimeout(S.previewTimer);
+    clearTimeout(uiRuntime.previewTimer);
     hidePreview();
     // The datum bound to the DOM element under the pointer is not
     // authoritative when hit areas overlap (BB-R06) — resolve the true
     // nearest visible node in screen space and commit that instead.
-    const focus = S.activeId ? buildFocusSet(S.activeId) : null;
+    const focus = uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null;
     const resolved =
       resolveNearestVisibleNode(d3.pointer(ev, svg.node()), {
         touch: isMobile(),
         focusIds: focus ? new Set(focus.ids) : null,
       }) || d;
-    if (S.onboardingActive) {
-      S.onboardingActive = false;
+    if (uiRuntime.onboardingActive) {
+      uiRuntime.onboardingActive = false;
       hideFieldPrompt();
       return focusObject(resolved.id, { source: "onboarding-interrupt" });
     }
@@ -1127,7 +1111,7 @@ function rectsOverlap(a, b) {
 // one, and a non-required label the solver cannot place without overlap is
 // suppressed rather than drawn on top of something else.
 function recomputeLabelPlacements() {
-  const t = S.transform;
+  const t = uiRuntime.transform;
   const safeRaw = computeFieldSafeRect();
   const safeRect = { x: safeRaw.left, y: safeRaw.top, width: safeRaw.width, height: safeRaw.height };
   const visible = nodeSel
@@ -1136,7 +1120,7 @@ function recomputeLabelPlacements() {
     .filter((el) => getComputedStyle(el).getPropertyValue("display") !== "none")
     .map((el) => ({ el, d: d3.select(el).datum() }))
     .filter(({ d }) => d && d.x != null && d.y != null);
-  const focus = S.activeId ? buildFocusSet(S.activeId) : null;
+  const focus = uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null;
   const focusIds = focus ? new Set(focus.ids) : null;
   const core = focus && focus.coreId ? byId[focus.coreId] : null;
   const relParticipants =
@@ -1150,7 +1134,7 @@ function recomputeLabelPlacements() {
     } catch (e) {
       continue;
     }
-    const isActive = d.id === S.activeId;
+    const isActive = d.id === uiRuntime.focusedId;
     const isFocusMember = !!(focusIds && focusIds.has(d.id));
     const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
     const tier = labelPriorityTier(d, isActive, isFocusMember, isRelParticipant);
@@ -1231,24 +1215,23 @@ function recomputeLabelPlacements() {
 // Viewport changes reproject the camera only; authored topology (d.x/d.y)
 // never changes here (F04) — there is no longer a simulation to (re)start.
 function resize() {
-  S.viewport = isMobile() ? "mobile" : "desktop";
-  dispatch({ type: CommandType.RECONCILE_ENVIRONMENT, profile: S.viewport });
+  dispatch({ type: CommandType.RECONCILE_ENVIRONMENT, profile: isMobile() ? "mobile" : "desktop" });
   updatePhaseClass();
   // P-SCN-122: a transient hover preview is positioned from the pointer
   // coordinates at hover time (placePreviewNearPoint) and never
   // recalculated — after a resize those coordinates (and often the
   // hovered node's own screen position) are stale, so dismiss it rather
   // than leave a mispositioned tooltip standing.
-  clearTimeout(S.previewTimer);
+  clearTimeout(uiRuntime.previewTimer);
   clearTouch();
-  if (isMobile() && S.surface === "read") {
+  if (isMobile() && state.responsive.surface === "read") {
     renderRoute();
     return;
   }
   measureGraph();
-  if (S.activeId) {
-    applyLocalAperture(buildFocusSet(S.activeId));
-    fitFocusFrame(buildFocusSet(S.activeId), { duration: 0 });
+  if (uiRuntime.focusedId) {
+    applyLocalAperture(buildFocusSet(uiRuntime.focusedId));
+    fitFocusFrame(buildFocusSet(uiRuntime.focusedId), { duration: 0 });
   } else fitVisibleField({ duration: 0 });
   recomputeLabelPlacements();
 }
@@ -1270,22 +1253,23 @@ function getEdgeTargetId(e) {
 }
 // F05: src/domain/visibility.js's isNodeVisible() (T10, T-REQ-026/027) is the
 // real type/object-visibility authority once Solo is not overriding it; Solo
-// membership itself is legacy S.soloSet until src/domain/solo.js is wired in.
+// membership is canonical state.solo.members (reducer delegates to
+// domain/solo.js's computeSoloMembership on ENTER_SOLO -- head correction v4).
 function nodeVisible(id) {
   const n = byId[id];
   if (!n) return false;
-  if (S.soloSet) return S.soloSet.has(id);
-  return isNodeVisible(n, canonicalState.view);
+  if (state.solo.active) return state.solo.members.includes(id);
+  return isNodeVisible(n, state.view);
 }
 function edgeVisible(e) {
   return nodeVisible(getEdgeSourceId(e)) && nodeVisible(getEdgeTargetId(e));
 }
 function projectedVisible(e) {
-  if (!S.viewOptions.projected) return false;
+  if (!state.view.projectedEdges) return false;
   const a = byId[getEdgeSourceId(e)],
     b = byId[getEdgeTargetId(e)];
   if (!a || !b) return false;
-  if ((a.type === "NameO" || b.type === "NameO") && !S.viewOptions.sourceNames) return false;
+  if ((a.type === "NameO" || b.type === "NameO") && !state.view.sourceNames) return false;
   return nodeVisible(a.id) && nodeVisible(b.id);
 }
 // ── Label engine: screen-stable sizing + semantic density tiers (4.6) ──────
@@ -1315,25 +1299,25 @@ function labelBudget(k, hasFocus) {
   return n;
 }
 function updateLabelVisibility(context = {}) {
-  const k = S.transform.k;
-  const focus = context.focus || (S.activeId ? buildFocusSet(S.activeId) : null);
+  const k = uiRuntime.transform.k;
+  const focus = context.focus || (uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null);
   const focusIds = focus ? new Set(focus.ids) : null;
   const core = focus && focus.coreId ? byId[focus.coreId] : null;
   const relParticipants =
     core && core.type === "RelO" ? new Set(DATA.relations[focus.coreId] || []) : null;
   const ranked = simNodes
     .filter((d) => {
-      if (!S.viewOptions.labels) return false;
+      if (!state.view.labels) return false;
       if (!nodeVisible(d.id)) return false;
-      if (d.type === "NameO" && !S.viewOptions.sourceNames) return false;
+      if (d.type === "NameO" && !state.view.sourceNames) return false;
       // Inactive RelO/RefO identity stays opaque/hidden below k=1.6 (4.6).
-      if ((d.type === "RefO" || d.type === "RelO") && d.id !== S.activeId) {
+      if ((d.type === "RefO" || d.type === "RelO") && d.id !== uiRuntime.focusedId) {
         if (isMobile() || k < 1.6) return false;
       }
       return true;
     })
     .map((d) => {
-      const isActive = d.id === S.activeId;
+      const isActive = d.id === uiRuntime.focusedId;
       const isFocusMember = !!(focusIds && focusIds.has(d.id));
       const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
       const isStructuralAnchor = d.type === "RNO" || d.type === "MNO" || d.id === "FO.BLACK_BIRD_FIELD";
@@ -1346,7 +1330,7 @@ function updateLabelVisibility(context = {}) {
       };
     })
     .sort((a, b) => a.tier - b.tier);
-  const budget = labelBudget(k, !!S.activeId);
+  const budget = labelBudget(k, !!uiRuntime.focusedId);
   const desiredById = new Map();
   const visibleIds = new Set();
   ranked.forEach((item, i) => {
@@ -1366,20 +1350,20 @@ function updateVisibility() {
   baseSel.attr("display", (d) => (edgeVisible(d) ? null : "none"));
   projSel.attr("display", (d) => (projectedVisible(d) ? null : "none"));
   projHitSel.attr("display", (d) => (projectedVisible(d) ? null : "none"));
-  if (!S.activeId) transitionToFieldLighting({ duration: 0 });
-  else presentFocus(S.activeId, buildFocusSet(S.activeId), { lightDuration: 0 });
+  if (!uiRuntime.focusedId) transitionToFieldLighting({ duration: 0 });
+  else presentFocus(uiRuntime.focusedId, buildFocusSet(uiRuntime.focusedId), { lightDuration: 0 });
   updateLabelVisibility();
   recomputeLabelPlacements();
   updateWearOverlay();
   drawRouteMemory({ duration: 0 });
-  updateRovingTabindex(S.activeId);
+  updateRovingTabindex(uiRuntime.focusedId);
 }
 
 // ── Camera ─────────────────────────────────────────────────────────────────
 function setCamera(t) {
   svg.interrupt();
   zoom.transform(svg, t);
-  S.cameraInFlight = false;
+  uiRuntime.cameraInFlight = false;
 }
 async function beginGraphHandoff(opts = {}) {
   const e = svg.node();
@@ -1424,14 +1408,14 @@ async function endGraphHandoff(opts = {}) {
 }
 function animateCamera(transform, opts = {}) {
   const dur = prefersReducedMotion() ? 0 : (opts.duration ?? 760);
-  S.cameraInFlight = true;
+  uiRuntime.cameraInFlight = true;
   svg
     .transition()
     .duration(dur)
     .ease(d3.easeCubicInOut)
     .call(zoom.transform, transform)
     .on("end", () => {
-      S.cameraInFlight = false;
+      uiRuntime.cameraInFlight = false;
     });
 }
 function getNodeBounds(items, padNode = 34) {
@@ -1515,10 +1499,10 @@ async function waitFocusForceSettled(timeoutMs = 480) {
 function fitFocusFrame(focus, opts = {}) {
   const envelope = computeNodeEnvelope(focus.ids, isMobile() ? 30 : 44);
   if (!envelope || width < 10 || height < 10) return;
-  const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (S.readerOpen && !isMobile() ? 1 : 0));
+  const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (uiRuntime.readerOpen && !isMobile() ? 1 : 0));
   const envRect = envelopeToRect(envelope);
   const isFirstFocus = !!opts.fromNeutral;
-  const current = isFirstFocus ? null : toZoomTransform(S.transform || d3.zoomIdentity);
+  const current = isFirstFocus ? null : toZoomTransform(uiRuntime.transform || d3.zoomIdentity);
   const transform = computeFocusCamera(envRect, safe, current, { occupancy: 0.7, isFirstFocus });
   if (isFirstFocus) {
     animateCamera(toZoomTransform(transform), { duration: opts.duration ?? 760 });
@@ -1532,7 +1516,7 @@ function fitFocusFrame(focus, opts = {}) {
 function fitWholeField(opts = {}) {
   const visible = simNodes.filter((d) => nodeVisible(d.id));
   if (!visible.length || width < 10 || height < 10) return;
-  const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (S.readerOpen && !isMobile() ? 1 : 0));
+  const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (uiRuntime.readerOpen && !isMobile() ? 1 : 0));
   const envelope = getNodeBounds(visible, isMobile() ? 30 : 40);
   const transform = computeNeutralCamera(envelopeToRect(envelope), safe, { occupancy: 0.8 });
   animateCamera(toZoomTransform(transform), { duration: opts.duration ?? 850 });
@@ -1623,7 +1607,7 @@ function updateWarmPenumbra(coreId, dur = 420) {
   const core = coreId && coreId !== "FO.BLACK_BIRD_FIELD" ? byId[coreId] : null;
   const visible = !!(core && core.x != null && core.y != null);
   warmPenumbraCircle
-    .attr("r", 110 / Math.max(0.01, S.transform.k))
+    .attr("r", 110 / Math.max(0.01, uiRuntime.transform.k))
     .attr("cx", visible ? core.x : 0)
     .attr("cy", visible ? core.y : 0)
     .transition()
@@ -1702,14 +1686,14 @@ function renderClearing(relOId) {
     .attr("cx", (d) => nodeX(d))
     .attr("cy", (d) => nodeY(d));
   const desiredBlurPx = isMobile() ? 14 : 18;
-  clearingBlur.attr("stdDeviation", desiredBlurPx / Math.max(0.01, S.transform.k));
+  clearingBlur.attr("stdDeviation", desiredBlurPx / Math.max(0.01, uiRuntime.transform.k));
   clearingRect
     .transition()
     .duration(prefersReducedMotion() ? 0 : 420)
     .attr("opacity", 0.13);
 }
 function updateClearing(relOId) {
-  S.fieldTrace.activeClearingId = relOId || null;
+  uiRuntime.activeClearingId = relOId || null;
   if (!relOId) {
     clearingMaskGroup.selectAll("*").remove();
     clearingRect
@@ -1752,7 +1736,7 @@ function transitionToFieldLighting(opts = {}) {
     .duration(dur)
     .attr("opacity", (d) => {
       if (!nodeVisible(d.id)) return 0;
-      if (d.type === "NameO" && !S.viewOptions.sourceNames) return 0.28;
+      if (d.type === "NameO" && !state.view.sourceNames) return 0.28;
       return 1;
     });
   baseSel
@@ -1776,27 +1760,63 @@ function transitionToFieldLighting(opts = {}) {
   drawRouteMemory({ duration: dur });
 }
 
-// ── Wear (deterministic inferred passage) ───────────────────────────────────
+// ── Wear (deterministic inferred passage; head correction v4) ──────────────
+// state.trace.wear is the sole authority, computed once by the reducer
+// (domain/trace.js's recordWear, invoked from COMMIT_OBJECT) using the exact
+// same canonical-index BFS this file used to duplicate locally. Everything
+// below only renders that canonical value; wearPulsePathFor() recomputes the
+// walked path purely to sequence the pulse animation -- it never writes a
+// wear count anywhere, so it is not a second wear authority.
 function baseLinkPairsOrdered() {
   return baseLinks.map((e) => [getEdgeSourceId(e), getEdgeTargetId(e)]);
 }
+function wearEdgeKey(a, b) {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
 function wearCountFor(e) {
-  return S.fieldTrace.wear[canonicalEdgeKey(getEdgeSourceId(e), getEdgeTargetId(e))] || 0;
+  return state.trace.wear[wearEdgeKey(getEdgeSourceId(e), getEdgeTargetId(e))] || 0;
 }
 function wearOpacityFor(count) {
   return count ? Math.min(0.85, 0.14 + count * 0.1) : 0;
 }
 const wearColorScale = d3.interpolateRgb("#6b6258", "#c49a45");
-function recordInferredWear(fromId, toId) {
+function pulseAnimationPath(start, goal, orderedEdges, visibleIds) {
+  if (!start || !goal || start === goal) return [];
+  const visible = new Set(visibleIds);
+  if (!visible.has(start) || !visible.has(goal)) return [];
+  const adj = new Map();
+  for (const [a, b] of orderedEdges) {
+    if (!visible.has(a) || !visible.has(b)) continue;
+    if (!adj.has(a)) adj.set(a, []);
+    if (!adj.has(b)) adj.set(b, []);
+    adj.get(a).push(b);
+    adj.get(b).push(a);
+  }
+  for (const v of adj.values()) v.sort();
+  const q = [start],
+    prev = new Map([[start, null]]);
+  while (q.length) {
+    const cur = q.shift();
+    for (const next of adj.get(cur) || []) {
+      if (prev.has(next)) continue;
+      prev.set(next, cur);
+      if (next === goal) {
+        q.length = 0;
+        break;
+      }
+      q.push(next);
+    }
+  }
+  if (!prev.has(goal)) return [];
+  const path = [];
+  for (let at = goal; at != null; at = prev.get(at)) path.push(at);
+  return path.reverse();
+}
+function wearPulsePathFor(fromId, toId) {
   if (!fromId || !toId || fromId === toId) return null;
   const visibleIds = simNodes.filter((d) => nodeVisible(d.id)).map((d) => d.id);
-  const path = stableBfsPath(fromId, toId, baseLinkPairsOrdered(), visibleIds);
-  if (path.length < 2) return null;
-  for (let i = 1; i < path.length; i++) {
-    const key = canonicalEdgeKey(path[i - 1], path[i]);
-    S.fieldTrace.wear[key] = Math.min(7, (S.fieldTrace.wear[key] || 0) + 1);
-  }
-  return path;
+  const path = pulseAnimationPath(fromId, toId, baseLinkPairsOrdered(), visibleIds);
+  return path.length > 1 ? path : null;
 }
 function updateWearOverlay() {
   wearSel
@@ -1822,9 +1842,9 @@ function pulseWearPath(pathIds) {
   travelPulseActive = true;
   const segKeys = [];
   for (let i = 1; i < pathIds.length; i++)
-    segKeys.push(canonicalEdgeKey(pathIds[i - 1], pathIds[i]));
+    segKeys.push(wearEdgeKey(pathIds[i - 1], pathIds[i]));
   wearSel.each(function (d) {
-    const key = canonicalEdgeKey(getEdgeSourceId(d), getEdgeTargetId(d));
+    const key = wearEdgeKey(getEdgeSourceId(d), getEdgeTargetId(d));
     const idx = segKeys.indexOf(key);
     if (idx === -1) return;
     d3.select(this)
@@ -1846,31 +1866,23 @@ function pulseWearPath(pathIds) {
   );
 }
 
-// ── Afterglow (bounded departure memory) ────────────────────────────────────
+// ── Afterglow (bounded departure memory; head correction v4) ───────────────
 // Afterglow: bounded departure residue (4.11, fixes BB-R14). Desktop: max 8,
-// 10s. Mobile: max 3, 4s (previously afterglow was skipped on mobile
-// entirely — a real gap, not a deliberate reduction). No pulse/travel
-// animation; reduced-motion shows the final static residue immediately.
-function recordDepartureAfterglow(previousId, newId) {
-  if (!previousId || previousId === newId) return;
-  const cap = isMobile() ? 3 : 8;
-  const duration = isMobile() ? 4000 : 10000;
-  S.fieldTrace.afterglows = S.fieldTrace.afterglows.filter((a) => a.id !== previousId);
-  S.fieldTrace.afterglows.push({ id: previousId, departedAt: Date.now(), duration });
-  if (S.fieldTrace.afterglows.length > cap)
-    S.fieldTrace.afterglows = S.fieldTrace.afterglows.slice(-cap);
-  const old = afterglowTimers.get(previousId);
-  if (old) clearTimeout(old);
-  const t = setTimeout(() => {
-    S.fieldTrace.afterglows = S.fieldTrace.afterglows.filter((a) => a.id !== previousId);
-    afterglowTimers.delete(previousId);
-    updateAfterglowOverlay();
-  }, duration);
-  afterglowTimers.set(previousId, t);
-  updateAfterglowOverlay();
+// 10s. Mobile: max 3, 4s. No pulse/travel animation; reduced-motion shows
+// the final static residue immediately. state.trace.afterglows (entries
+// {id, deadline, totalMs}) is computed once, canonically, by the reducer on
+// COMMIT_OBJECT (domain/trace.js's recordAfterglow) -- this only renders it
+// and schedules each entry's DOM-cleanup timer via timer-registry.js
+// (head correction v4, section 5), owned per-id so a superseding departure
+// or CLEAR_TRACE can cancel it cleanly.
+function scheduleAfterglowCleanup(id, totalMs) {
+  timerRegistry.cancelByOwner({ kind: "trace", id });
+  timerRegistry.schedule(() => updateAfterglowOverlay(), totalMs, { kind: "trace", id });
 }
 function updateAfterglowOverlay() {
-  const data = S.fieldTrace.afterglows
+  const now = Date.now();
+  const data = state.trace.afterglows
+    .filter((a) => a.deadline > now)
     .map((a) => ({ ...a, node: byId[a.id] }))
     .filter((a) => a.node);
   const sel = afterglowLayer.selectAll("circle.bb-afterglow").data(data, (d) => d.id);
@@ -1889,20 +1901,18 @@ function updateAfterglowOverlay() {
   enter
     .merge(sel)
     .transition()
-    .duration(prefersReducedMotion() ? 0 : (d) => d.duration)
+    .duration(prefersReducedMotion() ? 0 : (d) => d.totalMs)
     .ease(d3.easeLinear)
     .attr("opacity", 0);
   nodeSel.attr("data-bb-afterglow", (d) =>
-    S.fieldTrace.afterglows.some((a) => a.id === d.id) ? "1" : "0",
+    data.some((a) => a.id === d.id) ? "1" : "0",
   );
 }
 function clearFieldTrace() {
+  const idsToCancel = state.trace.afterglows.map((a) => a.id);
   dispatch({ type: CommandType.CLEAR_TRACE });
-  afterglowTimers.forEach((t) => clearTimeout(t));
-  afterglowTimers.clear();
+  idsToCancel.forEach((id) => timerRegistry.cancelByOwner({ kind: "trace", id }));
   clearPulseTimers();
-  S.fieldTrace.afterglows = [];
-  S.fieldTrace.wear = Object.create(null);
   updateAfterglowOverlay();
   updateWearOverlay();
 }
@@ -1913,47 +1923,35 @@ function clearFieldTrace() {
 // remains the sole transient desktop tooltip.
 
 // ── Committed-focus design transaction (afterglow + wear + presentation) ───
+// Called after the real COMMIT_OBJECT dispatch, so state.trace already
+// reflects this commit's wear/afterglow -- this function only renders it.
 function presentDesignTransition(id, previousId, focus, opts = {}) {
-  recordDepartureAfterglow(previousId, id);
-  const path = previousId && previousId !== id ? recordInferredWear(previousId, id) : null;
+  if (previousId && previousId !== id) {
+    const entry = state.trace.afterglows.find((a) => a.id === previousId);
+    if (entry) scheduleAfterglowCleanup(previousId, entry.totalMs);
+  }
+  updateAfterglowOverlay();
+  const path = previousId && previousId !== id ? wearPulsePathFor(previousId, id) : null;
   presentFocus(id, focus, opts);
   if (path && path.length > 1) pulseWearPath(path);
   else updateWearOverlay();
-  S.fieldTrace.previousCommittedId = id;
 }
 
-// ── Route ──────────────────────────────────────────────────────────────────
-function makeRouteEvent(id, meta = {}) {
-  return {
-    id,
-    type: byId[id]?.type || "",
-    label: shortOf(id),
-    from: meta.from || null,
-    source: meta.source || "unknown",
-    index: S.routeEvents.length + 1,
-  };
-}
-// Internal: called only from commitFocus(). Do not call directly elsewhere —
-// Route must record only successful, direct committed selection changes.
-function registerRouteEvent(id, meta = {}) {
-  const ev = makeRouteEvent(id, meta);
-  // Route retains the complete ordered session history; only its presentation
-  // is windowed (P-RULE-005/039, D-DEC-22) — nothing here truncates S.routeEvents.
-  S.routeEvents.push(ev);
-  renderRoute();
-}
+// ── Route (head correction v4: state.history.route is the sole authority;
+// no local mirror is maintained -- see domain/route.js's canonical
+// RouteEvent { sequence, id, type, label, fromId, source, committedAt }) ──
 function routeApertureEvents() {
-  const events = S.routeEvents;
+  const events = state.history.route;
   const maxTail = isMobile() ? 2 : window.innerWidth < 1180 ? 3 : 4;
   if (events.length <= maxTail + 1) return { leading: [], tail: events, collapsed: false };
   const first = events[0];
   const tail = events.slice(-maxTail);
-  const tailHasFirst = tail.some((ev) => ev.index === first.index);
+  const tailHasFirst = tail.some((ev) => ev.sequence === first.sequence);
   return { leading: tailHasFirst ? [] : [first], tail, collapsed: true };
 }
 function renderRoute() {
   const r = document.getElementById("route");
-  if (!S.routeEvents.length) {
+  if (!state.history.route.length) {
     r.innerHTML = '<span class="route-empty">route is empty</span>';
     updateRouteLiveRegion();
     drawRouteMemory({ duration: 0 });
@@ -1964,7 +1962,7 @@ function renderRoute() {
   const parts = [];
   const addEv = (ev, cls = "") =>
     parts.push(
-      `<button class="route-item ${cls}" data-route-index="${ev.index}" data-id="${ev.id}" title="${esc(labelOf(ev.id))}">${esc(shortOf(ev.id))}</button>`,
+      `<button class="route-item ${cls}" data-route-index="${ev.sequence}" data-id="${ev.id}" title="${esc(labelOf(ev.id))}">${esc(shortOf(ev.id))}</button>`,
     );
   ap.leading.forEach((ev) => addEv(ev));
   if (ap.collapsed) {
@@ -1999,7 +1997,6 @@ function renderRoute() {
   // separate public control in the Route drawer footer.
   r.querySelector(".clear-route").onclick = () => {
     dispatch({ type: CommandType.CLEAR_ROUTE });
-    S.routeEvents = [];
     renderRoute();
     drawRouteMemory({ duration: 260 });
   };
@@ -2009,14 +2006,14 @@ function renderRoute() {
 function renderRouteDrawer() {
   const box = document.getElementById("routeList");
   if (!box) return;
-  if (!S.routeEvents.length) {
+  if (!state.history.route.length) {
     box.innerHTML = '<div class="route-empty" style="padding:18px 0">route is empty</div>';
     return;
   }
-  box.innerHTML = S.routeEvents
+  box.innerHTML = state.history.route
     .map(
       (ev, i) =>
-        `<div class="route-row" data-id="${ev.id}" data-route-index="${ev.index}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`,
+        `<div class="route-row" data-id="${ev.id}" data-route-index="${ev.sequence}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`,
     )
     .join("");
   box.querySelectorAll(".route-row").forEach(
@@ -2046,13 +2043,13 @@ function announceStatus(message) {
   statusRenderer?.announce(message);
 }
 function updateRouteLiveRegion() {
-  const labels = S.routeEvents.map((ev) => ev.label).join(", ");
+  const labels = state.history.route.map((ev) => ev.label).join(", ");
   announceStatus(labels ? `Route: ${labels}.` : "Route is empty.");
 }
 
 // ── Route memory ────────────────────────────────────────────────────────────
 function routeStats() {
-  const recent = S.routeEvents.slice(-S.recentRouteWindow);
+  const recent = state.history.route.slice(-RECENT_ROUTE_WINDOW);
   const stats = new Map();
   recent.forEach((ev, i) => {
     const age = recent.length - 1 - i;
@@ -2085,22 +2082,22 @@ function updateRouteHalos(duration = 420) {
     });
 }
 function routeSegments() {
-  const events = S.routeEvents.slice(-S.recentRouteWindow);
+  const events = state.history.route.slice(-RECENT_ROUTE_WINDOW);
   const segs = [];
   for (let i = 1; i < events.length; i++) {
     const a = events[i - 1],
       b = events[i];
     if (!byId[a.id] || !byId[b.id] || !nodeVisible(a.id) || !nodeVisible(b.id)) continue;
     // In solo state: only draw segments where both endpoints are in the solo set
-    if (S.soloSet && (!S.soloSet.has(a.id) || !S.soloSet.has(b.id))) continue;
+    if (state.solo.active && (!state.solo.members.includes(a.id) || !state.solo.members.includes(b.id))) continue;
     segs.push({
-      key: `${a.index}-${b.index}`,
+      key: `${a.sequence}-${b.sequence}`,
       source: byId[a.id],
       target: byId[b.id],
       age: events.length - 1 - i,
     });
   }
-  return segs.slice(-S.maxVisibleRouteSegments);
+  return segs.slice(-MAX_VISIBLE_ROUTE_SEGMENTS);
 }
 function drawRouteMemory(opts = {}) {
   const dur = opts.duration ?? 420;
@@ -2194,7 +2191,7 @@ function buildFocusSet(id) {
 
 // ── Committed state transaction (single mutation authority) ────────────────
 // Route, Solo, and trace semantics are decided ENTIRELY by the caller's
-// policy flags — no code outside this function may mutate S.activeId,
+// policy flags — no code outside this function may mutate uiRuntime.focusedId,
 // append a Route event, or trigger wear/afterglow recording.
 //   routePolicy: 'append' (default) | 'replay' | 'none'
 //     append -> registerRouteEvent() only when id !== previousCommittedId
@@ -2214,35 +2211,29 @@ async function commitFocus(id, opts = {}) {
     forceReaderOpen = false,
     surface,
   } = opts;
-  const previousId = S.activeId;
+  const previousId = uiRuntime.focusedId;
   const isSameId = previousId === id;
-  S.phase = "focused";
-  if (surface) S.surface = surface;
-  else if (isMobile() && openReader !== false) S.surface = "read";
-  syncSurfaceCanonical();
-  updatePhaseClass();
-  S.activeId = id;
-  S.activeEdge = null;
-  S.activeRelos = [];
-  S.previewTarget = null;
+  syncSurfaceCanonical(surface || (isMobile() && openReader !== false ? "read" : state.responsive.surface));
+  uiRuntime.focusedId = id;
   dispatch({ type: CommandType.CLEAR_INSPECTION });
+  updatePhaseClass();
   closeAllDrawers();
   hidePreview();
   updateRovingTabindex(id);
   if (routePolicy === "append") {
     // Route/trace policy ("was this a genuinely new id") is decided by the
-    // tested reducer, not recomputed here — registerRouteEvent only fires
+    // tested reducer, not recomputed here -- renderRoute() only re-renders
     // when reduceCommand actually appended (P-RULE-004: same-id no-ops).
-    const routeLenBefore = canonicalState.history.route.length;
+    const routeLenBefore = state.history.route.length;
     dispatch({ type: CommandType.COMMIT_OBJECT, id, source });
-    if (canonicalState.history.route.length > routeLenBefore) {
-      registerRouteEvent(id, { from: previousId, source });
+    if (state.history.route.length > routeLenBefore) {
+      renderRoute();
     }
   } else if (routePolicy === "replay" && opts.sequence != null) {
     dispatch({ type: CommandType.REPLAY_ROUTE_EVENT, sequence: opts.sequence });
   }
-  if (openReader !== false && (forceReaderOpen || !S.readerOpen)) {
-    await setReaderOpen(true, { measure: !(isMobile() && S.surface === "read") });
+  if (openReader !== false && (forceReaderOpen || !uiRuntime.readerOpen)) {
+    await setReaderOpen(true, { measure: !(isMobile() && state.responsive.surface === "read") });
   }
   const focus = buildFocusSet(id);
   applyLocalAperture(focus);
@@ -2261,7 +2252,7 @@ async function focusObject(id, opts = {}) {
   if (!result) return;
   const { focus, previousId } = result;
   const cameraDuration = opts.cameraDuration ?? 760;
-  if (!(isMobile() && S.surface === "read") && opts.camera !== false) {
+  if (!(isMobile() && state.responsive.surface === "read") && opts.camera !== false) {
     const applyCamera = () =>
       fitFocusFrame(focus, { duration: cameraDuration, fromNeutral: previousId == null });
     if (cameraDuration > 0) waitFocusForceSettled().then(applyCamera);
@@ -2283,13 +2274,8 @@ function selectNode(id, opts = {}) {
 async function returnToField(opts = {}) {
   dispatch({ type: CommandType.RETURN_TO_WHOLE_FIELD });
   dispatch({ type: CommandType.CLEAR_INSPECTION });
-  S.phase = "field";
-  S.surface = "field";
-  syncSurfaceCanonical();
-  S.activeId = null;
-  S.activeEdge = null;
-  S.activeRelos = [];
-  S.previewTarget = null;
+  syncSurfaceCanonical("field");
+  uiRuntime.focusedId = null;
   closeAllDrawers();
   closeSheet();
   hidePreview();
@@ -2335,7 +2321,7 @@ async function selectInField(id, opts = {}) {
 
 // ── Micro-preview ──────────────────────────────────────────────────────────
 function graphPointToScreen(x, y) {
-  const p = S.transform.apply([x, y]);
+  const p = uiRuntime.transform.apply([x, y]);
   const rect = mapWrap.getBoundingClientRect();
   return { x: rect.left + p[0], y: rect.top + p[1] };
 }
@@ -2390,7 +2376,7 @@ function hidePreview() {
   }
 }
 function touchObject(id, opts = {}) {
-  S.touchedId = id;
+  uiRuntime.touchedId = id;
   dispatch({ type: CommandType.PREVIEW_OBJECT, id });
   // Transient hover indicator only — there is no persistent amber ring for
   // the active/selected node (4.8); that identity is carried by full
@@ -2406,7 +2392,7 @@ function touchObject(id, opts = {}) {
   }
 }
 function clearTouch() {
-  S.touchedId = null;
+  uiRuntime.touchedId = null;
   dispatch({ type: CommandType.CLEAR_PREVIEW });
   hidePreview();
   nodeSel.select(".node-focus-ring").attr("stroke", "transparent").attr("stroke-opacity", 0);
@@ -2429,8 +2415,7 @@ function showNodePreviewSheet(id) {
   if (!n) return;
   closeAllDrawers();
   hidePreview();
-  S.previewTarget = { kind: "object", id, source: "mobile-sheet" };
-  S.showSheet = true;
+  uiRuntime.showSheet = true;
   setOverlay("nodeSheet");
   document.getElementById("sheetBody").innerHTML =
     `<div class="sheet-title">${esc(n.label)}</div><div class="meta">${esc(n.type)} · ${esc(n.id)}</div><div class="prose"><p>${esc(previewLineForObject(id))}</p></div><div class="sheet-actions"><button class="tool-btn" id="sheetEnter">Enter</button><button class="tool-btn" id="sheetHold">Hold in field</button><button class="tool-btn" id="sheetClose">Keep reading</button></div>`;
@@ -2449,9 +2434,8 @@ function showNodePreviewSheet(id) {
 }
 function closeSheet() {
   document.getElementById("sheet").classList.remove("open");
-  S.showSheet = false;
-  S.previewTarget = null;
-  if (S.overlay === "nodeSheet" || S.overlay === "edgeSheet") setOverlay(null);
+  uiRuntime.showSheet = false;
+  if (uiRuntime.chromeOverlay === "nodeSheet" || uiRuntime.chromeOverlay === "edgeSheet") setOverlay(null);
 }
 
 // ── Reader functions ────────────────────────────────────────────────────────
@@ -2589,17 +2573,15 @@ function renderRelO(n) {
 function openProjectedEdge(e) {
   const s = getEdgeSourceId(e),
     t = getEdgeTargetId(e);
-  S.activeEdge = { source: s, target: t };
-  S.activeRelos = e.relos || [];
-  S.previewTarget = null;
+  const relOIds = e.relos || [];
   dispatch({
     type: CommandType.INSPECT_PROJECTED_EDGE,
     sourceId: s,
     targetId: t,
-    relOIds: S.activeRelos,
+    relOIds,
   });
-  if (isMobile()) return showEdgeSheet(s, t, S.activeRelos);
-  renderEdgePanel(s, t, S.activeRelos);
+  if (isMobile()) return showEdgeSheet(s, t, relOIds);
+  renderEdgePanel(s, t, relOIds);
 }
 function renderEdgePanel(s, t, relos) {
   reader(
@@ -2611,7 +2593,7 @@ function showEdgeSheet(s, t, relos) {
   closeAllDrawers();
   hidePreview();
   setOverlay("edgeSheet");
-  S.showSheet = true;
+  uiRuntime.showSheet = true;
   document.getElementById("sheetBody").innerHTML =
     `<div class="sheet-title">${shortOf(s)} ↔ ${shortOf(t)}</div><div class="meta">Projected edge</div><div class="section-label">generated by</div>${renderIndexList(relos)}<div class="sheet-actions"><button class="tool-btn" id="sheetEdgeOpen">Open</button><button class="tool-btn" id="sheetClose2">Keep reading</button></div>`;
   document.getElementById("sheet").classList.add("open");
@@ -2646,7 +2628,7 @@ function inlineHandlers(root = document) {
     });
     el.addEventListener("click", (ev) => {
       ev.stopPropagation();
-      if (isMobile() && S.surface === "read")
+      if (isMobile() && state.responsive.surface === "read")
         return focusObject(el.dataset.id, { source: "text-link-mobile", openReader: true });
       focusObject(el.dataset.id, { source: "text-link" });
     });
@@ -2739,13 +2721,20 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ── Field view controls ─────────────────────────────────────────────────────
+// app.js's local view-option keys ("projected") vs. the canonical command
+// contract's SET_VIEW_OPTION option names ("projectedEdges") -- see
+// src/state/initial-state.js's view.* fields.
+const VIEW_OPTION_CANONICAL_KEY = { projected: "projectedEdges" };
+function viewOptionValue(key) {
+  return state.view[VIEW_OPTION_CANONICAL_KEY[key] || key];
+}
 function renderFieldViewControls() {
   const typeBox = document.getElementById("typeToggles");
   const viewBox = document.getElementById("viewToggles");
   typeBox.innerHTML = typeOrder
     .map(
       (type) =>
-        `<div class="toggle-row"><span>${type} <span style="color:var(--ghost)">(${countType(type)})</span></span><button class="switch ${S.objectGroups[type] ? "on" : ""}" data-type="${type}" aria-label="toggle ${type}" aria-pressed="${!!S.objectGroups[type]}"></button></div>`,
+        `<div class="toggle-row"><span>${type} <span style="color:var(--ghost)">(${countType(type)})</span></span><button class="switch ${state.view.typeVisibility[type] ? "on" : ""}" data-type="${type}" aria-label="toggle ${type}" aria-pressed="${!!state.view.typeVisibility[type]}"></button></div>`,
     )
     .join("");
   viewBox.innerHTML = [
@@ -2755,44 +2744,39 @@ function renderFieldViewControls() {
   ]
     .map(
       ([key, label]) =>
-        `<div class="toggle-row"><span>${label}</span><button class="switch ${S.viewOptions[key] ? "on" : ""}" data-view="${key}" aria-label="toggle ${label}" aria-pressed="${!!S.viewOptions[key]}"></button></div>`,
+        `<div class="toggle-row"><span>${label}</span><button class="switch ${viewOptionValue(key) ? "on" : ""}" data-view="${key}" aria-label="toggle ${label}" aria-pressed="${!!viewOptionValue(key)}"></button></div>`,
     )
     .join("");
   typeBox
     .querySelectorAll("[data-type]")
     .forEach(
       (btn) =>
-        (btn.onclick = () => setObjectGroup(btn.dataset.type, !S.objectGroups[btn.dataset.type])),
+        (btn.onclick = () => setObjectGroup(btn.dataset.type, !state.view.typeVisibility[btn.dataset.type])),
     );
   viewBox.querySelectorAll("[data-view]").forEach(
     (btn) =>
       (btn.onclick = () => {
         const key = btn.dataset.view;
-        S.viewOptions[key] = !S.viewOptions[key];
+        const nextValue = !viewOptionValue(key);
         dispatch({
           type: CommandType.SET_VIEW_OPTION,
           option: VIEW_OPTION_CANONICAL_KEY[key] || key,
-          value: S.viewOptions[key],
+          value: nextValue,
         });
         renderFieldViewControls();
         updateVisibility();
-        if (S.activeId) fitFocusFrame(buildFocusSet(S.activeId));
+        if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
         else fitVisibleField();
       }),
   );
 }
-// app.js's own viewOptions keys ("projected") vs. the canonical command
-// contract's SET_VIEW_OPTION option names ("projectedEdges") — see
-// src/state/initial-state.js's view.* fields.
-const VIEW_OPTION_CANONICAL_KEY = { projected: "projectedEdges" };
 function setObjectGroup(type, value) {
-  S.objectGroups[type] = value;
   dispatch({ type: CommandType.SET_TYPE_VISIBILITY, objectType: type, visible: value });
   renderFieldViewControls();
   updateVisibility();
-  if (S.activeId) fitFocusFrame(buildFocusSet(S.activeId));
+  if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
   else fitVisibleField();
-  if (S.activeId && !nodeVisible(S.activeId)) returnToField({ reason: "active-hidden-by-filter" });
+  if (uiRuntime.focusedId && !nodeVisible(uiRuntime.focusedId)) returnToField({ reason: "active-hidden-by-filter" });
 }
 function renderObjectRows(container, filter = "", typeFilter = null) {
   const q = filter.trim().toLowerCase();
@@ -2804,7 +2788,7 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
     )
     .map(
       (n) =>
-        `<div class="object-row"><div class="otype">${n.type}</div><div class="olabel" data-open="${n.id}">${n.label}</div><button class="icon-small" data-eye="${n.id}">${S.objectVisibility[n.id] === false ? "show" : "hide"}</button><button class="icon-small" data-solo="${n.id}">solo</button></div>`,
+        `<div class="object-row"><div class="otype">${n.type}</div><div class="olabel" data-open="${n.id}">${n.label}</div><button class="icon-small" data-eye="${n.id}">${state.view.objectVisibility[n.id] === false ? "show" : "hide"}</button><button class="icon-small" data-solo="${n.id}">solo</button></div>`,
     )
     .join("");
   container.innerHTML = rows;
@@ -2815,8 +2799,7 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
         // P-RULE-016: Index Open clears an individual hide but never forces
         // a group-hidden object visible — only the per-object override (not
         // the type-group gate nodeVisible() also checks) is cleared here.
-        if (S.objectVisibility[id] === false) {
-          S.objectVisibility[id] = true;
+        if (state.view.objectVisibility[id] === false) {
           dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true });
         }
         focusObject(id, { source: "object-drawer" });
@@ -2827,8 +2810,8 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
     (el) =>
       (el.onclick = () => {
         const id = el.dataset.eye;
-        S.objectVisibility[id] = S.objectVisibility[id] === false;
-        dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: S.objectVisibility[id] });
+        const nextVisible = state.view.objectVisibility[id] === false;
+        dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
         renderFieldViewControls();
         updateVisibility();
         // P-RULE-015 (field attention neutralizes when the focused object
@@ -2839,7 +2822,7 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
         // which tests/generated/ordered-pairs.spec.js's [hide, commit]
         // scenario confirms must stay open. A correct fix needs a
         // field-attention-only neutralization that leaves drawers/reader/
-        // camera untouched, which app.js's single S.activeId field (it
+        // camera untouched, which app.js's single uiRuntime.focusedId field (it
         // conflates anchor and field attention) can't express without
         // deeper surgery — left as disclosed, separate scope.
       }),
@@ -2848,7 +2831,6 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
     (el) =>
       (el.onclick = async () => {
         const id = el.dataset.solo;
-        S.soloSet = computeSoloSet(id);
         dispatch({ type: CommandType.ENTER_SOLO, id });
         announceStatus(`Solo: ${byId[id]?.label || id}.`);
         updateVisibility();
@@ -2873,13 +2855,13 @@ function renderObjectRows(container, filter = "", typeFilter = null) {
 function renderObjectLists() {
   const objectList = document.getElementById("objectList");
   const title = document.getElementById("objectDrawerTitle");
-  const typeFilter = S.indexFilter === "sources" ? "RefO" : null;
-  if (title) title.textContent = S.indexFilter === "sources" ? "Sources" : "Index";
+  const typeFilter = uiRuntime.indexFilter === "sources" ? "RefO" : null;
+  if (title) title.textContent = uiRuntime.indexFilter === "sources" ? "Sources" : "Index";
   if (objectList)
     renderObjectRows(objectList, document.getElementById("objectSearch")?.value || "", typeFilter);
 }
 function openIndex(filter = "all") {
-  S.indexFilter = filter;
+  uiRuntime.indexFilter = filter;
   const search = document.getElementById("objectSearch");
   if (search) search.value = "";
   renderObjectLists();
@@ -2887,11 +2869,8 @@ function openIndex(filter = "all") {
 }
 document.getElementById("objectSearch").oninput = renderObjectLists;
 document.getElementById("restoreField").onclick = () => {
-  S.objectVisibility = { ...defaultVisibility };
-  S.soloSet = null;
-  Object.keys(S.objectGroups).forEach((k) => (S.objectGroups[k] = true));
   dispatch({ type: CommandType.RESTORE_FIELD });
-  if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
+  if (state.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
   announceStatus("Field restored.");
   renderFieldViewControls();
   updateVisibility();
@@ -2899,9 +2878,14 @@ document.getElementById("restoreField").onclick = () => {
   returnToField({ source: "restore-field" });
 };
 document.getElementById("showAllObjects").onclick = () => {
-  S.objectVisibility = { ...defaultVisibility };
-  S.soloSet = null;
-  if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
+  // Individual hides only (D-DEC-09-adjacent): unlike Restore Field, this
+  // control never touches type-group visibility -- clear exactly the
+  // individually-hidden ids, one SET_OBJECT_VISIBILITY per id, so canonical
+  // state.view.objectVisibility ends up correct without a broader command.
+  Object.entries(state.view.objectVisibility)
+    .filter(([, visible]) => visible === false)
+    .forEach(([id]) => dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true }));
+  if (state.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
   announceStatus("Field restored.");
   renderObjectLists();
   updateVisibility();
@@ -2912,7 +2896,6 @@ document.getElementById("showAllObjects").onclick = () => {
 // field trace; Clear field trace never touches Route.
 document.getElementById("clearRouteDrawer").onclick = () => {
   dispatch({ type: CommandType.CLEAR_ROUTE });
-  S.routeEvents = [];
   renderRoute();
   drawRouteMemory({ duration: 260 });
 };
@@ -2930,7 +2913,7 @@ document.querySelectorAll("[data-action]").forEach(
       else if (a === "index") openIndex("all");
       else if (a === "sources") openIndex("sources");
       else if (a === "about") {
-        if (S.aboutOpen) closeAbout();
+        if (state.overlay.kind === "about") closeAbout();
         else openAbout("rail");
       }
     }),
@@ -2940,12 +2923,11 @@ document.querySelectorAll("[data-mobile]").forEach(
     (b.onclick = async () => {
       const a = b.dataset.mobile;
       if (a === "field") {
-        if (S.aboutOpen) closeAbout();
-        if (isMobile() && S.activeId) {
-          const fid = S.activeId;
+        if (state.overlay.kind === "about") closeAbout();
+        if (isMobile() && uiRuntime.focusedId) {
+          const fid = uiRuntime.focusedId;
           beginGraphHandoff();
-          S.surface = "field";
-          syncSurfaceCanonical();
+          syncSurfaceCanonical("field");
           updatePhaseClass();
           closeAllDrawers();
           closeSheet();
@@ -2963,8 +2945,8 @@ document.querySelectorAll("[data-mobile]").forEach(
         return;
       }
       if (a === "read") {
-        const readTarget = S.activeId || "FO.BLACK_BIRD_FIELD";
-        if (!S.activeId) {
+        const readTarget = uiRuntime.focusedId || "FO.BLACK_BIRD_FIELD";
+        if (!uiRuntime.focusedId) {
           // Chamber switch only: never appends Route or records trace.
           await commitFocus(readTarget, {
             source: "read-btn",
@@ -2974,9 +2956,7 @@ document.querySelectorAll("[data-mobile]").forEach(
             forceReaderOpen: true,
           });
         } else {
-          S.phase = "focused";
-          S.surface = "read";
-          syncSurfaceCanonical();
+          syncSurfaceCanonical("read");
           updatePhaseClass();
           await setReaderOpen(true, { measure: false });
         }
@@ -3042,7 +3022,7 @@ function applyOnboardingLight(stage) {
     .attr("stroke-opacity", stage.projected ? 0.16 : 0);
 }
 function runOnboardingStage(i) {
-  if (!S.onboardingActive) return;
+  if (!uiRuntime.onboardingActive) return;
   if (i >= onboardingStages.length) return finishOnboarding();
   const stage = onboardingStages[i];
   showFieldPrompt(stage.text);
@@ -3054,11 +3034,9 @@ function runOnboardingStage(i) {
   }, hold);
 }
 async function startTacitOnboarding() {
-  S.phase = "onboarding";
-  S.surface = "field";
-  syncSurfaceCanonical();
+  uiRuntime.onboardingActive = true;
+  syncSurfaceCanonical("field");
   updatePhaseClass();
-  S.onboardingActive = true;
   await setReaderOpen(false);
   reader("");
   transitionToFieldLighting({ duration: 0 });
@@ -3071,7 +3049,7 @@ async function startTacitOnboarding() {
   runOnboardingStage(0);
 }
 async function finishOnboarding() {
-  S.onboardingActive = false;
+  uiRuntime.onboardingActive = false;
   hideFieldPrompt();
   await sleep(prefersReducedMotion() ? 0 : 260);
 
@@ -3079,16 +3057,14 @@ async function finishOnboarding() {
 
   if (isMobile()) {
     // Mobile: animate aperture/light/camera on full-width map, then commit focus.
-    // S.activeId is intentionally left unset here — the commitFocus() call below
+    // uiRuntime.focusedId is intentionally left unset here — the commitFocus() call below
     // is the single authority that sets it and appends the one onboarding Route event.
     const focus = buildFocusSet(id);
     applyLocalAperture(focus);
     presentFocus(id, focus, { lightDuration: prefersReducedMotion() ? 0 : 520 });
     fitFocusFrame(focus, { duration: prefersReducedMotion() ? 0 : 780 });
     await sleep(prefersReducedMotion() ? 0 : 420);
-    S.phase = "focused";
-    S.surface = "field";
-    syncSurfaceCanonical();
+    syncSurfaceCanonical("field");
     updatePhaseClass();
     await focusObject(id, {
       source: "onboarding",
@@ -3102,9 +3078,7 @@ async function finishOnboarding() {
 
   // Desktop: fade graph out, open reader and apply all focus/aperture/camera under the mask,
   // then fade graph back in once the complete final Black Bird state is ready.
-  S.phase = "focused";
-  S.surface = "field";
-  syncSurfaceCanonical();
+  syncSurfaceCanonical("field");
   updatePhaseClass();
   await beginGraphHandoff({ fade: true, duration: 180 });
   await setReaderOpen(true, { waitTransition: true, transitionMs: 680, measure: true });
@@ -3139,9 +3113,7 @@ async function enter(opts = {}) {
   await sleep(prefersReducedMotion() ? 0 : 520);
   th.style.display = "none";
   if (opts.skipOnboarding) {
-    S.phase = "focused";
-    S.surface = "field";
-    syncSurfaceCanonical();
+    syncSurfaceCanonical("field");
     updatePhaseClass();
     if (!isMobile()) {
       await setReaderOpen(true, { waitTransition: true, transitionMs: 520, measure: true });
@@ -3175,8 +3147,6 @@ function jumpAboutSection(id) {
   });
 }
 function openAbout(origin) {
-  S.aboutOpen = true;
-  S.aboutOrigin = origin;
   dispatch({ type: CommandType.OPEN_OVERLAY, kind: "about", invoker: origin || "unknown" });
   closeAllDrawers();
   closeSheet();
@@ -3193,9 +3163,7 @@ function openAbout(origin) {
   trapOverlayOpen(panel);
 }
 function closeAbout() {
-  if (!S.aboutOpen) return;
-  S.aboutOpen = false;
-  S.aboutOrigin = null;
+  if (state.overlay.kind !== "about") return;
   dispatch({ type: CommandType.CLOSE_OVERLAY });
   const panel = document.getElementById("aboutPanel");
   panel.classList.remove("open", "from-threshold");
@@ -3244,7 +3212,7 @@ let fitted = false;
 // Authored positions are available synchronously (no simulation to settle
 // for), so the initial fit and label pass run immediately rather than
 // waiting on a settle event or a 5s safety-net fallback.
-if (!fitted && !(isMobile() && S.surface === "read")) {
+if (!fitted && !(isMobile() && state.responsive.surface === "read")) {
   fitted = true;
   fitVisibleField();
 }
@@ -3276,6 +3244,18 @@ if (new URLSearchParams(location.search).get("bbtest") === "1") {
     openIndex,
     returnToField,
     homeFor: (id) => AUTHORED_HOMES[id] || null,
+    // head correction v4, "one store": the only test-facing read of
+    // semantic/presentation runtime state, replacing the old unbounded
+    // global state exposure. Returns the live references directly (not a
+    // snapshot/clone) so a test can observe a value change across an
+    // awaited action the same way it always could.
+    getState: () => state,
+    getUiRuntime: () => uiRuntime,
+    // Bounded test-only command injection through the real validate/reduce/
+    // invariant/transaction pipeline -- narrower than the old raw,
+    // unvalidated state mutation, not broader: every dispatched command
+    // still has to pass guards.js and invariants.js exactly as a real one does.
+    dispatch: (command) => dispatch(command),
     get simNodes() {
       return simNodes;
     },

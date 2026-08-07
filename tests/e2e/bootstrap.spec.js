@@ -38,7 +38,7 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto('/?skipIntro=1&bbtest=1');
-    await page.waitForFunction(() => window.__bbState && document.querySelectorAll('g.node').length === 50, {
+    await page.waitForFunction(() => window.__bbTest?.getState() && document.querySelectorAll('g.node').length === 50, {
       timeout: 12000,
     });
     expect(await page.locator('.bb-unavailable').count()).toBe(0);
@@ -100,7 +100,7 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
     await expect(enterBtn).toBeVisible();
     await enterBtn.click();
     // Reduced motion: each onboarding stage holds ~400ms; land inside stage 1.
-    await page.waitForFunction(() => window.__bbState?.onboardingActive === true, { timeout: 4000 });
+    await page.waitForFunction(() => window.__bbTest?.getUiRuntime()?.onboardingActive === true, { timeout: 4000 });
     await page.waitForTimeout(150);
 
     await page.evaluate(() => {
@@ -112,11 +112,11 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
     const box = await hit.boundingBox();
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 
-    await page.waitForFunction(() => window.__bbState?.activeId === 'FO.CORPSE', { timeout: 6000 });
+    await page.waitForFunction(() => window.__bbTest?.getUiRuntime()?.focusedId === 'FO.CORPSE', { timeout: 6000 });
     const state = await page.evaluate(() => ({
-      onboardingActive: window.__bbState.onboardingActive,
-      phase: window.__bbState.phase,
-      route: window.__bbState.routeEvents.map((e) => e.id),
+      onboardingActive: window.__bbTest.getUiRuntime().onboardingActive,
+      phase: window.__bbTest.getState().lifecycle.phase,
+      route: window.__bbTest.getState().history.route.map((e) => e.id),
     }));
     expect(state.onboardingActive, 'the interrupting click must end onboarding, not queue behind it').toBe(false);
     expect(state.phase).toBe('focused');
@@ -144,13 +144,13 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
     // trigger a second entry.
     await enterBtn.click({ force: true, timeout: 2000 }).catch(() => {});
 
-    await page.waitForFunction(() => window.__bbState?.phase === 'focused' && !!window.__bbState.activeId, {
+    await page.waitForFunction(() => window.__bbTest?.getState()?.lifecycle.phase === 'focused' && !!window.__bbTest.getUiRuntime().focusedId, {
       timeout: 15000,
     });
     expect(errors).toEqual([]);
     expect(await page.locator('.bb-unavailable').count()).toBe(0);
     expect(await page.locator('g.node').count()).toBe(50);
-    const state = await page.evaluate(() => ({ route: window.__bbState.routeEvents.map((e) => e.id) }));
+    const state = await page.evaluate(() => ({ route: window.__bbTest.getState().history.route.map((e) => e.id) }));
     // A repeated Enter must not double-run onboarding into two Route commits
     // for the same landing object.
     expect(new Set(state.route).size).toBe(state.route.length);
@@ -193,24 +193,27 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
     // needs to actually fire and resolve before phase/activeId are settled.
     await page.waitForFunction(
       () =>
-        window.__bbState &&
+        window.__bbTest?.getState() &&
         document.querySelectorAll('g.node').length === 50 &&
-        window.__bbState.phase === 'focused' &&
-        !!window.__bbState.activeId,
+        window.__bbTest.getState().lifecycle.phase === 'focused' &&
+        !!window.__bbTest.getUiRuntime().focusedId,
       { timeout: 12000 },
     );
 
     expect(errors).toEqual([]);
     expect(await page.locator('.bb-unavailable').count()).toBe(0);
-    const state = await page.evaluate(() => ({
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
-      afterglow: window.__bbState.fieldTrace.afterglows.length,
-      aboutOpen: window.__bbState.aboutOpen,
-      soloSet: window.__bbState.soloSet,
-      phase: window.__bbState.phase,
-      activeId: window.__bbState.activeId,
-    }));
+    const state = await page.evaluate(() => {
+      const s = window.__bbTest.getState();
+      return {
+        route: s.history.route.length,
+        wear: Object.keys(s.trace.wear || {}).length,
+        afterglow: s.trace.afterglows.length,
+        aboutOpen: s.overlay.kind === 'about',
+        soloSet: s.solo.active ? [...s.solo.members] : null,
+        phase: s.lifecycle.phase,
+        activeId: window.__bbTest.getUiRuntime().focusedId,
+      };
+    });
     // Reload navigates the same ?skipIntro=1&bbtest=1 URL, so the fresh
     // landing state is the skip-intro one (phase:'focused' on the field
     // object), not the pre-entry threshold. Route ends up 0 or 1 depending
@@ -247,7 +250,10 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
 
     expect(errors).toEqual([]);
     expect(await page.locator('.bb-unavailable').count()).toBe(0);
-    const state = await page.evaluate(() => ({ activeId: window.__bbState.activeId, transform: window.__bbState.transform }));
+    const state = await page.evaluate(() => {
+      const ui = window.__bbTest.getUiRuntime();
+      return { activeId: ui.focusedId, transform: ui.transform };
+    });
     expect(state.activeId).toBe('FO.CAIN');
     expect(Number.isFinite(state.transform.x) && Number.isFinite(state.transform.y) && Number.isFinite(state.transform.k)).toBe(
       true,

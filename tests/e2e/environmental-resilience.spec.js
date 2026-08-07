@@ -128,9 +128,9 @@ test.describe('Environmental resilience: forced-colors, missing fonts, zoom/refl
       };
       const controller = mod.createExternalLinkController({ win: fakeWin, doc: document, container });
 
-      const beforeState = JSON.stringify(window.__bbState);
+      const beforeState = JSON.stringify(window.__bbTest.getState());
       const ok1 = controller.attempt('https://github.com/mozareeduge/the-black-bird', 'Source repository');
-      const afterFailureState = JSON.stringify(window.__bbState);
+      const afterFailureState = JSON.stringify(window.__bbTest.getState());
       const statusVisible = !container.hidden;
       const statusText = container.querySelector('.external-link-status-text')?.textContent;
       const hasRetry = !!container.querySelector('.external-link-status-retry');
@@ -175,9 +175,9 @@ test.describe('Environmental resilience: forced-colors, missing fonts, zoom/refl
       document.body.appendChild(container);
       const fakeWin = { open: () => ({ closed: false }), navigator: window.navigator };
       const controller = mod.createExternalLinkController({ win: fakeWin, doc: document, container });
-      const beforeState = JSON.stringify(window.__bbState);
+      const beforeState = JSON.stringify(window.__bbTest.getState());
       const ok = controller.attempt('https://example.org', 'Example source');
-      return { ok, statusVisible: !container.hidden, sessionUnchanged: beforeState === JSON.stringify(window.__bbState) };
+      return { ok, statusVisible: !container.hidden, sessionUnchanged: beforeState === JSON.stringify(window.__bbTest.getState()) };
     });
     expect(result.ok).toBe(true);
     expect(result.statusVisible, 'a successful open must never show the local failure status').toBe(false);
@@ -200,12 +200,12 @@ test.describe('Environmental resilience: forced-colors, missing fonts, zoom/refl
       document.body.appendChild(container);
       const fakeWin = { open: () => null, navigator: window.navigator };
       const controller = mod.createExternalLinkController({ win: fakeWin, doc: document, container });
-      const beforeState = JSON.stringify(window.__bbState);
+      const beforeState = JSON.stringify(window.__bbTest.getState());
       const ok = controller.attempt('https://example.org/offline', 'Offline source');
       return {
         ok,
         statusText: container.querySelector('.external-link-status-text')?.textContent,
-        sessionUnchanged: beforeState === JSON.stringify(window.__bbState),
+        sessionUnchanged: beforeState === JSON.stringify(window.__bbTest.getState()),
       };
     });
     expect(result.ok).toBe(false);
@@ -250,5 +250,5 @@ test.describe('Environmental resilience: forced-colors, missing fonts, zoom/refl
 
 async function gotoAndSnapshot(page) {
   await page.goto('/?skipIntro=1&bbtest=1');
-  await page.waitForFunction(() => window.__bbState && document.querySelectorAll('g.node').length === 50, { timeout: 12000 });
+  await page.waitForFunction(() => window.__bbTest?.getState() && document.querySelectorAll('g.node').length === 50, { timeout: 12000 });
 }

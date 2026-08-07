@@ -124,7 +124,7 @@ test.describe('Explicit accessibility categories (T-REQ-047): cross-referenced t
   }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/?skipIntro=1&bbtest=1');
-    await page.waitForFunction(() => window.__bbState && document.querySelectorAll('g.node').length === 50, { timeout: 12000 });
+    await page.waitForFunction(() => window.__bbTest?.getState() && document.querySelectorAll('g.node').length === 50, { timeout: 12000 });
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(321);
   });

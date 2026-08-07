@@ -15,12 +15,12 @@ test.describe('COV-CRITICAL-TRIPLES: the 8 named triples actually execute (T27)'
     page,
   }) => {
     await gotoField(page, { reduced: true });
-    const beforeCount = await page.evaluate(() => (window.__bbState.history?.route ?? window.__bbState.routeEvents).length);
+    const beforeCount = await page.evaluate(() => window.__bbTest.getState().history.route.length);
     await clickNode(page, 'FO.CORPSE');
     await clickNode(page, 'FO.CAIN'); // second commit, before any settling wait
     const state = await page.evaluate(() => ({
-      activeId: window.__bbState.activeId,
-      routeIds: (window.__bbState.history?.route ?? window.__bbState.routeEvents).map((e) => e.id),
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      routeIds: window.__bbTest.getState().history.route.map((e) => e.id),
     }));
     expect(state.activeId).toBe('FO.CAIN');
     expect(state.routeIds.slice(beforeCount)).toEqual(['FO.CORPSE', 'FO.CAIN']);
@@ -30,16 +30,16 @@ test.describe('COV-CRITICAL-TRIPLES: the 8 named triples actually execute (T27)'
     page,
   }) => {
     await gotoField(page, { reduced: true });
-    const beforeCount = await page.evaluate(() => (window.__bbState.history?.route ?? window.__bbState.routeEvents).length);
+    const beforeCount = await page.evaluate(() => window.__bbTest.getState().history.route.length);
     await clickNode(page, 'FO.CORPSE');
     await page.setViewportSize({ width: 1024, height: 700 });
     await page.waitForTimeout(50);
-    const afterResize = await page.evaluate(() => window.__bbState.activeId);
+    const afterResize = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
     expect(afterResize).toBe('FO.CORPSE');
     await clickNode(page, 'FO.CAIN');
     const final = await page.evaluate(() => ({
-      activeId: window.__bbState.activeId,
-      routeCount: (window.__bbState.history?.route ?? window.__bbState.routeEvents).length,
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      routeCount: window.__bbTest.getState().history.route.length,
     }));
     expect(final.activeId).toBe('FO.CAIN');
     expect(final.routeCount).toBe(beforeCount + 2);
@@ -56,7 +56,7 @@ test.describe('COV-CRITICAL-TRIPLES: the 8 named triples actually execute (T27)'
     const soloBtn = page.locator('[data-solo="FO.CAIN"]').first();
     await expect(soloBtn).toBeVisible();
     await soloBtn.click();
-    const soloActive = await page.evaluate(() => !!window.__bbState.soloSet || window.__bbState.solo?.active === true);
+    const soloActive = await page.evaluate(() => window.__bbTest.getState().solo.active);
     expect(soloActive).toBeTruthy();
 
     // group-filter while Solo is active
@@ -68,7 +68,7 @@ test.describe('COV-CRITICAL-TRIPLES: the 8 named triples actually execute (T27)'
     await page.locator('#restoreField').click();
 
     const afterExit = await page.evaluate(() => ({
-      soloActive: !!window.__bbState.soloSet || window.__bbState.solo?.active === true,
+      soloActive: window.__bbTest.getState().solo.active,
     }));
     expect(afterExit.soloActive).toBeFalsy();
   });
@@ -135,11 +135,11 @@ test.describe('COV-CRITICAL-TRIPLES: the 8 named triples actually execute (T27)'
     }
 
     // replay while all-hidden: must not change visibility.
-    const beforeVisibility = await page.evaluate(() => ({ ...window.__bbState.objectVisibility }));
+    const beforeVisibility = await page.evaluate(() => ({ ...window.__bbTest.getState().view.objectVisibility }));
     const items = page.locator('#route .route-item');
     const count = await items.count();
     if (count > 0) await items.first().click();
-    const afterVisibility = await page.evaluate(() => ({ ...window.__bbState.objectVisibility }));
+    const afterVisibility = await page.evaluate(() => ({ ...window.__bbTest.getState().view.objectVisibility }));
     expect(afterVisibility).toEqual(beforeVisibility);
 
     // index-open still works as the recovery path.
@@ -190,7 +190,7 @@ test.describe('COV-CRITICAL-TRIPLES: the 8 named triples actually execute (T27)'
   }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await gotoField(page, { reduced: true });
-    const beforeCount = await page.evaluate(() => (window.__bbState.history?.route ?? window.__bbState.routeEvents).length);
+    const beforeCount = await page.evaluate(() => window.__bbTest.getState().history.route.length);
     await clickNode(page, 'FO.CORPSE');
     await clickNode(page, 'FO.BURIAL');
     const beforeModal = await page.evaluate(() => window.__bbDesign.snapshot());
@@ -201,8 +201,8 @@ test.describe('COV-CRITICAL-TRIPLES: the 8 named triples actually execute (T27)'
     await page.locator('.rail-btn[data-action="about"]').click();
     await expect(page.locator('#aboutPanel')).toHaveClass(/open/);
     const afterModal = await page.evaluate(() => ({
-      activeId: window.__bbState.activeId,
-      routeCount: (window.__bbState.history?.route ?? window.__bbState.routeEvents).length,
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      routeCount: window.__bbTest.getState().history.route.length,
     }));
     expect(afterModal.activeId).toBe('FO.BURIAL');
     expect(afterModal.routeCount).toBe(beforeCount + 2);

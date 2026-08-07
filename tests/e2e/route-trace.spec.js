@@ -51,7 +51,7 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
     await gotoField(page, { reduced: true });
     for (const id of COMMIT_SEQUENCE) await clickNode(page, id);
     const before = await appState(page);
-    const beforeWear = await page.evaluate(() => JSON.stringify(window.__bbState?.fieldTrace?.wear || {}));
+    const beforeWear = await page.evaluate(() => JSON.stringify(window.__bbTest?.getState()?.trace.wear || {}));
 
     await openRouteDrawer(page);
     const firstRow = page.locator('#routeList .route-row').first();
@@ -59,7 +59,7 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
     await firstRow.click();
 
     const after = await appState(page);
-    const afterWear = await page.evaluate(() => JSON.stringify(window.__bbState?.fieldTrace?.wear || {}));
+    const afterWear = await page.evaluate(() => JSON.stringify(window.__bbTest?.getState()?.trace.wear || {}));
     expect(after.activeId).toBe(replayTargetId);
     expect(after.routeIds).toEqual(before.routeIds);
     expect(afterWear).toBe(beforeWear);
@@ -72,8 +72,8 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
     await gotoField(page, { reduced: true });
     for (const id of COMMIT_SEQUENCE) await clickNode(page, id);
     const before = await page.evaluate(() => ({
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
     expect(before.route).toBeGreaterThan(0);
     expect(before.wear).toBeGreaterThan(0);
@@ -82,8 +82,8 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
     await openRouteDrawer(page);
     await page.locator('#clearRouteDrawer').click();
     const afterRouteClear = await page.evaluate(() => ({
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
     expect(afterRouteClear.route).toBe(0);
     expect(afterRouteClear.wear, 'clearing Route must not clear wear/trace').toBe(before.wear);
@@ -93,8 +93,8 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
     // Rebuild route + wear, then clear field trace only.
     for (const id of COMMIT_SEQUENCE) await clickNode(page, id);
     const beforeTraceClear = await page.evaluate(() => ({
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
     expect(beforeTraceClear.route).toBeGreaterThan(0);
     expect(beforeTraceClear.wear).toBeGreaterThan(0);
@@ -102,8 +102,8 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
     await openRouteDrawer(page);
     await page.locator('#clearFieldTraceDrawer').click();
     const afterTraceClear = await page.evaluate(() => ({
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
     expect(afterTraceClear.wear).toBe(0);
     expect(afterTraceClear.route, 'clearing field trace must not clear Route').toBe(beforeTraceClear.route);

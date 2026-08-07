@@ -121,14 +121,14 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CORPSE');
     await clickNode(page, 'FO.CAIN');
-    const beforeVisibility = await page.evaluate(() => ({ ...window.__bbState.objectVisibility }));
+    const beforeVisibility = await page.evaluate(() => ({ ...window.__bbTest.getState().view.objectVisibility }));
 
     // Replay via the route strip's most recent non-current item.
     const items = page.locator('#route .route-item');
     const count = await items.count();
     if (count > 1) await items.nth(count - 2).click();
 
-    const afterVisibility = await page.evaluate(() => ({ ...window.__bbState.objectVisibility }));
+    const afterVisibility = await page.evaluate(() => ({ ...window.__bbTest.getState().view.objectVisibility }));
     expect(afterVisibility).toEqual(beforeVisibility);
   });
 
@@ -208,8 +208,8 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CORPSE');
     const before = await page.evaluate(() => ({
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
 
     await page.locator('.rail-btn[data-action="index"]').click();
@@ -220,9 +220,9 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await soloBtn.click();
 
     const after = await page.evaluate(() => ({
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
-      soloActive: !!window.__bbState.soloSet,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
+      soloActive: window.__bbTest.getState().solo.active,
     }));
     expect(after.soloActive).toBe(true);
     expect(after.route).toBe(before.route);
@@ -235,7 +235,7 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await page.locator('#objectSearch').fill('Abel');
     await page.locator('[data-eye="FO.ABEL"]').first().click();
     await expect
-      .poll(() => page.evaluate(() => window.__bbState.objectVisibility['FO.ABEL']))
+      .poll(() => page.evaluate(() => window.__bbTest.getState().view.objectVisibility['FO.ABEL']))
       .toBe(false);
     await page.locator('[data-close="objectDrawer"]').first().click();
 
@@ -256,7 +256,7 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
     await page.locator('[data-type="FO"]').first().click(); // group-hide every FO
     await expect
-      .poll(() => page.evaluate(() => window.__bbState.objectGroups['FO']))
+      .poll(() => page.evaluate(() => window.__bbTest.getState().view.typeVisibility['FO']))
       .toBe(false);
     // Hiding the FO group hides the currently-active FO.BLACK_BIRD_FIELD too,
     // which auto-triggers returnToField() (setObjectGroup's own active-
@@ -281,7 +281,7 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await page.locator('#objectSearch').fill('RelO.R7080EA25');
     await page.locator('[data-eye="RelO.R7080EA25"]').first().click();
     await expect
-      .poll(() => page.evaluate(() => window.__bbState.objectVisibility['RelO.R7080EA25']))
+      .poll(() => page.evaluate(() => window.__bbTest.getState().view.objectVisibility['RelO.R7080EA25']))
       .toBe(false);
     await page.locator('[data-close="objectDrawer"]').first().click();
 
@@ -300,7 +300,7 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await page.locator('#objectSearch').fill('Cain');
     await page.locator('[data-eye="FO.CAIN"]').first().click();
     await expect
-      .poll(() => page.evaluate(() => window.__bbState.objectVisibility['FO.CAIN']))
+      .poll(() => page.evaluate(() => window.__bbTest.getState().view.objectVisibility['FO.CAIN']))
       .toBe(false);
     expect(await page.evaluate(() => window.__bbTest.nodeVisible('FO.CAIN'))).toBe(false);
 
@@ -334,13 +334,13 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     const soloBtn = page.locator('[data-solo="FO.CAIN"]').first();
     await expect(soloBtn).toBeVisible();
     await soloBtn.click();
-    expect(await page.evaluate(() => !!window.__bbState.soloSet)).toBe(true);
+    expect(await page.evaluate(() => window.__bbTest.getState().solo.active)).toBe(true);
 
     await page.locator('.rail-btn[data-action="index"]').click();
     await page.locator('#objectSearch').fill('Cain');
     await page.locator('[data-eye="FO.CAIN"]').first().click();
     // The eye toggle still records the individual-hide preference...
-    expect(await page.evaluate(() => window.__bbState.objectVisibility['FO.CAIN'])).toBe(false);
+    expect(await page.evaluate(() => window.__bbTest.getState().view.objectVisibility['FO.CAIN'])).toBe(false);
     // ...but nodeVisible's Solo branch (S.soloSet.has(id)) supersedes it
     // entirely while Solo is active, so the core stays visible (P-RULE-012/013).
     expect(await page.evaluate(() => window.__bbTest.nodeVisible('FO.CAIN'))).toBe(true);
@@ -354,9 +354,9 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await expect(soloBtn).toBeVisible();
     await soloBtn.click();
     const before = await page.evaluate(() => ({
-      soloIds: [...(window.__bbState.soloSet || [])].sort(),
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      soloIds: (window.__bbTest.getState().solo.members || []).slice().sort(),
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
     expect(before.soloIds.length).toBeGreaterThan(0);
 
@@ -364,9 +364,9 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await page.waitForTimeout(80);
 
     const after = await page.evaluate(() => ({
-      soloIds: [...(window.__bbState.soloSet || [])].sort(),
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      soloIds: (window.__bbTest.getState().solo.members || []).slice().sort(),
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
     expect(after.soloIds).toEqual(before.soloIds);
     expect(after.route).toBe(before.route);

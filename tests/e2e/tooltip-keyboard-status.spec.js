@@ -167,8 +167,8 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CORPSE');
     const before = await page.evaluate(() => ({
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
     await node(page, 'FO.CORPSE').hover();
     await page.waitForTimeout(260);
@@ -176,9 +176,9 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     await expect(preview).toHaveClass(/visible/);
     await expect(preview.locator('.micro-preview-title')).toHaveText('Corpse');
     const after = await page.evaluate(() => ({
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
-      activeId: window.__bbState.activeId,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
+      activeId: window.__bbTest.getUiRuntime().focusedId,
     }));
     expect(after.route).toBe(before.route);
     expect(after.wear).toBe(before.wear);
@@ -244,7 +244,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
 
     // 1) Mouse/pointer.
     await clickNode(page, 'FO.CORPSE');
-    expect((await page.evaluate(() => window.__bbState.activeId))).toBe('FO.CORPSE');
+    expect((await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId))).toBe('FO.CORPSE');
 
     // 2) Keyboard: roving focus + Enter. The node click handler doesn't
     // discriminate by input origin (no per-modality state to desync), but
@@ -255,7 +255,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     await roving.first().focus();
     await page.keyboard.press('Enter');
     await page.waitForTimeout(50);
-    expect(await page.evaluate(() => window.__bbState.activeId)).toBe(rovingId);
+    expect(await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId)).toBe(rovingId);
 
     // 3) Touch: a touch-originated tap dispatches the same "click" event the
     // mouse path does (there is no separate touch-only handler to desync).
@@ -265,7 +265,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
       el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }));
       el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     });
-    await page.waitForFunction(() => window.__bbState.activeId === 'FO.ABEL', { timeout: 4000 });
+    await page.waitForFunction(() => window.__bbTest.getUiRuntime().focusedId === 'FO.ABEL', { timeout: 4000 });
 
     expect(await page.locator('.bb-unavailable').count()).toBe(0);
   });
@@ -284,7 +284,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     await page.keyboard.up('Control');
     await page.waitForTimeout(150);
 
-    const state = await page.evaluate(() => ({ activeId: window.__bbState.activeId, transform: window.__bbState.transform }));
+    const state = await page.evaluate(() => ({ activeId: window.__bbTest.getUiRuntime().focusedId, transform: window.__bbTest.getUiRuntime().transform }));
     expect(state.activeId).toBe('FO.CAIN');
     expect(
       Number.isFinite(state.transform.x) && Number.isFinite(state.transform.y) && Number.isFinite(state.transform.k),
@@ -302,7 +302,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
     const labelsToggle = page.locator('[data-view="labels"]').first();
     await labelsToggle.click();
-    await expect.poll(() => page.evaluate(() => window.__bbState.viewOptions.labels)).toBe(false);
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.labels)).toBe(false);
     await page.locator('[data-close="fieldViewDrawer"]').first().click();
 
     // aria-label is set once per node independent of the visual labels
@@ -318,7 +318,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     await page.waitForTimeout(50);
     await page.keyboard.press('Enter');
     await page.waitForTimeout(50);
-    const state = await page.evaluate(() => ({ activeId: window.__bbState.activeId, labels: window.__bbState.viewOptions.labels }));
+    const state = await page.evaluate(() => ({ activeId: window.__bbTest.getUiRuntime().focusedId, labels: window.__bbTest.getState().view.labels }));
     expect(state.activeId).toBeTruthy();
     expect(state.labels).toBe(false);
   });
@@ -361,7 +361,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
 
     expect(errors).toEqual([]);
     expect(await page.locator('.bb-unavailable').count()).toBe(0);
-    const state = await page.evaluate(() => ({ activeId: window.__bbState.activeId, aboutOpen: window.__bbState.aboutOpen }));
+    const state = await page.evaluate(() => ({ activeId: window.__bbTest.getUiRuntime().focusedId, aboutOpen: window.__bbTest.getState().overlay.kind === 'about' }));
     expect(state.activeId).toBe('FO.CAIN');
     expect(state.aboutOpen).toBe(false);
   });
@@ -392,7 +392,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     await page.locator('.rail-btn[data-action="view"]').click();
     await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
     await page.locator('[data-type="RefO"]').first().click();
-    await expect.poll(() => page.evaluate(() => window.__bbState.objectGroups['RefO'])).toBe(false);
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.typeVisibility['RefO'])).toBe(false);
     await page.locator('[data-close="fieldViewDrawer"]').first().click();
 
     const roving = page.locator('g.node[tabindex="0"]');
@@ -411,7 +411,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
 
     await page.keyboard.press('Enter');
     await page.waitForTimeout(50);
-    const state = await page.evaluate(() => window.__bbState.activeId);
+    const state = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
     expect(state).toBe(afterId);
     expect(state).not.toBe('RefO'); // sanity: never resolves to a hidden type at all
   });

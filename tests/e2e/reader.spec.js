@@ -124,7 +124,7 @@ test.describe('Reader subject view models and renderer (T18)', () => {
     const link = page.locator('#reader .fl[data-id="FO.WINDOW"]').first();
     await expect(link).toBeVisible();
     await link.click();
-    const activeId = await page.evaluate(() => window.__bbState.activeId);
+    const activeId = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
     expect(activeId).toBe('FO.WINDOW');
   });
 
@@ -135,7 +135,7 @@ test.describe('Reader subject view models and renderer (T18)', () => {
     const chip = page.locator('#reader .chip[data-id="FO.CAIN"]').first();
     await expect(chip).toBeVisible();
     await chip.click();
-    const activeId = await page.evaluate(() => window.__bbState.activeId);
+    const activeId = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
     expect(activeId).toBe('FO.CAIN');
   });
 });

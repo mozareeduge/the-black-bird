@@ -49,13 +49,13 @@ test.describe('COV-ORDERED-ACTION-PAIRS: previously-uncovered high-risk pairs ex
     await page.locator('.rail-btn[data-action="index"]').click();
     await expect(page.locator('#objectDrawer')).toHaveClass(/open/);
     await page.locator('[data-eye="FO.CORPSE"]').first().click();
-    const hidden = await page.evaluate(() => window.__bbState.objectVisibility['FO.CORPSE']);
+    const hidden = await page.evaluate(() => window.__bbTest.getState().view.objectVisibility['FO.CORPSE']);
     expect(hidden).toBe(false);
     await page.locator('[data-close="objectDrawer"]').first().click();
     await clickNode(page, 'FO.CAIN');
     const state = await page.evaluate(() => ({
-      activeId: window.__bbState.activeId,
-      corpseHidden: window.__bbState.objectVisibility['FO.CORPSE'],
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      corpseHidden: window.__bbTest.getState().view.objectVisibility['FO.CORPSE'],
     }));
     expect(state.activeId).toBe('FO.CAIN');
     expect(state.corpseHidden).toBe(false);
@@ -70,8 +70,8 @@ test.describe('COV-ORDERED-ACTION-PAIRS: previously-uncovered high-risk pairs ex
     await expect(page.locator('#objectDrawer')).toHaveClass(/open/);
     await page.locator('[data-eye="FO.CAIN"]').first().click();
     const state = await page.evaluate(() => ({
-      activeId: window.__bbState.activeId,
-      cainHidden: window.__bbState.objectVisibility['FO.CAIN'],
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      cainHidden: window.__bbTest.getState().view.objectVisibility['FO.CAIN'],
     }));
     expect(state.activeId).toBe('FO.CORPSE');
     expect(state.cainHidden).toBe(false);
@@ -84,13 +84,13 @@ test.describe('COV-ORDERED-ACTION-PAIRS: previously-uncovered high-risk pairs ex
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CORPSE');
     await page.locator('[data-mobile="read"]').click();
-    const afterSurface = await page.evaluate(() => window.__bbState.surface);
+    const afterSurface = await page.evaluate(() => window.__bbTest.getState().responsive.surface);
     expect(afterSurface).toBe('read');
     await page.locator('[data-mobile="index"]').click(); // mobile: rail is hidden, use the bottom-nav
     await expect(page.locator('#objectDrawer')).toHaveClass(/open/);
     await page.locator('#objectSearch').fill('Cain');
     await page.locator('[data-open="FO.CAIN"]').first().click();
-    const state = await page.evaluate(() => window.__bbState.activeId);
+    const state = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
     expect(state).toBe('FO.CAIN');
   });
 

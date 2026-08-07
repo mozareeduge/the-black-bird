@@ -164,8 +164,8 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
       const app = document.getElementById('app');
       const sheet = document.getElementById('sheet');
       return {
-        surface: window.__bbState?.surface,
-        activeId: window.__bbState?.activeId,
+        surface: window.__bbTest?.getState()?.responsive.surface,
+        activeId: window.__bbTest?.getUiRuntime()?.focusedId,
         fieldActive: app.classList.contains('surface-field'),
         sheetOpen: sheet ? sheet.classList.contains('open') : false,
       };
@@ -181,8 +181,8 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
       const app = document.getElementById('app');
       const sheet = document.getElementById('sheet');
       return {
-        surface: window.__bbState?.surface,
-        activeId: window.__bbState?.activeId,
+        surface: window.__bbTest?.getState()?.responsive.surface,
+        activeId: window.__bbTest?.getUiRuntime()?.focusedId,
         readActive: app.classList.contains('surface-read'),
         sheetOpen: sheet ? sheet.classList.contains('open') : false,
       };
@@ -196,8 +196,8 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
 
     await page.locator('[data-mobile="field"]').click();
     const afterBackToField = await page.evaluate(() => ({
-      surface: window.__bbState?.surface,
-      activeId: window.__bbState?.activeId,
+      surface: window.__bbTest?.getState()?.responsive.surface,
+      activeId: window.__bbTest?.getUiRuntime()?.focusedId,
     }));
     expect(afterBackToField.surface).toBe('field');
     expect(afterBackToField.activeId).toBe(afterTap.activeId);
@@ -209,13 +209,13 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CORPSE');
-    const before = await page.evaluate(() => ({ activeId: window.__bbState.activeId, surface: window.__bbState.surface }));
+    const before = await page.evaluate(() => ({ activeId: window.__bbTest?.getUiRuntime()?.focusedId, surface: window.__bbTest?.getState()?.responsive.surface }));
 
     // Simulate a rotation to landscape: same semantic session, reprojected chrome only.
     await page.setViewportSize({ width: 844, height: 390 });
     await page.waitForTimeout(50);
 
-    const after = await page.evaluate(() => ({ activeId: window.__bbState.activeId, surface: window.__bbState.surface }));
+    const after = await page.evaluate(() => ({ activeId: window.__bbTest?.getUiRuntime()?.focusedId, surface: window.__bbTest?.getState()?.responsive.surface }));
     expect(after.activeId).toBe(before.activeId);
     expect(after.surface).toBe(before.surface);
   });
@@ -322,9 +322,9 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
     await gotoField(page, { reduced: true });
     await page.evaluate(() => window.__bbTest.returnToField());
     const before = await page.evaluate(() => ({
-      activeId: window.__bbState.activeId,
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      activeId: window.__bbTest?.getUiRuntime()?.focusedId,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
     expect(before.activeId).toBeNull();
 
@@ -332,10 +332,10 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
     await page.waitForTimeout(80);
 
     const after = await page.evaluate(() => ({
-      activeId: window.__bbState.activeId,
-      surface: window.__bbState.surface,
-      route: window.__bbState.routeEvents.length,
-      wear: Object.keys(window.__bbState.fieldTrace?.wear || {}).length,
+      activeId: window.__bbTest?.getUiRuntime()?.focusedId,
+      surface: window.__bbTest?.getState()?.responsive.surface,
+      route: window.__bbTest.getState().history.route.length,
+      wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
     expect(after.activeId).toBe('FO.BLACK_BIRD_FIELD');
     expect(after.surface).toBe('read');

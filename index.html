@@ -1295,13 +1295,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function isPlainObject(v) {
     return typeof v === "object" && v !== null && !Array.isArray(v);
   }
-  function assertStateInvariants(state) {
+  function assertStateInvariants(state2) {
     const violations = [];
     const fail = (msg) => violations.push(msg);
-    if (!isPlainObject(state)) {
+    if (!isPlainObject(state2)) {
       return { ok: false, violations: ["state is not an object"] };
     }
-    const { reading, history, trace, solo, overlay } = state;
+    const { reading, history, trace, solo, overlay } = state2;
     if (isPlainObject(history) && Array.isArray(history.route) && isPlainObject(reading)) {
       if (history.route.length > 0 && reading.anchorId === null) {
         fail("anchorId is null but history.route is non-empty (a commit has already happened)");
@@ -1483,17 +1483,17 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function createReducer({ nodesById, baseLinks: baseLinks2, relations }) {
     const adjacency = buildAdjacency(baseLinks2);
-    function isMobileProfile(state) {
-      return state.responsive.profile === "mobile";
+    function isMobileProfile(state2) {
+      return state2.responsive.profile === "mobile";
     }
-    function visibleIdSet(state) {
-      if (state.solo.active) return new Set(state.solo.members);
+    function visibleIdSet(state2) {
+      if (state2.solo.active) return new Set(state2.solo.members);
       return new Set(
-        Object.keys(nodesById).filter((id) => isNodeVisible(nodesById[id], state.view))
+        Object.keys(nodesById).filter((id) => isNodeVisible(nodesById[id], state2.view))
       );
     }
-    function makeNeighbors(state) {
-      const visible = visibleIdSet(state);
+    function makeNeighbors(state2) {
+      const visible = visibleIdSet(state2);
       return (id) => (adjacency.get(id) || []).filter((n) => visible.has(n)).sort();
     }
     function reconcileAnchorVisibility(reading, view) {
@@ -1502,161 +1502,161 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       if (!node) return reading;
       return reconcileHiddenAnchor(reading, node, view);
     }
-    function commitObject(state, id, source, now) {
-      const isNewId = state.reading.anchorId !== id;
+    function commitObject(state2, id, source, now) {
+      const isNewId = state2.reading.anchorId !== id;
       const nextReading = {
-        ...state.reading,
+        ...state2.reading,
         anchorId: id,
         fieldAttention: { kind: "focus", id },
         readerSubject: { kind: "object", id },
         inspection: null
       };
-      if (!isNewId) return { ...state, reading: nextReading };
-      const fromId = state.reading.anchorId;
+      if (!isNewId) return { ...state2, reading: nextReading };
+      const fromId = state2.reading.anchorId;
       const node = nodesById[id];
       const history = appendRouteEvent(
-        state.history,
+        state2.history,
         { id, objectType: node?.type ?? null, label: node?.label ?? null, source, committedAt: now },
         fromId
       );
-      let trace = state.trace;
+      let trace = state2.trace;
       if (fromId) {
-        const { wear } = recordWear(trace, { fromId, toId: id, neighbors: makeNeighbors(state) });
+        const { wear } = recordWear(trace, { fromId, toId: id, neighbors: makeNeighbors(state2) });
         trace = recordAfterglow(
           { ...trace, wear },
           {
             id: fromId,
             nowMs: now,
-            durationMs: isMobileProfile(state) ? 4e3 : 1e4,
-            cap: isMobileProfile(state) ? 3 : 8
+            durationMs: isMobileProfile(state2) ? 4e3 : 1e4,
+            cap: isMobileProfile(state2) ? 3 : 8
           }
         );
       }
-      return { ...state, reading: nextReading, history, trace };
+      return { ...state2, reading: nextReading, history, trace };
     }
-    function reduceCommand(state, command) {
+    function reduceCommand(state2, command) {
       const now = command.committedAt ?? command.now ?? Date.now();
       switch (command.type) {
         case CommandType.BOOTSTRAP_READY:
-          return { ...state, lifecycle: { ...state.lifecycle, bootstrap: "ready" } };
+          return { ...state2, lifecycle: { ...state2.lifecycle, bootstrap: "ready" } };
         case CommandType.BOOTSTRAP_FAILED:
-          return { ...state, lifecycle: { ...state.lifecycle, bootstrap: "failed" } };
+          return { ...state2, lifecycle: { ...state2.lifecycle, bootstrap: "failed" } };
         case CommandType.ENTER_WORK:
-          return { ...state, lifecycle: { ...state.lifecycle, phase: "field" } };
+          return { ...state2, lifecycle: { ...state2.lifecycle, phase: "field" } };
         case CommandType.INTERRUPT_ONBOARDING_WITH_OBJECT:
           return {
-            ...commitObject(state, command.id, command.source, now),
-            lifecycle: { ...state.lifecycle, phase: "focused" }
+            ...commitObject(state2, command.id, command.source, now),
+            lifecycle: { ...state2.lifecycle, phase: "focused" }
           };
         // P-RULE-011: returning to the whole field neutralizes field attention while
         // retaining the reading anchor and current Reader subject — anchorId and
         // readerSubject are deliberately left untouched here.
         case CommandType.RETURN_TO_WHOLE_FIELD:
           return {
-            ...state,
-            lifecycle: { ...state.lifecycle, phase: "field" },
-            reading: { ...state.reading, fieldAttention: { kind: "whole-field", id: null }, inspection: null }
+            ...state2,
+            lifecycle: { ...state2.lifecycle, phase: "field" },
+            reading: { ...state2.reading, fieldAttention: { kind: "whole-field", id: null }, inspection: null }
           };
         // P-RULE-003: preview never appends Route or trace. Modeled as a transient
         // tooltip, not a reading-region change.
         case CommandType.PREVIEW_OBJECT:
-          return { ...state, tooltip: { ...state.tooltip, kind: "preview", targetId: command.id } };
+          return { ...state2, tooltip: { ...state2.tooltip, kind: "preview", targetId: command.id } };
         case CommandType.CLEAR_PREVIEW:
-          return { ...state, tooltip: { kind: null, targetId: null, describedById: null } };
+          return { ...state2, tooltip: { kind: null, targetId: null, describedById: null } };
         case CommandType.COMMIT_OBJECT:
           return {
-            ...commitObject(state, command.id, command.source, now),
-            lifecycle: { ...state.lifecycle, phase: "focused" }
+            ...commitObject(state2, command.id, command.source, now),
+            lifecycle: { ...state2.lifecycle, phase: "focused" }
           };
         // P-RULE-014: projected edges are derived inspectable surfaces; inspecting one
         // may change Reader subject but never the reading anchor, Route, trace, solo, or view.
         case CommandType.INSPECT_PROJECTED_EDGE:
           return {
-            ...state,
+            ...state2,
             reading: {
-              ...state.reading,
+              ...state2.reading,
               inspection: { sourceId: command.sourceId, targetId: command.targetId, relOIds: command.relOIds },
               readerSubject: { kind: "projected-edge", id: `${command.sourceId}~${command.targetId}` }
             }
           };
         case CommandType.CLEAR_INSPECTION:
           return {
-            ...state,
+            ...state2,
             reading: {
-              ...state.reading,
+              ...state2.reading,
               inspection: null,
-              readerSubject: state.reading.anchorId != null ? { kind: "object", id: state.reading.anchorId } : { kind: "orientation", id: null }
+              readerSubject: state2.reading.anchorId != null ? { kind: "object", id: state2.reading.anchorId } : { kind: "orientation", id: null }
             }
           };
         case CommandType.SET_SURFACE:
-          return { ...state, responsive: { ...state.responsive, surface: command.surface } };
+          return { ...state2, responsive: { ...state2.responsive, surface: command.surface } };
         // P-RULE-015: a type toggle can newly hide the field-focused object;
         // reconcileHiddenAnchor neutralizes field attention only, never Route/trace/anchor.
         case CommandType.SET_TYPE_VISIBILITY: {
           const view = {
-            ...state.view,
-            typeVisibility: { ...state.view.typeVisibility, [command.objectType]: command.visible }
+            ...state2.view,
+            typeVisibility: { ...state2.view.typeVisibility, [command.objectType]: command.visible }
           };
-          return { ...state, view, reading: reconcileAnchorVisibility(state.reading, view) };
+          return { ...state2, view, reading: reconcileAnchorVisibility(state2.reading, view) };
         }
         case CommandType.SET_OBJECT_VISIBILITY: {
           const view = {
-            ...state.view,
-            objectVisibility: { ...state.view.objectVisibility, [command.id]: command.visible }
+            ...state2.view,
+            objectVisibility: { ...state2.view.objectVisibility, [command.id]: command.visible }
           };
-          return { ...state, view, reading: reconcileAnchorVisibility(state.reading, view) };
+          return { ...state2, view, reading: reconcileAnchorVisibility(state2.reading, view) };
         }
         case CommandType.SET_VIEW_OPTION:
-          return { ...state, view: { ...state.view, [command.option]: command.value } };
+          return { ...state2, view: { ...state2.view, [command.option]: command.value } };
         // P-RULE-013: RelO Solo = the RelO plus every canonical participant; object
         // Solo = the object, every RelO that contains it, and all of those RelOs'
         // participants -- delegated to domain/solo.js exactly.
         case CommandType.ENTER_SOLO: {
           const members = [...computeSoloMembership(command.id, { nodesById, relations })];
           return {
-            ...state,
+            ...state2,
             solo: {
               active: true,
               rootId: command.id,
               members,
               // Snapshot is captured once on entry; re-entering Solo (switching root
               // while already active) does not overwrite the original pre-lens snapshot.
-              snapshot: state.solo.active ? state.solo.snapshot : { view: state.view }
+              snapshot: state2.solo.active ? state2.solo.snapshot : { view: state2.view }
             }
           };
         }
         case CommandType.EXIT_SOLO: {
-          const view = state.solo.snapshot ? state.solo.snapshot.view : state.view;
+          const view = state2.solo.snapshot ? state2.solo.snapshot.view : state2.view;
           return {
-            ...state,
+            ...state2,
             view,
             solo: { active: false, rootId: null, members: [], snapshot: null },
-            reading: reconcileAnchorVisibility(state.reading, view)
+            reading: reconcileAnchorVisibility(state2.reading, view)
           };
         }
         // contracts/semantic-normalization.json's visibility.restore_rule: exits Solo,
         // restores all type visibility, clears individual hides, returns Field
         // attention to whole-field, and preserves anchor/Reader subject/Route/trace.
         case CommandType.RESTORE_FIELD: {
-          const view = restoreVisibility(state.view);
+          const view = restoreVisibility(state2.view);
           return {
-            ...state,
+            ...state2,
             view,
             solo: { active: false, rootId: null, members: [], snapshot: null },
-            reading: { ...state.reading, fieldAttention: { kind: "whole-field", id: null } }
+            reading: { ...state2.reading, fieldAttention: { kind: "whole-field", id: null } }
           };
         }
         // P-RULE-007: replay changes presentation (which object is anchored/read) without
         // adding Route or trace and without changing View/Hide/Solo state. history.route
         // itself is untouched — replay reads it, it never mutates it.
         case CommandType.REPLAY_ROUTE_EVENT: {
-          const entry = findRouteEventBySequence(state.history, command.sequence);
-          if (!entry) return state;
+          const entry = findRouteEventBySequence(state2.history, command.sequence);
+          if (!entry) return state2;
           return {
-            ...state,
-            lifecycle: { ...state.lifecycle, phase: "focused" },
+            ...state2,
+            lifecycle: { ...state2.lifecycle, phase: "focused" },
             reading: {
-              ...state.reading,
+              ...state2.reading,
               anchorId: entry.id,
               fieldAttention: { kind: "focus", id: entry.id },
               readerSubject: { kind: "object", id: entry.id },
@@ -1665,47 +1665,47 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
           };
         }
         case CommandType.CLEAR_ROUTE:
-          return { ...state, history: clearRoute() };
+          return { ...state2, history: clearRoute() };
         case CommandType.CLEAR_TRACE:
-          return { ...state, trace: clearTrace() };
+          return { ...state2, trace: clearTrace() };
         case CommandType.OPEN_OVERLAY:
-          return { ...state, overlay: { kind: command.kind, invoker: command.invoker } };
+          return { ...state2, overlay: { kind: command.kind, invoker: command.invoker } };
         case CommandType.CLOSE_OVERLAY:
-          return { ...state, overlay: { kind: null, invoker: null } };
+          return { ...state2, overlay: { kind: null, invoker: null } };
         case CommandType.REPLACE_OVERLAY:
-          return { ...state, overlay: { kind: command.kind, invoker: command.invoker } };
+          return { ...state2, overlay: { kind: command.kind, invoker: command.invoker } };
         case CommandType.SET_ROVING_FOCUS:
-          return { ...state, focus: { ...state.focus, graphRovingId: command.id } };
+          return { ...state2, focus: { ...state2.focus, graphRovingId: command.id } };
         case CommandType.RECONCILE_ENVIRONMENT:
           return {
-            ...state,
+            ...state2,
             responsive: {
-              ...state.responsive,
+              ...state2.responsive,
               ..."profile" in command ? { profile: command.profile } : null,
               ..."orientation" in command ? { orientation: command.orientation } : null,
               ..."visualViewport" in command ? { visualViewport: command.visualViewport } : null
             },
             lifecycle: {
-              ...state.lifecycle,
+              ...state2.lifecycle,
               ..."connectivity" in command ? { connectivity: command.connectivity } : null
             }
           };
         // Resume (document becomes visible again): expired afterglow deadlines are
         // dropped against wall-clock time, never replayed.
         case CommandType.RECONCILE_DOCUMENT_VISIBILITY: {
-          const documentVisibility = "visibility" in command ? command.visibility : state.lifecycle.documentVisibility;
-          const trace = documentVisibility === "visible" ? reconcileTraceDeadlines(state.trace, now) : state.trace;
+          const documentVisibility = "visibility" in command ? command.visibility : state2.lifecycle.documentVisibility;
+          const trace = documentVisibility === "visible" ? reconcileTraceDeadlines(state2.trace, now) : state2.trace;
           return {
-            ...state,
+            ...state2,
             lifecycle: {
-              ...state.lifecycle,
+              ...state2.lifecycle,
               ..."visibility" in command ? { documentVisibility: command.visibility } : null
             },
             trace
           };
         }
         case CommandType.EXTERNAL_NAVIGATION_FAILED:
-          return { ...state, presentation: { ...state.presentation, statusMessage: "external-navigation-failed" } };
+          return { ...state2, presentation: { ...state2.presentation, statusMessage: "external-navigation-failed" } };
         default:
           throw new Error(`reduceCommand: unknown command type "${command.type}"`);
       }
@@ -1935,6 +1935,50 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { setRovingTarget, getRovingTarget, moveDirection, tabIndexFor };
   }
 
+  // src/application/timer-registry.js
+  function createTimerRegistry() {
+    const timers = /* @__PURE__ */ new Map();
+    let nextId = 1;
+    function sameOwner(a, b) {
+      return !!a && !!b && a.kind === b.kind && a.id === b.id;
+    }
+    function schedule(fn, delayMs, owner) {
+      const id = nextId++;
+      const handle = setTimeout(() => {
+        timers.delete(id);
+        fn();
+      }, delayMs);
+      timers.set(id, { handle, owner });
+      return id;
+    }
+    function cancel(id) {
+      const entry = timers.get(id);
+      if (!entry) return false;
+      clearTimeout(entry.handle);
+      timers.delete(id);
+      return true;
+    }
+    function cancelByOwner(owner) {
+      let cancelled = 0;
+      for (const [id, entry] of timers) {
+        if (sameOwner(entry.owner, owner)) {
+          clearTimeout(entry.handle);
+          timers.delete(id);
+          cancelled += 1;
+        }
+      }
+      return cancelled;
+    }
+    function cancelAll() {
+      for (const [, entry] of timers) clearTimeout(entry.handle);
+      timers.clear();
+    }
+    function size() {
+      return timers.size;
+    }
+    return { schedule, cancel, cancelByOwner, cancelAll, size };
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -2014,83 +2058,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     });
     return pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(3)},${p[1].toFixed(3)}`).join(" ") + " Z";
   }
-  function stableBfsPath(start, goal, orderedEdges, visibleIds) {
-    if (!start || !goal || start === goal) return [];
-    const visible = new Set(visibleIds);
-    if (!visible.has(start) || !visible.has(goal)) return [];
-    const adj2 = /* @__PURE__ */ new Map();
-    for (const [a, b] of orderedEdges) {
-      if (!visible.has(a) || !visible.has(b)) continue;
-      if (!adj2.has(a)) adj2.set(a, []);
-      if (!adj2.has(b)) adj2.set(b, []);
-      adj2.get(a).push(b);
-      adj2.get(b).push(a);
-    }
-    for (const v of adj2.values()) v.sort();
-    const q = [start], prev = /* @__PURE__ */ new Map([[start, null]]);
-    while (q.length) {
-      const cur = q.shift();
-      for (const next of adj2.get(cur) || []) {
-        if (prev.has(next)) continue;
-        prev.set(next, cur);
-        if (next === goal) {
-          q.length = 0;
-          break;
-        }
-        q.push(next);
-      }
-    }
-    if (!prev.has(goal)) return [];
-    const path = [];
-    for (let at = goal; at != null; at = prev.get(at)) path.push(at);
-    return path.reverse();
-  }
-  function canonicalEdgeKey(a, b) {
-    return a < b ? `${a}::${b}` : `${b}::${a}`;
-  }
-  var S = {
-    phase: "threshold",
-    viewport: isMobile() ? "mobile" : "desktop",
-    surface: "field",
-    overlay: null,
-    activeId: null,
-    touchedId: null,
-    activeEdge: null,
-    activeRelos: [],
-    routeEvents: [],
-    // Presentation-only recent-tail window for route halos/segments (routeStats,
-    // routeSegments); Route truth itself is never capped or truncated
-    // (P-RULE-005/039, D-DEC-22) — see registerRouteEvent below.
-    recentRouteWindow: 11,
-    maxVisibleRouteSegments: 10,
-    objectGroups: { RNO: true, MNO: true, FO: true, NameO: true, RefO: true, RelO: true },
-    viewOptions: { projected: true, labels: true, sourceNames: false },
-    objectVisibility: { ...defaultVisibility },
-    soloSet: null,
-    transform: d3.zoomIdentity,
-    readerOpen: false,
-    onboardingActive: false,
-    cameraInFlight: false,
-    previewTarget: null,
-    previewTimer: null,
-    showSheet: false,
-    indexFilter: "all",
-    aboutOpen: false,
-    aboutOrigin: null,
-    fieldTrace: {
-      previousCommittedId: null,
-      wear: /* @__PURE__ */ Object.create(null),
-      afterglows: [],
-      activeClearingId: null,
-      designContractVersion: "2.0.0"
-    }
-  };
-  window.__bbState = S;
-  var canonicalState = createInitialState();
+  var RECENT_ROUTE_WINDOW = 11;
+  var MAX_VISIBLE_ROUTE_SEGMENTS = 10;
+  var state = createInitialState();
   var canonicalTransactions = createTransactionController();
   var canonicalBaseLinks = baseEdgesRaw.map((e) => [e.source, e.target]);
   var canonicalDispatcher = createDispatcher({
-    getState: () => canonicalState,
+    getState: () => state,
     transactions: canonicalTransactions,
     graphContext: { nodesById: byId, baseLinks: canonicalBaseLinks, relations: DATA.relations }
   });
@@ -2099,16 +2073,46 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     if (!result.accepted) {
       throw new Error(`dispatch: ${command.type} rejected: ${result.errors.join("; ")}`);
     }
-    canonicalState = result.state;
-    return canonicalState;
+    state = result.state;
+    return state;
   }
   dispatch({ type: CommandType.BOOTSTRAP_READY });
-  var afterglowTimers = /* @__PURE__ */ new Map();
+  var timerRegistry = createTimerRegistry();
   var pulseTimers = [];
   var travelPulseActive = false;
   var currentLightMode = "field";
   var currentPenumbraVisible = false;
   var appliedBlurPx = 0;
+  var uiRuntime = {
+    // What to visually treat as focused for rendering (camera framing, focus
+    // set, label budget, roving tabindex fallback, "is this node active"
+    // highlighting). Set on every commitFocus() call regardless of Route
+    // policy -- broader than the canonical Route-anchor concept
+    // (state.reading.anchorId), because a Solo-only commit
+    // (routePolicy: 'none', by design never touching Route) still needs to be
+    // treated as "focused" for rendering purposes without appending Route. A
+    // real Route-affecting commit keeps both in step; only a Solo-only commit
+    // can make them differ, and only for rendering, never for Route/trace/
+    // Reader-subject truth, which stay exclusively canonical.
+    focusedId: null,
+    transform: d3.zoomIdentity,
+    readerOpen: false,
+    cameraInFlight: false,
+    previewTimer: null,
+    showSheet: false,
+    indexFilter: "all",
+    touchedId: null,
+    activeClearingId: null,
+    // Which drawer/sheet chrome is currently open (fieldViewDrawer,
+    // objectDrawer, routeDrawer, nodeSheet, edgeSheet), a UI-chrome tracker
+    // distinct from canonical state.overlay (the About modal only).
+    chromeOverlay: null,
+    // Whether the tacit-onboarding stage sequence is currently animating --
+    // narrower than lifecycle.phase === 'threshold' (true only during the
+    // stage animations themselves) and purely a CSS-class distinction with no
+    // product-semantic meaning of its own.
+    onboardingActive: false
+  };
   var FONT_SPECS = [
     { family: "IBM Plex Mono", url: "assets/fonts/IBMPlexMono-Regular.woff2" },
     { family: "IBM Plex Mono", url: "assets/fonts/IBMPlexMono-Medium.woff2" },
@@ -2126,27 +2130,27 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     snapshot() {
       return {
         contractVersion: "2.0.0",
-        activeId: S.activeId,
-        activeType: S.activeId ? byId[S.activeId]?.type || null : null,
+        activeId: uiRuntime.focusedId,
+        activeType: uiRuntime.focusedId ? byId[uiRuntime.focusedId]?.type || null : null,
         lightMode: currentLightMode,
         penumbraVisible: currentPenumbraVisible,
         apertureCoreLit: false,
         clearing: this.clearingSnapshot(),
-        afterglowIds: S.fieldTrace.afterglows.map((a) => a.id),
+        afterglowIds: state.trace.afterglows.map((a) => a.id),
         wearEntries: this.wearSnapshot().entries,
-        routeIds: S.routeEvents.map((e) => e.id),
+        routeIds: state.history.route.map((e) => e.id),
         reducedMotion: prefersReducedMotion(),
         maxAppliedBlurPx: isMobile() || prefersReducedMotion() ? 0 : appliedBlurPx,
         travelPulseActive,
         layerCounts: {
-          clearing: S.fieldTrace.activeClearingId ? 1 : 0,
-          afterglow: S.fieldTrace.afterglows.length
+          clearing: uiRuntime.activeClearingId ? 1 : 0,
+          afterglow: state.trace.afterglows.length
         },
-        timerCount: afterglowTimers.size + pulseTimers.length
+        timerCount: timerRegistry.size() + pulseTimers.length
       };
     },
     clearingSnapshot() {
-      const relOId = S.fieldTrace.activeClearingId;
+      const relOId = uiRuntime.activeClearingId;
       if (!relOId)
         return {
           relOId: null,
@@ -2170,7 +2174,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       };
     },
     wearSnapshot() {
-      const entries = Object.entries(S.fieldTrace.wear).map(([edgeKey2, passCount]) => ({
+      const entries = Object.entries(state.trace.wear).map(([edgeKey2, passCount]) => ({
         edgeKey: edgeKey2,
         passCount
       }));
@@ -2193,9 +2197,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       return {
         nodeCount: simNodes.length,
         edgeCount: baseLinks.length + projectedLinks.length,
-        clearingCount: S.fieldTrace.activeClearingId ? 1 : 0,
-        afterglowCount: S.fieldTrace.afterglows.length,
-        timerCount: afterglowTimers.size + pulseTimers.length
+        clearingCount: uiRuntime.activeClearingId ? 1 : 0,
+        afterglowCount: state.trace.afterglows.length,
+        timerCount: timerRegistry.size() + pulseTimers.length
       };
     },
     resetTrace() {
@@ -2236,7 +2240,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function updatePhaseClass() {
     const app = document.getElementById("app");
-    S.viewport = isMobile() ? "mobile" : "desktop";
+    const cssPhase = uiRuntime.onboardingActive ? "onboarding" : uiRuntime.focusedId ? "focused" : state.lifecycle.phase;
     app.classList.remove(
       "phase-threshold",
       "phase-onboarding",
@@ -2245,14 +2249,14 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       "surface-field",
       "surface-read"
     );
-    app.classList.add("phase-" + S.phase, "surface-" + S.surface);
-    document.querySelectorAll("[data-mobile]").forEach((b) => b.classList.toggle("active", b.dataset.mobile === S.surface));
+    app.classList.add("phase-" + cssPhase, "surface-" + state.responsive.surface);
+    document.querySelectorAll("[data-mobile]").forEach((b) => b.classList.toggle("active", b.dataset.mobile === state.responsive.surface));
   }
-  function syncSurfaceCanonical() {
-    dispatch({ type: CommandType.SET_SURFACE, surface: S.surface });
+  function syncSurfaceCanonical(surface) {
+    dispatch({ type: CommandType.SET_SURFACE, surface });
   }
   function setOverlay(name) {
-    S.overlay = name;
+    uiRuntime.chromeOverlay = name;
   }
   function nextFrame() {
     return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -2268,7 +2272,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     updateGraphGeometry();
   }
   async function setReaderOpen(open, opts = {}) {
-    S.readerOpen = open;
+    uiRuntime.readerOpen = open;
     document.getElementById("mainLayout").classList.toggle("reader-open", open);
     await nextFrame();
     if (opts.measure !== false) measureGraph();
@@ -2356,7 +2360,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   var nodeLayer = root.append("g");
   var afterglowLayer = root.append("g").attr("class", "bb-afterglow-layer").attr("pointer-events", "none");
   var zoom = d3.zoom().scaleExtent([0.55, 2.4]).on("zoom", (ev) => {
-    S.transform = ev.transform;
+    uiRuntime.transform = ev.transform;
     root.attr("transform", ev.transform);
     updateLabelVisibility();
     if (+warmPenumbraCircle.attr("opacity") > 0)
@@ -2364,7 +2368,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }).on("end", () => recomputeLabelPlacements());
   svg.call(zoom).on("dblclick.zoom", null);
   svg.on("click", () => {
-    if (S.activeId) returnToField();
+    if (uiRuntime.focusedId) returnToField();
   });
   function nodeX(d) {
     return d.x;
@@ -2402,8 +2406,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       const x = nodeX(d.node), y = nodeY(d.node);
       if (Number.isFinite(x) && Number.isFinite(y)) d3.select(this).attr("cx", x).attr("cy", y);
     });
-    if (+warmPenumbraCircle.attr("opacity") > 0 && S.activeId) {
-      const core = byId[S.activeId];
+    if (+warmPenumbraCircle.attr("opacity") > 0 && uiRuntime.focusedId) {
+      const core = byId[uiRuntime.focusedId];
       if (core && Number.isFinite(core.x) && Number.isFinite(core.y))
         warmPenumbraCircle.attr("cx", core.x).attr("cy", core.y);
     }
@@ -2429,7 +2433,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   var nodeMetrics = computeNodeMetrics;
   function resolveNearestVisibleNode(screenPoint, opts = {}) {
-    const t = S.transform;
+    const t = uiRuntime.transform;
     const focusIds = opts.focusIds || null;
     const point = { x: screenPoint[0], y: screenPoint[1] };
     const candidates = [];
@@ -2602,23 +2606,23 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   );
   nodeSel.attr("tabindex", -1).attr("role", "button").attr("aria-label", (d) => `${d.type}: ${d.label}`).on("mouseenter", (ev, d) => {
     if (isMobile()) return;
-    clearTimeout(S.previewTimer);
-    S.previewTimer = setTimeout(() => touchObject(d.id, { source: "graph-hover" }), 200);
+    clearTimeout(uiRuntime.previewTimer);
+    uiRuntime.previewTimer = setTimeout(() => touchObject(d.id, { source: "graph-hover" }), 200);
   }).on("mouseleave", () => {
     if (isMobile()) return;
-    clearTimeout(S.previewTimer);
+    clearTimeout(uiRuntime.previewTimer);
     clearTouch();
   }).on("click", (ev, d) => {
     ev.stopPropagation();
-    clearTimeout(S.previewTimer);
+    clearTimeout(uiRuntime.previewTimer);
     hidePreview();
-    const focus = S.activeId ? buildFocusSet(S.activeId) : null;
+    const focus = uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null;
     const resolved = resolveNearestVisibleNode(d3.pointer(ev, svg.node()), {
       touch: isMobile(),
       focusIds: focus ? new Set(focus.ids) : null
     }) || d;
-    if (S.onboardingActive) {
-      S.onboardingActive = false;
+    if (uiRuntime.onboardingActive) {
+      uiRuntime.onboardingActive = false;
       hideFieldPrompt();
       return focusObject(resolved.id, { source: "onboarding-interrupt" });
     }
@@ -2677,11 +2681,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   ];
   var labelPlacementChoice = /* @__PURE__ */ new Map();
   function recomputeLabelPlacements() {
-    const t = S.transform;
+    const t = uiRuntime.transform;
     const safeRaw = computeFieldSafeRect();
     const safeRect = { x: safeRaw.left, y: safeRaw.top, width: safeRaw.width, height: safeRaw.height };
     const visible = nodeSel.selectAll("text.node-label").nodes().filter((el) => getComputedStyle(el).getPropertyValue("display") !== "none").map((el) => ({ el, d: d3.select(el).datum() })).filter(({ d }) => d && d.x != null && d.y != null);
-    const focus = S.activeId ? buildFocusSet(S.activeId) : null;
+    const focus = uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null;
     const focusIds = focus ? new Set(focus.ids) : null;
     const core = focus && focus.coreId ? byId[focus.coreId] : null;
     const relParticipants = core && core.type === "RelO" ? new Set(DATA.relations[focus.coreId] || []) : null;
@@ -2693,7 +2697,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       } catch (e) {
         continue;
       }
-      const isActive = d.id === S.activeId;
+      const isActive = d.id === uiRuntime.focusedId;
       const isFocusMember = !!(focusIds && focusIds.has(d.id));
       const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
       const tier = labelPriorityTier(d, isActive, isFocusMember, isRelParticipant);
@@ -2756,19 +2760,18 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
   }
   function resize() {
-    S.viewport = isMobile() ? "mobile" : "desktop";
-    dispatch({ type: CommandType.RECONCILE_ENVIRONMENT, profile: S.viewport });
+    dispatch({ type: CommandType.RECONCILE_ENVIRONMENT, profile: isMobile() ? "mobile" : "desktop" });
     updatePhaseClass();
-    clearTimeout(S.previewTimer);
+    clearTimeout(uiRuntime.previewTimer);
     clearTouch();
-    if (isMobile() && S.surface === "read") {
+    if (isMobile() && state.responsive.surface === "read") {
       renderRoute();
       return;
     }
     measureGraph();
-    if (S.activeId) {
-      applyLocalAperture(buildFocusSet(S.activeId));
-      fitFocusFrame(buildFocusSet(S.activeId), { duration: 0 });
+    if (uiRuntime.focusedId) {
+      applyLocalAperture(buildFocusSet(uiRuntime.focusedId));
+      fitFocusFrame(buildFocusSet(uiRuntime.focusedId), { duration: 0 });
     } else fitVisibleField({ duration: 0 });
     recomputeLabelPlacements();
   }
@@ -2789,17 +2792,17 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function nodeVisible(id) {
     const n = byId[id];
     if (!n) return false;
-    if (S.soloSet) return S.soloSet.has(id);
-    return isNodeVisible(n, canonicalState.view);
+    if (state.solo.active) return state.solo.members.includes(id);
+    return isNodeVisible(n, state.view);
   }
   function edgeVisible(e) {
     return nodeVisible(getEdgeSourceId(e)) && nodeVisible(getEdgeTargetId(e));
   }
   function projectedVisible(e) {
-    if (!S.viewOptions.projected) return false;
+    if (!state.view.projectedEdges) return false;
     const a = byId[getEdgeSourceId(e)], b = byId[getEdgeTargetId(e)];
     if (!a || !b) return false;
-    if ((a.type === "NameO" || b.type === "NameO") && !S.viewOptions.sourceNames) return false;
+    if ((a.type === "NameO" || b.type === "NameO") && !state.view.sourceNames) return false;
     return nodeVisible(a.id) && nodeVisible(b.id);
   }
   function labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor) {
@@ -2826,21 +2829,21 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return n;
   }
   function updateLabelVisibility(context = {}) {
-    const k = S.transform.k;
-    const focus = context.focus || (S.activeId ? buildFocusSet(S.activeId) : null);
+    const k = uiRuntime.transform.k;
+    const focus = context.focus || (uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null);
     const focusIds = focus ? new Set(focus.ids) : null;
     const core = focus && focus.coreId ? byId[focus.coreId] : null;
     const relParticipants = core && core.type === "RelO" ? new Set(DATA.relations[focus.coreId] || []) : null;
     const ranked = simNodes.filter((d) => {
-      if (!S.viewOptions.labels) return false;
+      if (!state.view.labels) return false;
       if (!nodeVisible(d.id)) return false;
-      if (d.type === "NameO" && !S.viewOptions.sourceNames) return false;
-      if ((d.type === "RefO" || d.type === "RelO") && d.id !== S.activeId) {
+      if (d.type === "NameO" && !state.view.sourceNames) return false;
+      if ((d.type === "RefO" || d.type === "RelO") && d.id !== uiRuntime.focusedId) {
         if (isMobile() || k < 1.6) return false;
       }
       return true;
     }).map((d) => {
-      const isActive = d.id === S.activeId;
+      const isActive = d.id === uiRuntime.focusedId;
       const isFocusMember = !!(focusIds && focusIds.has(d.id));
       const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
       const isStructuralAnchor = d.type === "RNO" || d.type === "MNO" || d.id === "FO.BLACK_BIRD_FIELD";
@@ -2852,7 +2855,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
         tier: labelPriorityTier(d, isActive, isFocusMember, isRelParticipant)
       };
     }).sort((a, b) => a.tier - b.tier);
-    const budget = labelBudget(k, !!S.activeId);
+    const budget = labelBudget(k, !!uiRuntime.focusedId);
     const desiredById = /* @__PURE__ */ new Map();
     const visibleIds = /* @__PURE__ */ new Set();
     ranked.forEach((item, i) => {
@@ -2867,13 +2870,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     baseSel.attr("display", (d) => edgeVisible(d) ? null : "none");
     projSel.attr("display", (d) => projectedVisible(d) ? null : "none");
     projHitSel.attr("display", (d) => projectedVisible(d) ? null : "none");
-    if (!S.activeId) transitionToFieldLighting({ duration: 0 });
-    else presentFocus(S.activeId, buildFocusSet(S.activeId), { lightDuration: 0 });
+    if (!uiRuntime.focusedId) transitionToFieldLighting({ duration: 0 });
+    else presentFocus(uiRuntime.focusedId, buildFocusSet(uiRuntime.focusedId), { lightDuration: 0 });
     updateLabelVisibility();
     recomputeLabelPlacements();
     updateWearOverlay();
     drawRouteMemory({ duration: 0 });
-    updateRovingTabindex(S.activeId);
+    updateRovingTabindex(uiRuntime.focusedId);
   }
   async function beginGraphHandoff(opts = {}) {
     const e = svg.node();
@@ -2918,9 +2921,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function animateCamera(transform, opts = {}) {
     const dur = prefersReducedMotion() ? 0 : opts.duration ?? 760;
-    S.cameraInFlight = true;
+    uiRuntime.cameraInFlight = true;
     svg.transition().duration(dur).ease(d3.easeCubicInOut).call(zoom.transform, transform).on("end", () => {
-      S.cameraInFlight = false;
+      uiRuntime.cameraInFlight = false;
     });
   }
   function getNodeBounds(items, padNode = 34) {
@@ -2987,10 +2990,10 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function fitFocusFrame(focus, opts = {}) {
     const envelope = computeNodeEnvelope(focus.ids, isMobile() ? 30 : 44);
     if (!envelope || width < 10 || height < 10) return;
-    const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (S.readerOpen && !isMobile() ? 1 : 0));
+    const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (uiRuntime.readerOpen && !isMobile() ? 1 : 0));
     const envRect = envelopeToRect(envelope);
     const isFirstFocus = !!opts.fromNeutral;
-    const current = isFirstFocus ? null : toZoomTransform(S.transform || d3.zoomIdentity);
+    const current = isFirstFocus ? null : toZoomTransform(uiRuntime.transform || d3.zoomIdentity);
     const transform = computeFocusCamera(envRect, safe, current, { occupancy: 0.7, isFirstFocus });
     if (isFirstFocus) {
       animateCamera(toZoomTransform(transform), { duration: opts.duration ?? 760 });
@@ -3004,7 +3007,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function fitWholeField(opts = {}) {
     const visible = simNodes.filter((d) => nodeVisible(d.id));
     if (!visible.length || width < 10 || height < 10) return;
-    const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (S.readerOpen && !isMobile() ? 1 : 0));
+    const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (uiRuntime.readerOpen && !isMobile() ? 1 : 0));
     const envelope = getNodeBounds(visible, isMobile() ? 30 : 40);
     const transform = computeNeutralCamera(envelopeToRect(envelope), safe, { occupancy: 0.8 });
     animateCamera(toZoomTransform(transform), { duration: opts.duration ?? 850 });
@@ -3067,7 +3070,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function updateWarmPenumbra(coreId, dur = 420) {
     const core = coreId && coreId !== "FO.BLACK_BIRD_FIELD" ? byId[coreId] : null;
     const visible = !!(core && core.x != null && core.y != null);
-    warmPenumbraCircle.attr("r", 110 / Math.max(0.01, S.transform.k)).attr("cx", visible ? core.x : 0).attr("cy", visible ? core.y : 0).transition().duration(prefersReducedMotion() ? 0 : dur).attr("opacity", visible ? 1 : 0);
+    warmPenumbraCircle.attr("r", 110 / Math.max(0.01, uiRuntime.transform.k)).attr("cx", visible ? core.x : 0).attr("cy", visible ? core.y : 0).transition().duration(prefersReducedMotion() ? 0 : dur).attr("opacity", visible ? 1 : 0);
   }
   function applyClearingStyling(focus, dur) {
     currentPenumbraVisible = false;
@@ -3108,11 +3111,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     subtract.exit().remove();
     subtract.enter().append("circle").attr("class", "bb-clearing-subtract").attr("fill", "#000").merge(subtract).attr("r", nodeMetrics(bb).outerR + 6).attr("cx", (d) => nodeX(d)).attr("cy", (d) => nodeY(d));
     const desiredBlurPx = isMobile() ? 14 : 18;
-    clearingBlur.attr("stdDeviation", desiredBlurPx / Math.max(0.01, S.transform.k));
+    clearingBlur.attr("stdDeviation", desiredBlurPx / Math.max(0.01, uiRuntime.transform.k));
     clearingRect.transition().duration(prefersReducedMotion() ? 0 : 420).attr("opacity", 0.13);
   }
   function updateClearing(relOId) {
-    S.fieldTrace.activeClearingId = relOId || null;
+    uiRuntime.activeClearingId = relOId || null;
     if (!relOId) {
       clearingMaskGroup.selectAll("*").remove();
       clearingRect.transition().duration(prefersReducedMotion() ? 0 : 300).attr("opacity", 0);
@@ -3146,7 +3149,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     updateWarmPenumbra(null, dur);
     nodeSel.transition().duration(dur).attr("opacity", (d) => {
       if (!nodeVisible(d.id)) return 0;
-      if (d.type === "NameO" && !S.viewOptions.sourceNames) return 0.28;
+      if (d.type === "NameO" && !state.view.sourceNames) return 0.28;
       return 1;
     });
     baseSel.transition().duration(dur).attr("stroke-opacity", (d) => edgeVisible(d) ? d.kind === "rel" ? 0.24 : 0.1 : 0);
@@ -3161,23 +3164,52 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function baseLinkPairsOrdered() {
     return baseLinks.map((e) => [getEdgeSourceId(e), getEdgeTargetId(e)]);
   }
+  function wearEdgeKey(a, b) {
+    return a < b ? `${a}|${b}` : `${b}|${a}`;
+  }
   function wearCountFor(e) {
-    return S.fieldTrace.wear[canonicalEdgeKey(getEdgeSourceId(e), getEdgeTargetId(e))] || 0;
+    return state.trace.wear[wearEdgeKey(getEdgeSourceId(e), getEdgeTargetId(e))] || 0;
   }
   function wearOpacityFor(count) {
     return count ? Math.min(0.85, 0.14 + count * 0.1) : 0;
   }
   var wearColorScale = d3.interpolateRgb("#6b6258", "#c49a45");
-  function recordInferredWear(fromId, toId) {
+  function pulseAnimationPath(start, goal, orderedEdges, visibleIds) {
+    if (!start || !goal || start === goal) return [];
+    const visible = new Set(visibleIds);
+    if (!visible.has(start) || !visible.has(goal)) return [];
+    const adj2 = /* @__PURE__ */ new Map();
+    for (const [a, b] of orderedEdges) {
+      if (!visible.has(a) || !visible.has(b)) continue;
+      if (!adj2.has(a)) adj2.set(a, []);
+      if (!adj2.has(b)) adj2.set(b, []);
+      adj2.get(a).push(b);
+      adj2.get(b).push(a);
+    }
+    for (const v of adj2.values()) v.sort();
+    const q = [start], prev = /* @__PURE__ */ new Map([[start, null]]);
+    while (q.length) {
+      const cur = q.shift();
+      for (const next of adj2.get(cur) || []) {
+        if (prev.has(next)) continue;
+        prev.set(next, cur);
+        if (next === goal) {
+          q.length = 0;
+          break;
+        }
+        q.push(next);
+      }
+    }
+    if (!prev.has(goal)) return [];
+    const path = [];
+    for (let at = goal; at != null; at = prev.get(at)) path.push(at);
+    return path.reverse();
+  }
+  function wearPulsePathFor(fromId, toId) {
     if (!fromId || !toId || fromId === toId) return null;
     const visibleIds = simNodes.filter((d) => nodeVisible(d.id)).map((d) => d.id);
-    const path = stableBfsPath(fromId, toId, baseLinkPairsOrdered(), visibleIds);
-    if (path.length < 2) return null;
-    for (let i = 1; i < path.length; i++) {
-      const key = canonicalEdgeKey(path[i - 1], path[i]);
-      S.fieldTrace.wear[key] = Math.min(7, (S.fieldTrace.wear[key] || 0) + 1);
-    }
-    return path;
+    const path = pulseAnimationPath(fromId, toId, baseLinkPairsOrdered(), visibleIds);
+    return path.length > 1 ? path : null;
   }
   function updateWearOverlay() {
     wearSel.attr("display", (d) => edgeVisible(d) ? null : "none").attr("stroke", (d) => wearColorScale(Math.min(1, wearCountFor(d) / 7))).attr("stroke-opacity", (d) => wearOpacityFor(wearCountFor(d))).attr("stroke-width", (d) => {
@@ -3199,9 +3231,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     travelPulseActive = true;
     const segKeys = [];
     for (let i = 1; i < pathIds.length; i++)
-      segKeys.push(canonicalEdgeKey(pathIds[i - 1], pathIds[i]));
+      segKeys.push(wearEdgeKey(pathIds[i - 1], pathIds[i]));
     wearSel.each(function(d) {
-      const key = canonicalEdgeKey(getEdgeSourceId(d), getEdgeTargetId(d));
+      const key = wearEdgeKey(getEdgeSourceId(d), getEdgeTargetId(d));
       const idx = segKeys.indexOf(key);
       if (idx === -1) return;
       d3.select(this).interrupt().transition().delay(idx * 90).duration(220).attr("stroke-opacity", 0.9).transition().duration(260).attr("stroke-opacity", wearOpacityFor(wearCountFor(d)));
@@ -3214,81 +3246,54 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       }, total)
     );
   }
-  function recordDepartureAfterglow(previousId, newId) {
-    if (!previousId || previousId === newId) return;
-    const cap = isMobile() ? 3 : 8;
-    const duration = isMobile() ? 4e3 : 1e4;
-    S.fieldTrace.afterglows = S.fieldTrace.afterglows.filter((a) => a.id !== previousId);
-    S.fieldTrace.afterglows.push({ id: previousId, departedAt: Date.now(), duration });
-    if (S.fieldTrace.afterglows.length > cap)
-      S.fieldTrace.afterglows = S.fieldTrace.afterglows.slice(-cap);
-    const old = afterglowTimers.get(previousId);
-    if (old) clearTimeout(old);
-    const t = setTimeout(() => {
-      S.fieldTrace.afterglows = S.fieldTrace.afterglows.filter((a) => a.id !== previousId);
-      afterglowTimers.delete(previousId);
-      updateAfterglowOverlay();
-    }, duration);
-    afterglowTimers.set(previousId, t);
-    updateAfterglowOverlay();
+  function scheduleAfterglowCleanup(id, totalMs) {
+    timerRegistry.cancelByOwner({ kind: "trace", id });
+    timerRegistry.schedule(() => updateAfterglowOverlay(), totalMs, { kind: "trace", id });
   }
   function updateAfterglowOverlay() {
-    const data = S.fieldTrace.afterglows.map((a) => ({ ...a, node: byId[a.id] })).filter((a) => a.node);
+    const now = Date.now();
+    const data = state.trace.afterglows.filter((a) => a.deadline > now).map((a) => ({ ...a, node: byId[a.id] })).filter((a) => a.node);
     const sel = afterglowLayer.selectAll("circle.bb-afterglow").data(data, (d) => d.id);
     sel.exit().remove();
     const residueR = isMobile() ? 46 : 64;
     const enter2 = sel.enter().append("circle").attr("class", "bb-afterglow").attr("fill", "url(#bb-afterglow-gradient)").attr("pointer-events", "none").attr("cx", (d) => nodeX(d.node)).attr("cy", (d) => nodeY(d.node)).attr("r", residueR).attr("opacity", 1);
-    enter2.merge(sel).transition().duration(prefersReducedMotion() ? 0 : (d) => d.duration).ease(d3.easeLinear).attr("opacity", 0);
+    enter2.merge(sel).transition().duration(prefersReducedMotion() ? 0 : (d) => d.totalMs).ease(d3.easeLinear).attr("opacity", 0);
     nodeSel.attr(
       "data-bb-afterglow",
-      (d) => S.fieldTrace.afterglows.some((a) => a.id === d.id) ? "1" : "0"
+      (d) => data.some((a) => a.id === d.id) ? "1" : "0"
     );
   }
   function clearFieldTrace() {
+    const idsToCancel = state.trace.afterglows.map((a) => a.id);
     dispatch({ type: CommandType.CLEAR_TRACE });
-    afterglowTimers.forEach((t) => clearTimeout(t));
-    afterglowTimers.clear();
+    idsToCancel.forEach((id) => timerRegistry.cancelByOwner({ kind: "trace", id }));
     clearPulseTimers();
-    S.fieldTrace.afterglows = [];
-    S.fieldTrace.wear = /* @__PURE__ */ Object.create(null);
     updateAfterglowOverlay();
     updateWearOverlay();
   }
   function presentDesignTransition(id, previousId, focus, opts = {}) {
-    recordDepartureAfterglow(previousId, id);
-    const path = previousId && previousId !== id ? recordInferredWear(previousId, id) : null;
+    if (previousId && previousId !== id) {
+      const entry = state.trace.afterglows.find((a) => a.id === previousId);
+      if (entry) scheduleAfterglowCleanup(previousId, entry.totalMs);
+    }
+    updateAfterglowOverlay();
+    const path = previousId && previousId !== id ? wearPulsePathFor(previousId, id) : null;
     presentFocus(id, focus, opts);
     if (path && path.length > 1) pulseWearPath(path);
     else updateWearOverlay();
-    S.fieldTrace.previousCommittedId = id;
-  }
-  function makeRouteEvent(id, meta2 = {}) {
-    return {
-      id,
-      type: byId[id]?.type || "",
-      label: shortOf(id),
-      from: meta2.from || null,
-      source: meta2.source || "unknown",
-      index: S.routeEvents.length + 1
-    };
-  }
-  function registerRouteEvent(id, meta2 = {}) {
-    const ev = makeRouteEvent(id, meta2);
-    S.routeEvents.push(ev);
-    renderRoute();
   }
   function routeApertureEvents() {
-    const events = S.routeEvents;
+    const events = state.history.route;
     const maxTail = isMobile() ? 2 : window.innerWidth < 1180 ? 3 : 4;
     if (events.length <= maxTail + 1) return { leading: [], tail: events, collapsed: false };
     const first = events[0];
     const tail = events.slice(-maxTail);
-    const tailHasFirst = tail.some((ev) => ev.index === first.index);
+    const tailHasFirst = tail.some((ev) => ev.sequence === first.sequence);
     return { leading: tailHasFirst ? [] : [first], tail, collapsed: true };
   }
   function renderRoute() {
     const r = document.getElementById("route");
-    if (!S.routeEvents.length) {
+    if (!state.history.route.length) {
       r.innerHTML = '<span class="route-empty">route is empty</span>';
       updateRouteLiveRegion();
       drawRouteMemory({ duration: 0 });
@@ -3298,7 +3303,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const ap = routeApertureEvents();
     const parts = [];
     const addEv = (ev, cls = "") => parts.push(
-      `<button class="route-item ${cls}" data-route-index="${ev.index}" data-id="${ev.id}" title="${esc(labelOf(ev.id))}">${esc(shortOf(ev.id))}</button>`
+      `<button class="route-item ${cls}" data-route-index="${ev.sequence}" data-id="${ev.id}" title="${esc(labelOf(ev.id))}">${esc(shortOf(ev.id))}</button>`
     );
     ap.leading.forEach((ev) => addEv(ev));
     if (ap.collapsed) {
@@ -3330,7 +3335,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       };
     r.querySelector(".clear-route").onclick = () => {
       dispatch({ type: CommandType.CLEAR_ROUTE });
-      S.routeEvents = [];
       renderRoute();
       drawRouteMemory({ duration: 260 });
     };
@@ -3340,12 +3344,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function renderRouteDrawer() {
     const box = document.getElementById("routeList");
     if (!box) return;
-    if (!S.routeEvents.length) {
+    if (!state.history.route.length) {
       box.innerHTML = '<div class="route-empty" style="padding:18px 0">route is empty</div>';
       return;
     }
-    box.innerHTML = S.routeEvents.map(
-      (ev, i) => `<div class="route-row" data-id="${ev.id}" data-route-index="${ev.index}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`
+    box.innerHTML = state.history.route.map(
+      (ev, i) => `<div class="route-row" data-id="${ev.id}" data-route-index="${ev.sequence}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`
     ).join("");
     box.querySelectorAll(".route-row").forEach(
       (row) => row.onclick = () => {
@@ -3365,11 +3369,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     statusRenderer?.announce(message);
   }
   function updateRouteLiveRegion() {
-    const labels = S.routeEvents.map((ev) => ev.label).join(", ");
+    const labels = state.history.route.map((ev) => ev.label).join(", ");
     announceStatus(labels ? `Route: ${labels}.` : "Route is empty.");
   }
   function routeStats() {
-    const recent = S.routeEvents.slice(-S.recentRouteWindow);
+    const recent = state.history.route.slice(-RECENT_ROUTE_WINDOW);
     const stats = /* @__PURE__ */ new Map();
     recent.forEach((ev, i) => {
       const age = recent.length - 1 - i;
@@ -3393,20 +3397,20 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     });
   }
   function routeSegments() {
-    const events = S.routeEvents.slice(-S.recentRouteWindow);
+    const events = state.history.route.slice(-RECENT_ROUTE_WINDOW);
     const segs = [];
     for (let i = 1; i < events.length; i++) {
       const a = events[i - 1], b = events[i];
       if (!byId[a.id] || !byId[b.id] || !nodeVisible(a.id) || !nodeVisible(b.id)) continue;
-      if (S.soloSet && (!S.soloSet.has(a.id) || !S.soloSet.has(b.id))) continue;
+      if (state.solo.active && (!state.solo.members.includes(a.id) || !state.solo.members.includes(b.id))) continue;
       segs.push({
-        key: `${a.index}-${b.index}`,
+        key: `${a.sequence}-${b.sequence}`,
         source: byId[a.id],
         target: byId[b.id],
         age: events.length - 1 - i
       });
     }
-    return segs.slice(-S.maxVisibleRouteSegments);
+    return segs.slice(-MAX_VISIBLE_ROUTE_SEGMENTS);
   }
   function drawRouteMemory(opts = {}) {
     const dur = opts.duration ?? 420;
@@ -3470,32 +3474,26 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       forceReaderOpen = false,
       surface
     } = opts;
-    const previousId = S.activeId;
+    const previousId = uiRuntime.focusedId;
     const isSameId = previousId === id;
-    S.phase = "focused";
-    if (surface) S.surface = surface;
-    else if (isMobile() && openReader !== false) S.surface = "read";
-    syncSurfaceCanonical();
-    updatePhaseClass();
-    S.activeId = id;
-    S.activeEdge = null;
-    S.activeRelos = [];
-    S.previewTarget = null;
+    syncSurfaceCanonical(surface || (isMobile() && openReader !== false ? "read" : state.responsive.surface));
+    uiRuntime.focusedId = id;
     dispatch({ type: CommandType.CLEAR_INSPECTION });
+    updatePhaseClass();
     closeAllDrawers();
     hidePreview();
     updateRovingTabindex(id);
     if (routePolicy === "append") {
-      const routeLenBefore = canonicalState.history.route.length;
+      const routeLenBefore = state.history.route.length;
       dispatch({ type: CommandType.COMMIT_OBJECT, id, source });
-      if (canonicalState.history.route.length > routeLenBefore) {
-        registerRouteEvent(id, { from: previousId, source });
+      if (state.history.route.length > routeLenBefore) {
+        renderRoute();
       }
     } else if (routePolicy === "replay" && opts.sequence != null) {
       dispatch({ type: CommandType.REPLAY_ROUTE_EVENT, sequence: opts.sequence });
     }
-    if (openReader !== false && (forceReaderOpen || !S.readerOpen)) {
-      await setReaderOpen(true, { measure: !(isMobile() && S.surface === "read") });
+    if (openReader !== false && (forceReaderOpen || !uiRuntime.readerOpen)) {
+      await setReaderOpen(true, { measure: !(isMobile() && state.responsive.surface === "read") });
     }
     const focus = buildFocusSet(id);
     applyLocalAperture(focus);
@@ -3512,7 +3510,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     if (!result) return;
     const { focus, previousId } = result;
     const cameraDuration = opts.cameraDuration ?? 760;
-    if (!(isMobile() && S.surface === "read") && opts.camera !== false) {
+    if (!(isMobile() && state.responsive.surface === "read") && opts.camera !== false) {
       const applyCamera = () => fitFocusFrame(focus, { duration: cameraDuration, fromNeutral: previousId == null });
       if (cameraDuration > 0) waitFocusForceSettled().then(applyCamera);
       else applyCamera();
@@ -3530,13 +3528,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   async function returnToField(opts = {}) {
     dispatch({ type: CommandType.RETURN_TO_WHOLE_FIELD });
     dispatch({ type: CommandType.CLEAR_INSPECTION });
-    S.phase = "field";
-    S.surface = "field";
-    syncSurfaceCanonical();
-    S.activeId = null;
-    S.activeEdge = null;
-    S.activeRelos = [];
-    S.previewTarget = null;
+    syncSurfaceCanonical("field");
+    uiRuntime.focusedId = null;
     closeAllDrawers();
     closeSheet();
     hidePreview();
@@ -3574,7 +3567,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     updateRouteLiveRegion();
   }
   function graphPointToScreen(x, y) {
-    const p = S.transform.apply([x, y]);
+    const p = uiRuntime.transform.apply([x, y]);
     const rect = mapWrap.getBoundingClientRect();
     return { x: rect.left + p[0], y: rect.top + p[1] };
   }
@@ -3625,7 +3618,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
   }
   function touchObject(id, opts = {}) {
-    S.touchedId = id;
+    uiRuntime.touchedId = id;
     dispatch({ type: CommandType.PREVIEW_OBJECT, id });
     nodeSel.select(".node-focus-ring").attr("stroke", (n) => n.id === id ? "#c49a45" : "transparent").attr("stroke-opacity", (n) => n.id === id ? 0.42 : 0);
     if (opts.showPreview !== false && byId[id]) {
@@ -3635,7 +3628,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
   }
   function clearTouch() {
-    S.touchedId = null;
+    uiRuntime.touchedId = null;
     dispatch({ type: CommandType.CLEAR_PREVIEW });
     hidePreview();
     nodeSel.select(".node-focus-ring").attr("stroke", "transparent").attr("stroke-opacity", 0);
@@ -3652,9 +3645,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function closeSheet() {
     document.getElementById("sheet").classList.remove("open");
-    S.showSheet = false;
-    S.previewTarget = null;
-    if (S.overlay === "nodeSheet" || S.overlay === "edgeSheet") setOverlay(null);
+    uiRuntime.showSheet = false;
+    if (uiRuntime.chromeOverlay === "nodeSheet" || uiRuntime.chromeOverlay === "edgeSheet") setOverlay(null);
   }
   function reader(html) {
     document.getElementById("reader").innerHTML = html;
@@ -3770,17 +3762,15 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function openProjectedEdge(e) {
     const s = getEdgeSourceId(e), t = getEdgeTargetId(e);
-    S.activeEdge = { source: s, target: t };
-    S.activeRelos = e.relos || [];
-    S.previewTarget = null;
+    const relOIds = e.relos || [];
     dispatch({
       type: CommandType.INSPECT_PROJECTED_EDGE,
       sourceId: s,
       targetId: t,
-      relOIds: S.activeRelos
+      relOIds
     });
-    if (isMobile()) return showEdgeSheet(s, t, S.activeRelos);
-    renderEdgePanel(s, t, S.activeRelos);
+    if (isMobile()) return showEdgeSheet(s, t, relOIds);
+    renderEdgePanel(s, t, relOIds);
   }
   function renderEdgePanel(s, t, relos) {
     reader(
@@ -3792,7 +3782,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     closeAllDrawers();
     hidePreview();
     setOverlay("edgeSheet");
-    S.showSheet = true;
+    uiRuntime.showSheet = true;
     document.getElementById("sheetBody").innerHTML = `<div class="sheet-title">${shortOf(s)} \u2194 ${shortOf(t)}</div><div class="meta">Projected edge</div><div class="section-label">generated by</div>${renderIndexList(relos)}<div class="sheet-actions"><button class="tool-btn" id="sheetEdgeOpen">Open</button><button class="tool-btn" id="sheetClose2">Keep reading</button></div>`;
     document.getElementById("sheet").classList.add("open");
     bindIndexItems();
@@ -3812,7 +3802,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       });
       el.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        if (isMobile() && S.surface === "read")
+        if (isMobile() && state.responsive.surface === "read")
           return focusObject(el.dataset.id, { source: "text-link-mobile", openReader: true });
         focusObject(el.dataset.id, { source: "text-link" });
       });
@@ -3894,61 +3884,62 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       clearTouch();
     }
   });
+  var VIEW_OPTION_CANONICAL_KEY = { projected: "projectedEdges" };
+  function viewOptionValue(key) {
+    return state.view[VIEW_OPTION_CANONICAL_KEY[key] || key];
+  }
   function renderFieldViewControls() {
     const typeBox = document.getElementById("typeToggles");
     const viewBox = document.getElementById("viewToggles");
     typeBox.innerHTML = typeOrder.map(
-      (type) => `<div class="toggle-row"><span>${type} <span style="color:var(--ghost)">(${countType(type)})</span></span><button class="switch ${S.objectGroups[type] ? "on" : ""}" data-type="${type}" aria-label="toggle ${type}" aria-pressed="${!!S.objectGroups[type]}"></button></div>`
+      (type) => `<div class="toggle-row"><span>${type} <span style="color:var(--ghost)">(${countType(type)})</span></span><button class="switch ${state.view.typeVisibility[type] ? "on" : ""}" data-type="${type}" aria-label="toggle ${type}" aria-pressed="${!!state.view.typeVisibility[type]}"></button></div>`
     ).join("");
     viewBox.innerHTML = [
       ["projected", "Projected edges"],
       ["labels", "Labels"],
       ["sourceNames", "Source names"]
     ].map(
-      ([key, label]) => `<div class="toggle-row"><span>${label}</span><button class="switch ${S.viewOptions[key] ? "on" : ""}" data-view="${key}" aria-label="toggle ${label}" aria-pressed="${!!S.viewOptions[key]}"></button></div>`
+      ([key, label]) => `<div class="toggle-row"><span>${label}</span><button class="switch ${viewOptionValue(key) ? "on" : ""}" data-view="${key}" aria-label="toggle ${label}" aria-pressed="${!!viewOptionValue(key)}"></button></div>`
     ).join("");
     typeBox.querySelectorAll("[data-type]").forEach(
-      (btn) => btn.onclick = () => setObjectGroup(btn.dataset.type, !S.objectGroups[btn.dataset.type])
+      (btn) => btn.onclick = () => setObjectGroup(btn.dataset.type, !state.view.typeVisibility[btn.dataset.type])
     );
     viewBox.querySelectorAll("[data-view]").forEach(
       (btn) => btn.onclick = () => {
         const key = btn.dataset.view;
-        S.viewOptions[key] = !S.viewOptions[key];
+        const nextValue = !viewOptionValue(key);
         dispatch({
           type: CommandType.SET_VIEW_OPTION,
           option: VIEW_OPTION_CANONICAL_KEY[key] || key,
-          value: S.viewOptions[key]
+          value: nextValue
         });
         renderFieldViewControls();
         updateVisibility();
-        if (S.activeId) fitFocusFrame(buildFocusSet(S.activeId));
+        if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
         else fitVisibleField();
       }
     );
   }
-  var VIEW_OPTION_CANONICAL_KEY = { projected: "projectedEdges" };
   function setObjectGroup(type, value) {
-    S.objectGroups[type] = value;
     dispatch({ type: CommandType.SET_TYPE_VISIBILITY, objectType: type, visible: value });
     renderFieldViewControls();
     updateVisibility();
-    if (S.activeId) fitFocusFrame(buildFocusSet(S.activeId));
+    if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
     else fitVisibleField();
-    if (S.activeId && !nodeVisible(S.activeId)) returnToField({ reason: "active-hidden-by-filter" });
+    if (uiRuntime.focusedId && !nodeVisible(uiRuntime.focusedId)) returnToField({ reason: "active-hidden-by-filter" });
   }
   function renderObjectRows(container, filter = "", typeFilter = null) {
     const q = filter.trim().toLowerCase();
     const rows = nodes.filter(
       (n) => (!typeFilter || n.type === typeFilter) && (!q || n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q))
     ).map(
-      (n) => `<div class="object-row"><div class="otype">${n.type}</div><div class="olabel" data-open="${n.id}">${n.label}</div><button class="icon-small" data-eye="${n.id}">${S.objectVisibility[n.id] === false ? "show" : "hide"}</button><button class="icon-small" data-solo="${n.id}">solo</button></div>`
+      (n) => `<div class="object-row"><div class="otype">${n.type}</div><div class="olabel" data-open="${n.id}">${n.label}</div><button class="icon-small" data-eye="${n.id}">${state.view.objectVisibility[n.id] === false ? "show" : "hide"}</button><button class="icon-small" data-solo="${n.id}">solo</button></div>`
     ).join("");
     container.innerHTML = rows;
     container.querySelectorAll("[data-open]").forEach(
       (el) => el.onclick = () => {
         const id = el.dataset.open;
-        if (S.objectVisibility[id] === false) {
-          S.objectVisibility[id] = true;
+        if (state.view.objectVisibility[id] === false) {
           dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true });
         }
         focusObject(id, { source: "object-drawer" });
@@ -3958,8 +3949,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     container.querySelectorAll("[data-eye]").forEach(
       (el) => el.onclick = () => {
         const id = el.dataset.eye;
-        S.objectVisibility[id] = S.objectVisibility[id] === false;
-        dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: S.objectVisibility[id] });
+        const nextVisible = state.view.objectVisibility[id] === false;
+        dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
         renderFieldViewControls();
         updateVisibility();
       }
@@ -3967,7 +3958,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     container.querySelectorAll("[data-solo]").forEach(
       (el) => el.onclick = async () => {
         const id = el.dataset.solo;
-        S.soloSet = computeSoloSet(id);
         dispatch({ type: CommandType.ENTER_SOLO, id });
         announceStatus(`Solo: ${byId[id]?.label || id}.`);
         updateVisibility();
@@ -3991,13 +3981,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function renderObjectLists() {
     const objectList = document.getElementById("objectList");
     const title = document.getElementById("objectDrawerTitle");
-    const typeFilter = S.indexFilter === "sources" ? "RefO" : null;
-    if (title) title.textContent = S.indexFilter === "sources" ? "Sources" : "Index";
+    const typeFilter = uiRuntime.indexFilter === "sources" ? "RefO" : null;
+    if (title) title.textContent = uiRuntime.indexFilter === "sources" ? "Sources" : "Index";
     if (objectList)
       renderObjectRows(objectList, document.getElementById("objectSearch")?.value || "", typeFilter);
   }
   function openIndex(filter = "all") {
-    S.indexFilter = filter;
+    uiRuntime.indexFilter = filter;
     const search = document.getElementById("objectSearch");
     if (search) search.value = "";
     renderObjectLists();
@@ -4005,11 +3995,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   document.getElementById("objectSearch").oninput = renderObjectLists;
   document.getElementById("restoreField").onclick = () => {
-    S.objectVisibility = { ...defaultVisibility };
-    S.soloSet = null;
-    Object.keys(S.objectGroups).forEach((k) => S.objectGroups[k] = true);
     dispatch({ type: CommandType.RESTORE_FIELD });
-    if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
+    if (state.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
     announceStatus("Field restored.");
     renderFieldViewControls();
     updateVisibility();
@@ -4017,9 +4004,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     returnToField({ source: "restore-field" });
   };
   document.getElementById("showAllObjects").onclick = () => {
-    S.objectVisibility = { ...defaultVisibility };
-    S.soloSet = null;
-    if (canonicalState.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
+    Object.entries(state.view.objectVisibility).filter(([, visible]) => visible === false).forEach(([id]) => dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true }));
+    if (state.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
     announceStatus("Field restored.");
     renderObjectLists();
     updateVisibility();
@@ -4028,7 +4014,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   };
   document.getElementById("clearRouteDrawer").onclick = () => {
     dispatch({ type: CommandType.CLEAR_ROUTE });
-    S.routeEvents = [];
     renderRoute();
     drawRouteMemory({ duration: 260 });
   };
@@ -4043,7 +4028,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       else if (a === "index") openIndex("all");
       else if (a === "sources") openIndex("sources");
       else if (a === "about") {
-        if (S.aboutOpen) closeAbout();
+        if (state.overlay.kind === "about") closeAbout();
         else openAbout("rail");
       }
     }
@@ -4052,12 +4037,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     (b) => b.onclick = async () => {
       const a = b.dataset.mobile;
       if (a === "field") {
-        if (S.aboutOpen) closeAbout();
-        if (isMobile() && S.activeId) {
-          const fid = S.activeId;
+        if (state.overlay.kind === "about") closeAbout();
+        if (isMobile() && uiRuntime.focusedId) {
+          const fid = uiRuntime.focusedId;
           beginGraphHandoff();
-          S.surface = "field";
-          syncSurfaceCanonical();
+          syncSurfaceCanonical("field");
           updatePhaseClass();
           closeAllDrawers();
           closeSheet();
@@ -4075,8 +4059,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
         return;
       }
       if (a === "read") {
-        const readTarget = S.activeId || "FO.BLACK_BIRD_FIELD";
-        if (!S.activeId) {
+        const readTarget = uiRuntime.focusedId || "FO.BLACK_BIRD_FIELD";
+        if (!uiRuntime.focusedId) {
           await commitFocus(readTarget, {
             source: "read-btn",
             routePolicy: "none",
@@ -4085,9 +4069,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
             forceReaderOpen: true
           });
         } else {
-          S.phase = "focused";
-          S.surface = "read";
-          syncSurfaceCanonical();
+          syncSurfaceCanonical("read");
           updatePhaseClass();
           await setReaderOpen(true, { measure: false });
         }
@@ -4140,7 +4122,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     projSel.transition().duration(dur).attr("stroke-opacity", stage.projected ? 0.16 : 0);
   }
   function runOnboardingStage(i) {
-    if (!S.onboardingActive) return;
+    if (!uiRuntime.onboardingActive) return;
     if (i >= onboardingStages.length) return finishOnboarding();
     const stage = onboardingStages[i];
     showFieldPrompt(stage.text);
@@ -4152,11 +4134,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }, hold);
   }
   async function startTacitOnboarding() {
-    S.phase = "onboarding";
-    S.surface = "field";
-    syncSurfaceCanonical();
+    uiRuntime.onboardingActive = true;
+    syncSurfaceCanonical("field");
     updatePhaseClass();
-    S.onboardingActive = true;
     await setReaderOpen(false);
     reader("");
     transitionToFieldLighting({ duration: 0 });
@@ -4169,7 +4149,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     runOnboardingStage(0);
   }
   async function finishOnboarding() {
-    S.onboardingActive = false;
+    uiRuntime.onboardingActive = false;
     hideFieldPrompt();
     await sleep(prefersReducedMotion() ? 0 : 260);
     const id = "FO.BLACK_BIRD_FIELD";
@@ -4179,9 +4159,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       presentFocus(id, focus, { lightDuration: prefersReducedMotion() ? 0 : 520 });
       fitFocusFrame(focus, { duration: prefersReducedMotion() ? 0 : 780 });
       await sleep(prefersReducedMotion() ? 0 : 420);
-      S.phase = "focused";
-      S.surface = "field";
-      syncSurfaceCanonical();
+      syncSurfaceCanonical("field");
       updatePhaseClass();
       await focusObject(id, {
         source: "onboarding",
@@ -4192,9 +4170,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       });
       return;
     }
-    S.phase = "focused";
-    S.surface = "field";
-    syncSurfaceCanonical();
+    syncSurfaceCanonical("field");
     updatePhaseClass();
     await beginGraphHandoff({ fade: true, duration: 180 });
     await setReaderOpen(true, { waitTransition: true, transitionMs: 680, measure: true });
@@ -4225,9 +4201,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     await sleep(prefersReducedMotion() ? 0 : 520);
     th.style.display = "none";
     if (opts.skipOnboarding) {
-      S.phase = "focused";
-      S.surface = "field";
-      syncSurfaceCanonical();
+      syncSurfaceCanonical("field");
       updatePhaseClass();
       if (!isMobile()) {
         await setReaderOpen(true, { waitTransition: true, transitionMs: 520, measure: true });
@@ -4259,8 +4233,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     });
   }
   function openAbout(origin) {
-    S.aboutOpen = true;
-    S.aboutOrigin = origin;
     dispatch({ type: CommandType.OPEN_OVERLAY, kind: "about", invoker: origin || "unknown" });
     closeAllDrawers();
     closeSheet();
@@ -4275,9 +4247,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     trapOverlayOpen(panel);
   }
   function closeAbout() {
-    if (!S.aboutOpen) return;
-    S.aboutOpen = false;
-    S.aboutOrigin = null;
+    if (state.overlay.kind !== "about") return;
     dispatch({ type: CommandType.CLOSE_OVERLAY });
     const panel = document.getElementById("aboutPanel");
     panel.classList.remove("open", "from-threshold");
@@ -4313,7 +4283,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   if (location.search.includes("enter=1")) setTimeout(() => enter(), 200);
   if (location.search.includes("skipIntro=1")) setTimeout(() => enter({ skipOnboarding: true }), 200);
   var fitted = false;
-  if (!fitted && !(isMobile() && S.surface === "read")) {
+  if (!fitted && !(isMobile() && state.responsive.surface === "read")) {
     fitted = true;
     fitVisibleField();
   }
@@ -4338,6 +4308,18 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       openIndex,
       returnToField,
       homeFor: (id) => AUTHORED_HOMES[id] || null,
+      // head correction v4, "one store": the only test-facing read of
+      // semantic/presentation runtime state, replacing the old unbounded
+      // global state exposure. Returns the live references directly (not a
+      // snapshot/clone) so a test can observe a value change across an
+      // awaited action the same way it always could.
+      getState: () => state,
+      getUiRuntime: () => uiRuntime,
+      // Bounded test-only command injection through the real validate/reduce/
+      // invariant/transaction pipeline -- narrower than the old raw,
+      // unvalidated state mutation, not broader: every dispatched command
+      // still has to pass guards.js and invariants.js exactly as a real one does.
+      dispatch: (command) => dispatch(command),
       get simNodes() {
         return simNodes;
       },

@@ -58,7 +58,7 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
       await page.waitForTimeout(700);
       const result = await page.evaluate(() => {
         const safe = window.__bbTest.computeFieldSafeRect();
-        const t = window.__bbState.transform;
+        const t = window.__bbTest.getUiRuntime().transform;
         const n = window.__bbTest.byId['FO.CORPSE'];
         const sx = t.x + n.x * t.k,
           sy = t.y + n.y * t.k;
@@ -113,7 +113,7 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
       const safe = window.__bbTest.computeFieldSafeRect();
       const visible = window.__bbTest.simNodes.filter((d) => window.__bbTest.nodeVisible(d.id));
       const envelope = window.__bbTest.getNodeBounds(visible, window.__bbTest.isMobile() ? 30 : 40);
-      const t = window.__bbState.transform;
+      const t = window.__bbTest.getUiRuntime().transform;
       const rx = (envelope.width * t.k) / safe.width;
       const ry = (envelope.height * t.k) / safe.height;
       return Math.max(rx, ry);
@@ -131,7 +131,7 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
       const safe = window.__bbTest.computeFieldSafeRect();
       const focus = window.__bbTest.buildFocusSet('FO.CORPSE');
       const envelope = window.__bbTest.computeNodeEnvelope(focus.ids, 44);
-      const t = window.__bbState.transform;
+      const t = window.__bbTest.getUiRuntime().transform;
       const rx = (envelope.width * t.k) / safe.width;
       const ry = (envelope.height * t.k) / safe.height;
       return Math.max(rx, ry);
@@ -156,7 +156,7 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
     await clickNode(page, 'RelO.R4CB4A8D8'); // the dense, multi-participant RelO used throughout this suite
     await page.waitForTimeout(1600);
     const overlapCount = await page.evaluate(() => {
-      const t = window.__bbState.transform;
+      const t = window.__bbTest.getUiRuntime().transform;
       const rects = [...document.querySelectorAll('text.node-label')]
         .filter((el) => getComputedStyle(el).display !== 'none')
         .map((el) => {

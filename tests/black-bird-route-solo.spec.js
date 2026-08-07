@@ -90,14 +90,14 @@ test.describe('Route/Solo state transaction contract (T01)', () => {
     await gotoField(page, { realOnboarding: true, reduced: true });
     await clickNode(page, 'FO.CORPSE');
     await clickNode(page, 'FO.BURIAL');
-    const events = await page.evaluate(() => window.__bbState.routeEvents);
+    const events = await page.evaluate(() => window.__bbTest.getState().history.route);
     expect(events[0].id).toBe('FO.BLACK_BIRD_FIELD');
     expect(events[0].source).toBe('onboarding');
-    expect(events[0].from).toBeNull();
+    expect(events[0].fromId).toBeNull();
     expect(events[1].id).toBe('FO.CORPSE');
-    expect(events[1].from).toBe('FO.BLACK_BIRD_FIELD');
+    expect(events[1].fromId).toBe('FO.BLACK_BIRD_FIELD');
     expect(events[2].id).toBe('FO.BURIAL');
-    expect(events[2].from).toBe('FO.CORPSE');
+    expect(events[2].fromId).toBe('FO.CORPSE');
   });
 
   test('computeSoloSet(RelO) equals the RelO plus its canonical participants', async ({ page }) => {

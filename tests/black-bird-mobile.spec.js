@@ -13,7 +13,7 @@ test.describe('Mobile viewport contract (T05/4.14)', () => {
         const safe = T.computeFieldSafeRect();
         const visible = T.simNodes.filter((d) => T.nodeVisible(d.id));
         const envelope = T.getNodeBounds(visible, 30);
-        const t = window.__bbState.transform;
+        const t = window.__bbTest.getUiRuntime().transform;
         const rx = (envelope.width * t.k) / safe.width;
         const ry = (envelope.height * t.k) / safe.height;
         return Math.max(rx, ry);
@@ -49,7 +49,7 @@ test.describe('Mobile viewport contract (T05/4.14)', () => {
     await page.waitForTimeout(700);
     const result = await page.evaluate(() => {
       const safe = window.__bbTest.computeFieldSafeRect();
-      const t = window.__bbState.transform;
+      const t = window.__bbTest.getUiRuntime().transform;
       const n = window.__bbTest.byId['FO.CORPSE'];
       const sx = t.x + n.x * t.k,
         sy = t.y + n.y * t.k;
