@@ -118,6 +118,11 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .switch{width:42px;height:24px;border:1px solid var(--line2);background:#0a0908;position:relative;cursor:pointer;}
 .switch::after{content:"";position:absolute;width:16px;height:16px;left:3px;top:3px;background:#6b6258;transition:.18s}
 .switch.on::after{left:21px;background:var(--amber2)}
+/* D-DEC-09: explicit, local, one-action all-hidden recovery -- never a
+   silent revert. See src/presentation/view-renderer.js/index-renderer.js. */
+.all-hidden-notice,.no-results-notice{margin-top:18px;padding:16px;border:1px solid var(--line2);background:rgba(13,12,11,.6);}
+.all-hidden-notice .notice-title,.no-results-notice .notice-title{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--text);margin-bottom:8px;}
+.all-hidden-notice .notice-body,.no-results-notice .notice-body{font-family:var(--serif);font-size:13px;line-height:1.5;color:var(--text2);margin-bottom:14px;}
 .search{width:100%;height:42px;background:#0a0908;border:1px solid var(--line2);color:var(--text);padding:0 12px;font-family:var(--mono);font-size:13px;margin:8px 0 14px}
 .object-row{display:grid;grid-template-columns:54px minmax(0,1fr) auto auto;gap:8px;align-items:center;border-bottom:1px solid #211e1a;padding:9px 0;}
 .object-row .otype{border:1px solid var(--line2);font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;padding:4px 0}
@@ -2410,6 +2415,89 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { applyRouteHalos, applyWearEdges, renderAfterglowLayer, wearColorScale };
   }
 
+  // src/presentation/view-renderer.js
+  function createViewRenderer({
+    container,
+    typeContainer = container,
+    optionContainer = container,
+    copy,
+    typeOrder: typeOrder2,
+    countType: countType2,
+    viewOptionKeyMap = {},
+    onSetTypeVisibility,
+    onSetViewOption,
+    onRestoreField
+  }) {
+    function optionValue(view, key) {
+      return view[viewOptionKeyMap[key] || key];
+    }
+    function toggleRow(label, on, dataAttr, dataValue, onToggle) {
+      const row = document.createElement("div");
+      row.className = "toggle-row";
+      row.appendChild(label);
+      const btn = document.createElement("button");
+      btn.className = `switch${on ? " on" : ""}`;
+      btn.dataset[dataAttr] = dataValue;
+      btn.setAttribute("aria-label", `toggle ${dataValue}`);
+      btn.setAttribute("aria-pressed", String(on));
+      btn.onclick = onToggle;
+      row.appendChild(btn);
+      return row;
+    }
+    function renderTypeToggle(type, view) {
+      const label = document.createElement("span");
+      const count = countType2 ? countType2(type) : null;
+      label.textContent = count == null ? type : `${type} `;
+      if (count != null) {
+        const countSpan = document.createElement("span");
+        countSpan.style.color = "var(--ghost)";
+        countSpan.textContent = `(${count})`;
+        label.appendChild(countSpan);
+      }
+      const on = view.typeVisibility[type] !== false;
+      return toggleRow(label, on, "type", type, () => onSetTypeVisibility(type, !on));
+    }
+    function renderOptionToggle(key, text, view) {
+      const label = document.createElement("span");
+      label.textContent = text;
+      const on = !!optionValue(view, key);
+      return toggleRow(label, on, "view", key, () => onSetViewOption(key, !on));
+    }
+    function render(view) {
+      const order = typeOrder2 || Object.keys(view.typeVisibility);
+      const sameContainer = typeContainer === optionContainer;
+      typeContainer.replaceChildren();
+      if (!sameContainer) optionContainer.replaceChildren();
+      typeContainer.append(...order.map((type) => renderTypeToggle(type, view)));
+      optionContainer.append(
+        renderOptionToggle("projected", "Projected edges", view),
+        renderOptionToggle("labels", "Labels", view),
+        renderOptionToggle("sourceNames", "Source names", view)
+      );
+      if (order.every((t) => view.typeVisibility[t] === false)) {
+        typeContainer.appendChild(renderAllHiddenNotice());
+      }
+    }
+    function renderAllHiddenNotice() {
+      const notice = document.createElement("div");
+      notice.className = "all-hidden-notice";
+      notice.setAttribute("role", "status");
+      const title = document.createElement("div");
+      title.className = "notice-title";
+      title.textContent = copy.states.allHiddenTitle;
+      const body = document.createElement("div");
+      body.className = "notice-body";
+      body.textContent = copy.states.allHiddenBody;
+      const restore = document.createElement("button");
+      restore.className = "tool-btn";
+      restore.textContent = copy.actions.restoreField;
+      restore.onclick = onRestoreField;
+      notice.append(title, body, restore);
+      return notice;
+    }
+    return { render, isNodeVisible, restoreVisibility };
+  }
+
   // src/domain/selectors.js
   function selectVisibleNodeIds(nodes2, view) {
     return nodes2.filter((n) => isNodeVisible(n, view)).map((n) => n.id);
@@ -2579,6 +2667,17 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   var byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
   var typeOrder = DATA.ui.objectTypes;
   var defaultVisibility = Object.fromEntries(nodes.map((n) => [n.id, true]));
+  var UI_COPY = {
+    states: {
+      allHiddenTitle: "The field is hidden",
+      allHiddenBody: "View settings currently hide every object. Restore the field to continue.",
+      noResultsTitle: "No objects found",
+      noResultsBody: "Change the search term or return to the complete index.",
+      hiddenByView: "HIDDEN BY VIEW",
+      soloPrefix: "SOLO"
+    },
+    actions: { restoreField: "Restore field", exitSolo: "Exit Solo" }
+  };
   var relParticipant = [];
   Object.entries(DATA.relations).forEach(([rid, parts]) => {
     parts.forEach((pid) => relParticipant.push({ source: rid, target: pid, kind: "rel" }));
@@ -4381,40 +4480,29 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
   });
   var VIEW_OPTION_CANONICAL_KEY = { projected: "projectedEdges" };
-  function viewOptionValue(key) {
-    return state.view[VIEW_OPTION_CANONICAL_KEY[key] || key];
-  }
+  var viewRenderer = createViewRenderer({
+    typeContainer: document.getElementById("typeToggles"),
+    optionContainer: document.getElementById("viewToggles"),
+    copy: UI_COPY,
+    typeOrder,
+    countType,
+    viewOptionKeyMap: VIEW_OPTION_CANONICAL_KEY,
+    onSetTypeVisibility: (type, value) => setObjectGroup(type, value),
+    onSetViewOption: (key, value) => {
+      dispatch({
+        type: CommandType.SET_VIEW_OPTION,
+        option: VIEW_OPTION_CANONICAL_KEY[key] || key,
+        value
+      });
+      renderFieldViewControls();
+      updateVisibility();
+      if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
+      else fitVisibleField();
+    },
+    onRestoreField: () => restoreField()
+  });
   function renderFieldViewControls() {
-    const typeBox = document.getElementById("typeToggles");
-    const viewBox = document.getElementById("viewToggles");
-    typeBox.innerHTML = typeOrder.map(
-      (type) => `<div class="toggle-row"><span>${type} <span style="color:var(--ghost)">(${countType(type)})</span></span><button class="switch ${state.view.typeVisibility[type] ? "on" : ""}" data-type="${type}" aria-label="toggle ${type}" aria-pressed="${!!state.view.typeVisibility[type]}"></button></div>`
-    ).join("");
-    viewBox.innerHTML = [
-      ["projected", "Projected edges"],
-      ["labels", "Labels"],
-      ["sourceNames", "Source names"]
-    ].map(
-      ([key, label]) => `<div class="toggle-row"><span>${label}</span><button class="switch ${viewOptionValue(key) ? "on" : ""}" data-view="${key}" aria-label="toggle ${label}" aria-pressed="${!!viewOptionValue(key)}"></button></div>`
-    ).join("");
-    typeBox.querySelectorAll("[data-type]").forEach(
-      (btn) => btn.onclick = () => setObjectGroup(btn.dataset.type, !state.view.typeVisibility[btn.dataset.type])
-    );
-    viewBox.querySelectorAll("[data-view]").forEach(
-      (btn) => btn.onclick = () => {
-        const key = btn.dataset.view;
-        const nextValue = !viewOptionValue(key);
-        dispatch({
-          type: CommandType.SET_VIEW_OPTION,
-          option: VIEW_OPTION_CANONICAL_KEY[key] || key,
-          value: nextValue
-        });
-        renderFieldViewControls();
-        updateVisibility();
-        if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
-        else fitVisibleField();
-      }
-    );
+    viewRenderer.render(state.view);
   }
   function setObjectGroup(type, value) {
     dispatch({ type: CommandType.SET_TYPE_VISIBILITY, objectType: type, visible: value });
@@ -4490,7 +4578,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     openDrawer("objectDrawer");
   }
   document.getElementById("objectSearch").oninput = renderObjectLists;
-  document.getElementById("restoreField").onclick = () => {
+  function restoreField() {
     dispatch({ type: CommandType.RESTORE_FIELD });
     if (state.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
     announceStatus("Field restored.");
@@ -4498,7 +4586,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     updateVisibility();
     closeAllDrawers();
     returnToField({ source: "restore-field" });
-  };
+  }
+  document.getElementById("restoreField").onclick = restoreField;
   document.getElementById("showAllObjects").onclick = () => {
     Object.entries(state.view.objectVisibility).filter(([, visible]) => visible === false).forEach(([id]) => dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true }));
     if (state.solo.active) dispatch({ type: CommandType.EXIT_SOLO });

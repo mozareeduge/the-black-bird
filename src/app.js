@@ -24,6 +24,7 @@ import { buildObjectViewModel, buildProjectedEdgeViewModel } from './domain/read
 import { buildReaderContent, createReaderRenderer } from './presentation/reader-renderer.js';
 import { createRouteRenderer } from './presentation/route-renderer.js';
 import { createTraceRenderer, wearOpacityFor, ROUTE_MARK_COLOR } from './presentation/trace-renderer.js';
+import { createViewRenderer } from './presentation/view-renderer.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
 import { createNavigationController } from './controllers/navigation-controller.js';
@@ -81,6 +82,20 @@ const nodes = DATA.nodes.map((d) => ({ ...d }));
 const byId = Object.fromEntries(nodes.map((n) => [n.id, n]));
 const typeOrder = DATA.ui.objectTypes;
 const defaultVisibility = Object.fromEntries(nodes.map((n) => [n.id, true]));
+// F05/R3: shared copy for view-renderer.js's all-hidden notice (D-DEC-09)
+// and index-renderer.js's no-results notice -- both recovery affordances
+// read from the same small strings table.
+const UI_COPY = {
+  states: {
+    allHiddenTitle: "The field is hidden",
+    allHiddenBody: "View settings currently hide every object. Restore the field to continue.",
+    noResultsTitle: "No objects found",
+    noResultsBody: "Change the search term or return to the complete index.",
+    hiddenByView: "HIDDEN BY VIEW",
+    soloPrefix: "SOLO",
+  },
+  actions: { restoreField: "Restore field", exitSolo: "Exit Solo" },
+};
 
 // ── Edge data (moved earlier: the canonical reducer's injected graph context
 // needs baseEdgesRaw before any command can be dispatched) ─────────────────
@@ -2652,50 +2667,33 @@ document.addEventListener("keydown", (e) => {
 // contract's SET_VIEW_OPTION option names ("projectedEdges") -- see
 // src/state/initial-state.js's view.* fields.
 const VIEW_OPTION_CANONICAL_KEY = { projected: "projectedEdges" };
-function viewOptionValue(key) {
-  return state.view[VIEW_OPTION_CANONICAL_KEY[key] || key];
-}
+// F05/R3: src/presentation/view-renderer.js is the real Field View drawer
+// DOM authority (T20, T-REQ-026), including D-DEC-09's all-hidden notice --
+// a previously-designed, tested-in-isolation recovery affordance that had
+// no live trigger until this wiring.
+const viewRenderer = createViewRenderer({
+  typeContainer: document.getElementById("typeToggles"),
+  optionContainer: document.getElementById("viewToggles"),
+  copy: UI_COPY,
+  typeOrder,
+  countType,
+  viewOptionKeyMap: VIEW_OPTION_CANONICAL_KEY,
+  onSetTypeVisibility: (type, value) => setObjectGroup(type, value),
+  onSetViewOption: (key, value) => {
+    dispatch({
+      type: CommandType.SET_VIEW_OPTION,
+      option: VIEW_OPTION_CANONICAL_KEY[key] || key,
+      value,
+    });
+    renderFieldViewControls();
+    updateVisibility();
+    if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
+    else fitVisibleField();
+  },
+  onRestoreField: () => restoreField(),
+});
 function renderFieldViewControls() {
-  const typeBox = document.getElementById("typeToggles");
-  const viewBox = document.getElementById("viewToggles");
-  typeBox.innerHTML = typeOrder
-    .map(
-      (type) =>
-        `<div class="toggle-row"><span>${type} <span style="color:var(--ghost)">(${countType(type)})</span></span><button class="switch ${state.view.typeVisibility[type] ? "on" : ""}" data-type="${type}" aria-label="toggle ${type}" aria-pressed="${!!state.view.typeVisibility[type]}"></button></div>`,
-    )
-    .join("");
-  viewBox.innerHTML = [
-    ["projected", "Projected edges"],
-    ["labels", "Labels"],
-    ["sourceNames", "Source names"],
-  ]
-    .map(
-      ([key, label]) =>
-        `<div class="toggle-row"><span>${label}</span><button class="switch ${viewOptionValue(key) ? "on" : ""}" data-view="${key}" aria-label="toggle ${label}" aria-pressed="${!!viewOptionValue(key)}"></button></div>`,
-    )
-    .join("");
-  typeBox
-    .querySelectorAll("[data-type]")
-    .forEach(
-      (btn) =>
-        (btn.onclick = () => setObjectGroup(btn.dataset.type, !state.view.typeVisibility[btn.dataset.type])),
-    );
-  viewBox.querySelectorAll("[data-view]").forEach(
-    (btn) =>
-      (btn.onclick = () => {
-        const key = btn.dataset.view;
-        const nextValue = !viewOptionValue(key);
-        dispatch({
-          type: CommandType.SET_VIEW_OPTION,
-          option: VIEW_OPTION_CANONICAL_KEY[key] || key,
-          value: nextValue,
-        });
-        renderFieldViewControls();
-        updateVisibility();
-        if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
-        else fitVisibleField();
-      }),
-  );
+  viewRenderer.render(state.view);
 }
 function setObjectGroup(type, value) {
   dispatch({ type: CommandType.SET_TYPE_VISIBILITY, objectType: type, visible: value });
@@ -2795,7 +2793,7 @@ function openIndex(filter = "all") {
   openDrawer("objectDrawer");
 }
 document.getElementById("objectSearch").oninput = renderObjectLists;
-document.getElementById("restoreField").onclick = () => {
+function restoreField() {
   dispatch({ type: CommandType.RESTORE_FIELD });
   if (state.solo.active) dispatch({ type: CommandType.EXIT_SOLO });
   announceStatus("Field restored.");
@@ -2803,7 +2801,8 @@ document.getElementById("restoreField").onclick = () => {
   updateVisibility();
   closeAllDrawers();
   returnToField({ source: "restore-field" });
-};
+}
+document.getElementById("restoreField").onclick = restoreField;
 document.getElementById("showAllObjects").onclick = () => {
   // Individual hides only (D-DEC-09-adjacent): unlike Restore Field, this
   // control never touches type-group visibility -- clear exactly the
