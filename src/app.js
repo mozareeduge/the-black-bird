@@ -23,6 +23,7 @@ import { createTimerRegistry } from './application/timer-registry.js';
 import { buildObjectViewModel, buildProjectedEdgeViewModel } from './domain/reader-view-models.js';
 import { buildReaderContent, createReaderRenderer } from './presentation/reader-renderer.js';
 import { createRouteRenderer } from './presentation/route-renderer.js';
+import { createTraceRenderer, wearOpacityFor, ROUTE_MARK_COLOR } from './presentation/trace-renderer.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
 import { createNavigationController } from './controllers/navigation-controller.js';
@@ -1825,10 +1826,11 @@ function wearEdgeKey(a, b) {
 function wearCountFor(e) {
   return state.trace.wear[wearEdgeKey(getEdgeSourceId(e), getEdgeTargetId(e))] || 0;
 }
-function wearOpacityFor(count) {
-  return count ? Math.min(0.85, 0.14 + count * 0.1) : 0;
-}
-const wearColorScale = d3.interpolateRgb("#6b6258", "#c49a45");
+// F05/R3: src/presentation/trace-renderer.js is the real Route-halo/wear/
+// afterglow material authority (T17, T-REQ-030) -- wearOpacityFor is its
+// export (imported above); wearEdgeStyle's color/width formulas are applied
+// via traceRenderer.applyWearEdges below.
+const traceRenderer = createTraceRenderer({ d3 });
 function pulseAnimationPath(start, goal, orderedEdges, visibleIds) {
   if (!start || !goal || start === goal) return [];
   const visible = new Set(visibleIds);
@@ -1876,14 +1878,8 @@ function wearPulsePathFor(fromId, toId) {
   return path.length > 1 ? path : null;
 }
 function updateWearOverlay() {
-  wearSel
-    .attr("display", (d) => (edgeVisible(d) ? null : "none"))
-    .attr("stroke", (d) => wearColorScale(Math.min(1, wearCountFor(d) / 7)))
-    .attr("stroke-opacity", (d) => wearOpacityFor(wearCountFor(d)))
-    .attr("stroke-width", (d) => {
-      const c = wearCountFor(d);
-      return c ? Math.min(1.6, 0.5 + c * 0.12) : 0.5;
-    });
+  wearSel.attr("display", (d) => (edgeVisible(d) ? null : "none"));
+  traceRenderer.applyWearEdges(wearSel, wearCountFor);
 }
 function clearPulseTimers() {
   pulseTimers.forEach(clearTimeout);
@@ -1937,30 +1933,12 @@ function scheduleAfterglowCleanup(id, totalMs) {
   timerRegistry.schedule(() => updateAfterglowOverlay(), totalMs, { kind: "trace", id });
 }
 function updateAfterglowOverlay() {
-  const now = Date.now();
-  const data = state.trace.afterglows
-    .filter((a) => a.deadline > now)
-    .map((a) => ({ ...a, node: byId[a.id] }))
-    .filter((a) => a.node);
-  const sel = afterglowLayer.selectAll("circle.bb-afterglow").data(data, (d) => d.id);
-  sel.exit().remove();
-  const residueR = isMobile() ? 46 : 64; // soft residue, larger than the body — not a ring hugging its edge
-  const enter = sel
-    .enter()
-    .append("circle")
-    .attr("class", "bb-afterglow")
-    .attr("fill", "url(#bb-afterglow-gradient)")
-    .attr("pointer-events", "none")
-    .attr("cx", (d) => nodeX(d.node))
-    .attr("cy", (d) => nodeY(d.node))
-    .attr("r", residueR)
-    .attr("opacity", 1);
-  enter
-    .merge(sel)
-    .transition()
-    .duration(prefersReducedMotion() ? 0 : (d) => d.totalMs)
-    .ease(d3.easeLinear)
-    .attr("opacity", 0);
+  const data = traceRenderer.renderAfterglowLayer(afterglowLayer, state.trace.afterglows, byId, {
+    isMobile: isMobile(),
+    reducedMotion: prefersReducedMotion(),
+    nodeX,
+    nodeY,
+  });
   nodeSel.attr("data-bb-afterglow", (d) =>
     data.some((a) => a.id === d.id) ? "1" : "0",
   );
@@ -2077,23 +2055,12 @@ function routeStats() {
 // Route uses a neutral silver/bone mark; only wear (recordInferredWear,
 // below) uses amber-brown. Keeping these visually distinct is required by
 // 4.11/BB-R13 — Route is exact reading history, wear is inferred passage.
-const ROUTE_MARK_COLOR = "#a89f8f";
 function updateRouteHalos(duration = 420) {
   const stats = routeStats();
-  nodeSel
-    .select(".node-route-halo")
-    .transition()
-    .duration(prefersReducedMotion() ? 0 : duration)
-    .attr("stroke", (d) => (stats.has(d.id) ? ROUTE_MARK_COLOR : "transparent"))
-    .attr("stroke-opacity", (d) => {
-      const s = stats.get(d.id);
-      if (!s) return 0;
-      return Math.max(0.06, 0.28 - s.minAge * 0.025) + Math.min(0.12, (s.count - 1) * 0.04);
-    })
-    .attr("stroke-width", (d) => {
-      const s = stats.get(d.id);
-      return s ? Math.min(2.2, 1 + (s.count - 1) * 0.25) : 1;
-    });
+  traceRenderer.applyRouteHalos(
+    nodeSel.select(".node-route-halo").transition().duration(prefersReducedMotion() ? 0 : duration),
+    (d) => stats.get(d.id),
+  );
 }
 function routeSegments() {
   const events = state.history.route.slice(-RECENT_ROUTE_WINDOW);

@@ -2367,6 +2367,49 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { renderStrip, renderDrawer };
   }
 
+  // src/presentation/trace-renderer.js
+  var ROUTE_MARK_COLOR = "#a89f8f";
+  var WEAR_COLOR_FROM = "#6b6258";
+  var WEAR_COLOR_TO = "#c49a45";
+  function routeHaloStyle(routeStat) {
+    if (!routeStat) return { stroke: "transparent", strokeOpacity: 0, strokeWidth: 1 };
+    const { count, minAge } = routeStat;
+    return {
+      stroke: ROUTE_MARK_COLOR,
+      strokeOpacity: Math.max(0.06, 0.28 - minAge * 0.025) + Math.min(0.12, (count - 1) * 0.04),
+      strokeWidth: Math.min(2.2, 1 + (count - 1) * 0.25)
+    };
+  }
+  function wearOpacityFor(count) {
+    return count ? Math.min(0.85, 0.14 + count * 0.1) : 0;
+  }
+  function wearEdgeStyle(count, wearColorScale, wearMax = 7) {
+    return {
+      stroke: wearColorScale(Math.min(1, count / wearMax)),
+      strokeOpacity: wearOpacityFor(count),
+      strokeWidth: count ? Math.min(1.6, 0.5 + count * 0.12) : 0.5
+    };
+  }
+  function createTraceRenderer({ d3: d3Lib = globalThis.d3 } = {}) {
+    const wearColorScale = d3Lib.interpolateRgb(WEAR_COLOR_FROM, WEAR_COLOR_TO);
+    function applyRouteHalos(nodeSelection, routeStatFor) {
+      return nodeSelection.attr("stroke", (d) => routeHaloStyle(routeStatFor(d)).stroke).attr("stroke-opacity", (d) => routeHaloStyle(routeStatFor(d)).strokeOpacity).attr("stroke-width", (d) => routeHaloStyle(routeStatFor(d)).strokeWidth);
+    }
+    function applyWearEdges(edgeSelection, wearCountFor2, wearMax = 7) {
+      return edgeSelection.attr("stroke", (d) => wearEdgeStyle(wearCountFor2(d), wearColorScale, wearMax).stroke).attr("stroke-opacity", (d) => wearEdgeStyle(wearCountFor2(d), wearColorScale, wearMax).strokeOpacity).attr("stroke-width", (d) => wearEdgeStyle(wearCountFor2(d), wearColorScale, wearMax).strokeWidth);
+    }
+    function renderAfterglowLayer(layer, afterglows, nodesById, { isMobile: isMobile2 = false, reducedMotion = false, now = Date.now(), nodeX: nodeX2, nodeY: nodeY2 } = {}) {
+      const data = afterglows.filter((a) => a.deadline > now).map((a) => ({ ...a, node: nodesById[a.id] })).filter((a) => a.node);
+      const sel = layer.selectAll("circle.bb-afterglow").data(data, (d) => d.id);
+      sel.exit().remove();
+      const residueR = isMobile2 ? 46 : 64;
+      const enter2 = sel.enter().append("circle").attr("class", "bb-afterglow").attr("fill", "url(#bb-afterglow-gradient)").attr("pointer-events", "none").attr("cx", (d) => nodeX2(d.node)).attr("cy", (d) => nodeY2(d.node)).attr("r", residueR).attr("opacity", 1);
+      enter2.merge(sel).transition().duration(reducedMotion ? 0 : (d) => d.totalMs).ease(d3Lib.easeLinear).attr("opacity", 0);
+      return data;
+    }
+    return { applyRouteHalos, applyWearEdges, renderAfterglowLayer, wearColorScale };
+  }
+
   // src/domain/selectors.js
   function selectVisibleNodeIds(nodes2, view) {
     return nodes2.filter((n) => isNodeVisible(n, view)).map((n) => n.id);
@@ -3713,10 +3756,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function wearCountFor(e) {
     return state.trace.wear[wearEdgeKey(getEdgeSourceId(e), getEdgeTargetId(e))] || 0;
   }
-  function wearOpacityFor(count) {
-    return count ? Math.min(0.85, 0.14 + count * 0.1) : 0;
-  }
-  var wearColorScale = d3.interpolateRgb("#6b6258", "#c49a45");
+  var traceRenderer = createTraceRenderer({ d3 });
   function pulseAnimationPath(start, goal, orderedEdges, visibleIds) {
     if (!start || !goal || start === goal) return [];
     const visible = new Set(visibleIds);
@@ -3758,10 +3798,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return path.length > 1 ? path : null;
   }
   function updateWearOverlay() {
-    wearSel.attr("display", (d) => edgeVisible(d) ? null : "none").attr("stroke", (d) => wearColorScale(Math.min(1, wearCountFor(d) / 7))).attr("stroke-opacity", (d) => wearOpacityFor(wearCountFor(d))).attr("stroke-width", (d) => {
-      const c = wearCountFor(d);
-      return c ? Math.min(1.6, 0.5 + c * 0.12) : 0.5;
-    });
+    wearSel.attr("display", (d) => edgeVisible(d) ? null : "none");
+    traceRenderer.applyWearEdges(wearSel, wearCountFor);
   }
   function clearPulseTimers() {
     pulseTimers.forEach(clearTimeout);
@@ -3797,13 +3835,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     timerRegistry.schedule(() => updateAfterglowOverlay(), totalMs, { kind: "trace", id });
   }
   function updateAfterglowOverlay() {
-    const now = Date.now();
-    const data = state.trace.afterglows.filter((a) => a.deadline > now).map((a) => ({ ...a, node: byId[a.id] })).filter((a) => a.node);
-    const sel = afterglowLayer.selectAll("circle.bb-afterglow").data(data, (d) => d.id);
-    sel.exit().remove();
-    const residueR = isMobile() ? 46 : 64;
-    const enter2 = sel.enter().append("circle").attr("class", "bb-afterglow").attr("fill", "url(#bb-afterglow-gradient)").attr("pointer-events", "none").attr("cx", (d) => nodeX(d.node)).attr("cy", (d) => nodeY(d.node)).attr("r", residueR).attr("opacity", 1);
-    enter2.merge(sel).transition().duration(prefersReducedMotion() ? 0 : (d) => d.totalMs).ease(d3.easeLinear).attr("opacity", 0);
+    const data = traceRenderer.renderAfterglowLayer(afterglowLayer, state.trace.afterglows, byId, {
+      isMobile: isMobile(),
+      reducedMotion: prefersReducedMotion(),
+      nodeX,
+      nodeY
+    });
     nodeSel.attr(
       "data-bb-afterglow",
       (d) => data.some((a) => a.id === d.id) ? "1" : "0"
@@ -3886,17 +3923,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     });
     return stats;
   }
-  var ROUTE_MARK_COLOR = "#a89f8f";
   function updateRouteHalos(duration = 420) {
     const stats = routeStats();
-    nodeSel.select(".node-route-halo").transition().duration(prefersReducedMotion() ? 0 : duration).attr("stroke", (d) => stats.has(d.id) ? ROUTE_MARK_COLOR : "transparent").attr("stroke-opacity", (d) => {
-      const s = stats.get(d.id);
-      if (!s) return 0;
-      return Math.max(0.06, 0.28 - s.minAge * 0.025) + Math.min(0.12, (s.count - 1) * 0.04);
-    }).attr("stroke-width", (d) => {
-      const s = stats.get(d.id);
-      return s ? Math.min(2.2, 1 + (s.count - 1) * 0.25) : 1;
-    });
+    traceRenderer.applyRouteHalos(
+      nodeSel.select(".node-route-halo").transition().duration(prefersReducedMotion() ? 0 : duration),
+      (d) => stats.get(d.id)
+    );
   }
   function routeSegments() {
     const events = state.history.route.slice(-RECENT_ROUTE_WINDOW);

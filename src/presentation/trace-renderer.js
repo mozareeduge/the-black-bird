@@ -1,12 +1,18 @@
 // Trace renderer (T17, T-REQ-030): Route, wear, and afterglow as three
-// separate, non-confusable render layers. Route uses a neutral silver/bone
-// mark; wear uses a distinct amber-brown; afterglow is its own soft residue.
-// Materials extracted from src/app.js's ROUTE_MARK_COLOR / updateRouteHalos /
-// recordDepartureAfterglow and src/styles/field.css's --bb-route-mark token.
+// separate, non-confusable render layers on the live field -- Route uses a
+// neutral silver/bone mark; wear is a distinct amber gradient; afterglow is
+// its own soft departure residue. Formulas are an exact extraction of
+// src/app.js's ROUTE_MARK_COLOR/updateRouteHalos, wearColorScale/
+// wearOpacityFor/updateWearOverlay, and updateAfterglowOverlay -- this file
+// was written against an earlier, since-superseded material design (a fixed
+// wear color, a deadline-recomputed afterglow snapshot) and is strengthened
+// here to match what the live field actually renders, not the stub it
+// previously was. d3 is loaded globally (vendor/d3.v7.9.0.min.js), matching
+// every other presentation module in this codebase.
 
 export const ROUTE_MARK_COLOR = '#a89f8f';
-export const WEAR_MARK_COLOR = '#9a6736'; // --bb-wear... (visual-tokens.json colors.wearUmber)
-export const AFTERGLOW_RESIDUE = 'radial-soft'; // never the same shape/color family as route or wear
+export const WEAR_COLOR_FROM = '#6b6258';
+export const WEAR_COLOR_TO = '#c49a45';
 
 // Route halo: presence + recency/count-derived opacity and width, using
 // ROUTE_MARK_COLOR only -- never the wear color.
@@ -20,58 +26,77 @@ export function routeHaloStyle(routeStat) {
   };
 }
 
-// Wear: an edge material, amber-brown, capped by wearMax passes -- entirely
-// separate DOM/material from route halos (which mark nodes) or afterglow
-// (which marks departure residue).
-export function wearEdgeStyle(passes, wearMax = 7) {
-  const clamped = Math.min(passes, wearMax);
+export function wearOpacityFor(count) {
+  return count ? Math.min(0.85, 0.14 + count * 0.1) : 0;
+}
+
+// Wear: an edge material, an amber gradient capped at wearMax passes --
+// entirely separate DOM/material from route halos (which mark nodes) or
+// afterglow (which marks departure residue).
+export function wearEdgeStyle(count, wearColorScale, wearMax = 7) {
   return {
-    stroke: WEAR_MARK_COLOR,
-    strokeOpacity: Math.min(0.7, 0.15 + clamped * 0.07),
-    strokeWidth: Math.min(3, 1 + clamped * 0.25),
+    stroke: wearColorScale(Math.min(1, count / wearMax)),
+    strokeOpacity: wearOpacityFor(count),
+    strokeWidth: count ? Math.min(1.6, 0.5 + count * 0.12) : 0.5,
   };
 }
 
-// Afterglow: a soft radial residue keyed to a wall-clock deadline, using
-// neither ROUTE_MARK_COLOR nor WEAR_MARK_COLOR -- its own material family.
-export function afterglowStyle(afterglow, nowMs = Date.now()) {
-  const remainingMs = Math.max(0, afterglow.deadline - nowMs);
-  const totalMs = afterglow.totalMs || 10000;
-  const life = Math.min(1, remainingMs / totalMs);
-  return {
-    kind: AFTERGLOW_RESIDUE,
-    opacity: 0.22 * life,
-    radiusScale: 1 + (1 - life) * 0.6,
-  };
-}
+export function createTraceRenderer({ d3: d3Lib = globalThis.d3 } = {}) {
+  const wearColorScale = d3Lib.interpolateRgb(WEAR_COLOR_FROM, WEAR_COLOR_TO);
 
-export function createTraceRenderer(container) {
-  function renderRouteHalo(nodeSelection, routeStat) {
-    const style = routeHaloStyle(routeStat);
+  // nodeSelection: the live selection to style directly (already narrowed to
+  // .node-route-halo, and already carrying any transition the caller wants);
+  // routeStatFor(d) returns this node's { count, minAge } route-recency
+  // stat, or undefined.
+  function applyRouteHalos(nodeSelection, routeStatFor) {
     return nodeSelection
-      .select('.node-route-halo')
-      .attr('stroke', style.stroke)
-      .attr('stroke-opacity', style.strokeOpacity)
-      .attr('stroke-width', style.strokeWidth);
+      .attr('stroke', (d) => routeHaloStyle(routeStatFor(d)).stroke)
+      .attr('stroke-opacity', (d) => routeHaloStyle(routeStatFor(d)).strokeOpacity)
+      .attr('stroke-width', (d) => routeHaloStyle(routeStatFor(d)).strokeWidth);
   }
 
-  function renderWearEdge(edgeSelection, passes, wearMax) {
-    const style = wearEdgeStyle(passes, wearMax);
+  // edgeSelection: the live wear-edge d3 selection; wearCountFor(d) returns
+  // this edge's recorded pass count.
+  function applyWearEdges(edgeSelection, wearCountFor, wearMax = 7) {
     return edgeSelection
-      .attr('class', 'bb-wear')
-      .attr('stroke', style.stroke)
-      .attr('stroke-opacity', style.strokeOpacity)
-      .attr('stroke-width', style.strokeWidth);
+      .attr('stroke', (d) => wearEdgeStyle(wearCountFor(d), wearColorScale, wearMax).stroke)
+      .attr('stroke-opacity', (d) => wearEdgeStyle(wearCountFor(d), wearColorScale, wearMax).strokeOpacity)
+      .attr('stroke-width', (d) => wearEdgeStyle(wearCountFor(d), wearColorScale, wearMax).strokeWidth);
   }
 
-  function renderAfterglow(afterglow, nowMs) {
-    const style = afterglowStyle(afterglow, nowMs);
-    return container
+  // layer: the live SVG <g> afterglow circles join into. afterglows:
+  // state.trace.afterglows entries { id, deadline, totalMs }. nodesById
+  // resolves each entry's node for position. Each circle fades from opacity
+  // 1 to 0 over its own totalMs via a one-shot transition set up once on
+  // entry -- not a per-frame recompute against `deadline` -- so it never
+  // needs polling to look right. Returns the still-live afterglow data so
+  // the caller can update its own node-level "has an active afterglow" flag.
+  function renderAfterglowLayer(layer, afterglows, nodesById, { isMobile = false, reducedMotion = false, now = Date.now(), nodeX, nodeY } = {}) {
+    const data = afterglows
+      .filter((a) => a.deadline > now)
+      .map((a) => ({ ...a, node: nodesById[a.id] }))
+      .filter((a) => a.node);
+    const sel = layer.selectAll('circle.bb-afterglow').data(data, (d) => d.id);
+    sel.exit().remove();
+    const residueR = isMobile ? 46 : 64; // soft residue, larger than the body -- not a ring hugging its edge
+    const enter = sel
+      .enter()
       .append('circle')
       .attr('class', 'bb-afterglow')
-      .attr('opacity', style.opacity)
-      .attr('data-bb-afterglow-kind', style.kind);
+      .attr('fill', 'url(#bb-afterglow-gradient)')
+      .attr('pointer-events', 'none')
+      .attr('cx', (d) => nodeX(d.node))
+      .attr('cy', (d) => nodeY(d.node))
+      .attr('r', residueR)
+      .attr('opacity', 1);
+    enter
+      .merge(sel)
+      .transition()
+      .duration(reducedMotion ? 0 : (d) => d.totalMs)
+      .ease(d3Lib.easeLinear)
+      .attr('opacity', 0);
+    return data;
   }
 
-  return { renderRouteHalo, renderWearEdge, renderAfterglow };
+  return { applyRouteHalos, applyWearEdges, renderAfterglowLayer, wearColorScale };
 }
