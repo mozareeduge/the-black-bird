@@ -61,7 +61,7 @@ async function captureFocusOrdinary(page, width, height) {
 async function captureAperture(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await gotoField(page, { reduced: true });
-  await page.evaluate(() => window.__bbState.activeId).then(async (id) => {
+  await page.evaluate(() => window.__bbTest?.getUiRuntime?.()?.focusedId).then(async (id) => {
     if (id !== 'FO.BLACK_BIRD_FIELD') await clickNode(page, 'FO.BLACK_BIRD_FIELD');
   });
 }
@@ -432,7 +432,11 @@ async function main() {
       await gotoField(page, { reduced: true });
       await clickNode(page, 'FO.CORPSE');
       await clickNode(page, 'FO.CAIN');
-      const state = await page.evaluate(() => window.__bbState);
+      const state = await page.evaluate(() => {
+        const s = window.__bbTest?.getState?.() ?? {};
+        const ui = window.__bbTest?.getUiRuntime?.() ?? {};
+        return { ...s, uiRuntime: ui };
+      });
       const design = await page.evaluate(() => window.__bbDesign?.snapshot?.());
       const geometry = await page.evaluate(() =>
         [...document.querySelectorAll('g.node')].slice(0, 10).map((g) => ({
@@ -442,7 +446,7 @@ async function main() {
       );
       await page.close();
       writeFileSync(path.join(MACHINE_DIR, 'state.json'), JSON.stringify({ candidate_sha: sha, state }, null, 2));
-      writeFileSync(path.join(MACHINE_DIR, 'event.json'), JSON.stringify({ candidate_sha: sha, routeEvents: state.history?.route ?? state.routeEvents }, null, 2));
+      writeFileSync(path.join(MACHINE_DIR, 'event.json'), JSON.stringify({ candidate_sha: sha, routeEvents: state.history?.route ?? [] }, null, 2));
       writeFileSync(path.join(MACHINE_DIR, 'geometry.json'), JSON.stringify({ candidate_sha: sha, sample: geometry }, null, 2));
       writeFileSync(path.join(MACHINE_DIR, 'design.json'), JSON.stringify({ candidate_sha: sha, design }, null, 2));
       for (const f of ['state.json', 'event.json', 'geometry.json', 'design.json']) {
