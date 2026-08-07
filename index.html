@@ -2019,6 +2019,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return null;
   }
 
+  // src/domain/selectors.js
+  function selectVisibleNodeIds(nodes2, view) {
+    return nodes2.filter((n) => isNodeVisible(n, view)).map((n) => n.id);
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -3245,10 +3250,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     for (let at = goal; at != null; at = prev.get(at)) path.push(at);
     return path.reverse();
   }
+  function visibleNodeIdSet() {
+    if (state.solo.active) return new Set(state.solo.members);
+    return new Set(selectVisibleNodeIds(nodes, state.view));
+  }
   function wearPulsePathFor(fromId, toId) {
     if (!fromId || !toId || fromId === toId) return null;
-    const visibleIds = simNodes.filter((d) => nodeVisible(d.id)).map((d) => d.id);
-    const path = pulseAnimationPath(fromId, toId, baseLinkPairsOrdered(), visibleIds);
+    const path = pulseAnimationPath(fromId, toId, baseLinkPairsOrdered(), visibleNodeIdSet());
     return path.length > 1 ? path : null;
   }
   function updateWearOverlay() {

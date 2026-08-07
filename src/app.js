@@ -21,6 +21,7 @@ import { isNodeVisible } from './domain/visibility.js';
 import { computeSoloMembership } from './domain/solo.js';
 import { createTimerRegistry } from './application/timer-registry.js';
 import { buildObjectViewModel } from './domain/reader-view-models.js';
+import { selectVisibleNodeIds } from './domain/selectors.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -1813,10 +1814,18 @@ function pulseAnimationPath(start, goal, orderedEdges, visibleIds) {
   for (let at = goal; at != null; at = prev.get(at)) path.push(at);
   return path.reverse();
 }
+// F05/R3: src/domain/selectors.js's selectVisibleNodeIds() (T10) is the real
+// type/object-visibility bulk-filter authority; Solo's override (when
+// active, Solo replaces ordinary View visibility entirely) is layered here
+// since the selector itself has no opinion on Solo -- the same composition
+// nodeVisible() uses per-id, batched for pathfinding.
+function visibleNodeIdSet() {
+  if (state.solo.active) return new Set(state.solo.members);
+  return new Set(selectVisibleNodeIds(nodes, state.view));
+}
 function wearPulsePathFor(fromId, toId) {
   if (!fromId || !toId || fromId === toId) return null;
-  const visibleIds = simNodes.filter((d) => nodeVisible(d.id)).map((d) => d.id);
-  const path = pulseAnimationPath(fromId, toId, baseLinkPairsOrdered(), visibleIds);
+  const path = pulseAnimationPath(fromId, toId, baseLinkPairsOrdered(), visibleNodeIdSet());
   return path.length > 1 ? path : null;
 }
 function updateWearOverlay() {
