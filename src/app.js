@@ -24,6 +24,7 @@ import { buildObjectViewModel } from './domain/reader-view-models.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
 import { createNavigationController } from './controllers/navigation-controller.js';
+import { createExternalLinkController } from './controllers/external-link-controller.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -1275,6 +1276,20 @@ const navigationController = createNavigationController({
 });
 navigationController.start();
 resize();
+
+// F05/R3: src/controllers/external-link-controller.js (tests/e2e/environmental-resilience.spec.js)
+// is the real open/failure authority for the About panel's external
+// destinations (T-REQ-042, P-RULE-037): a blocked popup or unreachable
+// destination gets a local, non-modal recovery status instead of silently
+// doing nothing, and never dispatches -- the poem session stays untouched.
+const externalLinkController = createExternalLinkController({
+  win: window,
+  doc: document,
+  container: document.getElementById("externalLinkStatus"),
+});
+document.querySelectorAll('.about-source-val a[target="_blank"]').forEach((a) => {
+  a.addEventListener("click", (ev) => externalLinkController.handleClick(ev, a));
+});
 
 // ── Visibility ─────────────────────────────────────────────────────────────
 function getEdgeSourceId(e) {

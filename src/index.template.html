@@ -311,6 +311,13 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .bb-unavailable-links{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
 .bb-unavailable-links a{font-family:var(--mono);font-size:13px;letter-spacing:.04em;color:var(--amber2,#c9a86a);}
 #app.phase-unavailable{background:transparent;}
+/* External destination failure recovery (T-REQ-042, P-RULE-037): a local,
+   non-modal status -- never a modal/alert -- so a blocked popup or
+   unreachable external destination never interrupts the reading session.
+   See src/controllers/external-link-controller.js. */
+.external-link-status{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;max-width:min(520px,calc(100vw - 32px));padding:10px 12px;border:1px solid var(--line2,#3a352e);background:rgba(13,12,11,.96);color:var(--text2,#b3aa9d);font-family:var(--mono,ui-monospace,monospace);font-size:11px;letter-spacing:.04em;}
+.external-link-status-text{flex:1 1 auto;overflow-wrap:break-word;}
+.external-link-status button{border:1px solid var(--line2,#3a352e);background:transparent;color:var(--text,#e7e1d7);font-family:inherit;font-size:inherit;cursor:pointer;padding:4px 8px;}
 </style>
 </head>
 <body>
@@ -463,6 +470,7 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
     <button data-mobile="index">Index</button>
   </nav>
 </div>
+<div id="externalLinkStatus" hidden></div>
 <script>
 /*__BB_BUILD_APP_SCRIPT__*/</script>
 </body>
