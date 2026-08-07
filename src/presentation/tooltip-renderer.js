@@ -32,6 +32,12 @@ export function createTooltipRenderer({ tooltipEl }) {
       meta.textContent = node.meta;
       tooltipEl.appendChild(meta);
     }
+    if (node.line) {
+      const line = document.createElement('div');
+      line.className = 'micro-preview-line';
+      line.textContent = node.line;
+      tooltipEl.appendChild(line);
+    }
     const pos = place(x, y, bounds);
     tooltipEl.style.left = `${pos.left}px`;
     tooltipEl.style.top = `${pos.top}px`;

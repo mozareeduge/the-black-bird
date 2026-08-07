@@ -2601,6 +2601,71 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { render };
   }
 
+  // src/presentation/tooltip-renderer.js
+  function createTooltipRenderer({ tooltipEl }) {
+    let associatedId = null;
+    let describedTarget = null;
+    function place(x, y, bounds) {
+      const w = tooltipEl.offsetWidth || 260;
+      const h = tooltipEl.offsetHeight || 120;
+      const m = 16;
+      const boundsW = bounds?.width ?? Infinity;
+      const boundsH = bounds?.height ?? Infinity;
+      let left = x + 18;
+      let top = y + 18;
+      if (left + w > boundsW - m) left = x - w - 18;
+      if (top + h > boundsH - m) top = y - h - 18;
+      return { left: Math.max(m, left), top: Math.max(m, top) };
+    }
+    function show(node, x, y, opts = {}) {
+      const { bounds, describedByTarget } = opts;
+      tooltipEl.textContent = "";
+      const title = document.createElement("div");
+      title.className = "micro-preview-title";
+      title.textContent = node.label;
+      tooltipEl.appendChild(title);
+      if (node.meta) {
+        const meta = document.createElement("div");
+        meta.className = "micro-preview-meta";
+        meta.textContent = node.meta;
+        tooltipEl.appendChild(meta);
+      }
+      if (node.line) {
+        const line = document.createElement("div");
+        line.className = "micro-preview-line";
+        line.textContent = node.line;
+        tooltipEl.appendChild(line);
+      }
+      const pos = place(x, y, bounds);
+      tooltipEl.style.left = `${pos.left}px`;
+      tooltipEl.style.top = `${pos.top}px`;
+      tooltipEl.classList.add("visible");
+      tooltipEl.setAttribute("aria-hidden", "false");
+      associatedId = node.id;
+      describedTarget = describedByTarget || null;
+      if (describedTarget && tooltipEl.id) describedTarget.setAttribute("aria-describedby", tooltipEl.id);
+      return pos;
+    }
+    function hide() {
+      tooltipEl.classList.remove("visible");
+      tooltipEl.setAttribute("aria-hidden", "true");
+      associatedId = null;
+      if (describedTarget) describedTarget.removeAttribute("aria-describedby");
+      describedTarget = null;
+    }
+    function reconcileGeometry(x, y, bounds) {
+      const boundsW = bounds?.width ?? Infinity;
+      const boundsH = bounds?.height ?? Infinity;
+      const valid = Number.isFinite(x) && Number.isFinite(y) && x >= 0 && y >= 0 && x <= boundsW && y <= boundsH;
+      if (!valid) hide();
+      return valid;
+    }
+    function isAssociatedWith(id) {
+      return associatedId === id;
+    }
+    return { show, hide, place, reconcileGeometry, isAssociatedWith };
+  }
+
   // src/domain/selectors.js
   function selectVisibleNodeIds(nodes2, view) {
     return nodes2.filter((n) => isNodeVisible(n, view)).map((n) => n.id);
@@ -2879,6 +2944,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     // product-semantic meaning of its own.
     onboardingActive: false
   };
+  var tooltipRenderer = createTooltipRenderer({ tooltipEl: document.getElementById("microPreview") });
   var FONT_SPECS = [
     { family: "IBM Plex Mono", url: "assets/fonts/IBMPlexMono-Regular.woff2" },
     { family: "IBM Plex Mono", url: "assets/fonts/IBMPlexMono-Medium.woff2" },
@@ -3000,9 +3066,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function shortOf(id) {
     return byId[id]?.shortLabel || byId[id]?.label || id;
-  }
-  function esc(s) {
-    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
   function updatePhaseClass() {
     const app = document.getElementById("app");
@@ -4333,31 +4396,22 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     return "";
   }
-  function placePreviewNearPoint(x, y) {
-    const w = 260, h = 120, m = 16;
-    let left = x + 18, top = y + 18;
-    if (left + w > window.innerWidth - m) left = x - w - 18;
-    if (top + h > window.innerHeight - m) top = y - h - 18;
-    return { left: Math.max(m, left), top: Math.max(m, top) };
+  function previewBounds() {
+    return { width: window.innerWidth, height: window.innerHeight };
   }
   function showObjectPreview(id, pos = {}) {
     const n = byId[id];
     if (!n) return;
-    const el2 = document.getElementById("microPreview");
-    el2.innerHTML = `<div class="micro-preview-title">${esc(n.label)}</div><div class="micro-preview-meta">${esc(n.type)}</div><div class="micro-preview-line">${esc(previewLineForObject(id))}</div>`;
     const x = pos.x ?? width / 2, y = pos.y ?? 80;
-    const pp = placePreviewNearPoint(x, y);
-    el2.style.left = `${pp.left}px`;
-    el2.style.top = `${pp.top}px`;
-    el2.classList.add("visible");
-    el2.setAttribute("aria-hidden", "false");
+    tooltipRenderer.show(
+      { id, label: n.label, meta: n.type, line: previewLineForObject(id) },
+      x,
+      y,
+      { bounds: previewBounds(), describedByTarget: nodeSel.filter((d) => d.id === id).node() }
+    );
   }
   function hidePreview() {
-    const el2 = document.getElementById("microPreview");
-    if (el2) {
-      el2.classList.remove("visible");
-      el2.setAttribute("aria-hidden", "true");
-    }
+    tooltipRenderer.hide();
   }
   function touchObject(id, opts = {}) {
     uiRuntime.touchedId = id;
@@ -4377,13 +4431,17 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function showEdgePreview(e, ev) {
     const relos = e.relos || [];
-    const el2 = document.getElementById("microPreview");
-    el2.innerHTML = `<div class="micro-preview-title">Projected edge</div><div class="micro-preview-meta">${relos.length} relation object${relos.length === 1 ? "" : "s"}</div><div class="micro-preview-line">generated by ${relos.map(shortOf).slice(0, 3).join(", ")}</div>`;
-    const pp = placePreviewNearPoint(ev.clientX, ev.clientY);
-    el2.style.left = `${pp.left}px`;
-    el2.style.top = `${pp.top}px`;
-    el2.classList.add("visible");
-    el2.setAttribute("aria-hidden", "false");
+    tooltipRenderer.show(
+      {
+        id: null,
+        label: "Projected edge",
+        meta: `${relos.length} relation object${relos.length === 1 ? "" : "s"}`,
+        line: `generated by ${relos.map(shortOf).slice(0, 3).join(", ")}`
+      },
+      ev.clientX,
+      ev.clientY,
+      { bounds: previewBounds() }
+    );
   }
   function closeSheet() {
     document.getElementById("sheet").classList.remove("open");
