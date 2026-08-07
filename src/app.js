@@ -20,7 +20,8 @@ import { createFocusManager } from './accessibility/focus-manager.js';
 import { isNodeVisible } from './domain/visibility.js';
 import { computeSoloMembership } from './domain/solo.js';
 import { createTimerRegistry } from './application/timer-registry.js';
-import { buildObjectViewModel } from './domain/reader-view-models.js';
+import { buildObjectViewModel, buildProjectedEdgeViewModel } from './domain/reader-view-models.js';
+import { buildReaderContent, createReaderRenderer } from './presentation/reader-renderer.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
 import { createNavigationController } from './controllers/navigation-controller.js';
@@ -2318,8 +2319,13 @@ async function focusObject(id, opts = {}) {
     readerEl.innerHTML = "";
     readerEl.scrollTop = 0;
   }
-  if (opts.readerDelay !== false)
-    setTimeout(() => renderNodePanel(id), prefersReducedMotion() ? 0 : (opts.readerDelay ?? 160));
+  if (opts.readerDelay !== false) {
+    const scheduledGen = ++readerGeneration;
+    setTimeout(
+      () => renderNodePanel(id, scheduledGen),
+      prefersReducedMotion() ? 0 : (opts.readerDelay ?? 160),
+    );
+  }
   drawRouteMemory({ duration: opts.routeDuration ?? 420 });
   updateRouteLiveRegion();
 }
@@ -2498,9 +2504,6 @@ function reader(html) {
   document.getElementById("reader").innerHTML = html;
   inlineHandlers(document.getElementById("reader"));
 }
-function meta(n) {
-  return `<div class="meta">${n.type} · ${n.id}</div><div class="title">${n.label}</div>`;
-}
 function renderIndexList(ids) {
   return `<div class="index-list">${ids.map((id) => `<div class="index-item" data-id="${id}"><div class="idx-type">${byId[id]?.type || ""}</div><div class="idx-title">${labelOf(id)}</div></div>`).join("")}</div>`;
 }
@@ -2511,40 +2514,69 @@ function bindIndexItems() {
     el.onclick = () => focusObject(el.dataset.id, { source: "index-item" });
   });
 }
-// F05/R3: src/domain/reader-view-models.js's buildObjectViewModel() (T18,
-// T-REQ-025) is the real derived-data authority for the Reader -- appears-in/
-// source-names/relos/citation-sources are computed there, once, instead of
-// being recomputed inline per render function. This file's render* functions
-// only turn that structured view model into HTML.
+// F05/R3: src/domain/reader-view-models.js's buildObjectViewModel()/
+// buildProjectedEdgeViewModel() (T18, T-REQ-025) are the real derived-data
+// authority for the Reader, and src/presentation/reader-renderer.js's
+// buildReaderContent()/createReaderRenderer() are the real DOM-construction
+// and commit-atomicity authority (T-REQ-024, P-RULE-021). The atomicity gate
+// is keyed to a dedicated reader-render generation counter, not the command
+// dispatcher's transaction id: a real click's own settle-down dispatches
+// (CLEAR_PREVIEW, SET_ROVING_FOCUS, ...) routinely fire, synchronously,
+// between scheduling a delayed renderNodePanel and it actually running --
+// gating on "no dispatch happened since" would make almost every real commit
+// look stale. What must never regress is a *newer scheduled Reader render*
+// (a different id, requested after this one) clobbering this one, which is
+// exactly what an independent generation counter, bumped once per Reader
+// render request, protects against.
+let readerGeneration = 0;
 function readerContext() {
   return { nodesById: byId, texts: DATA.texts, nameos: DATA.nameos, refs: DATA.refs, relations: DATA.relations };
 }
-function renderNodePanel(id) {
+const readerRenderer = createReaderRenderer({
+  container: document.getElementById("reader"),
+  isActive: (gen) => gen === readerGeneration,
+  build: (vm) => buildReaderContent(vm, byId, document),
+});
+function commitReader(vm, gen) {
+  const result = readerRenderer.commit(vm, gen);
+  if (result.committed) inlineHandlers(document.getElementById("reader"));
+  return result;
+}
+function bindReaderInteractions(vm) {
+  if (vm.kind === "object" && vm.subtype === "text") {
+    document.querySelectorAll(".chip").forEach((c) => {
+      c.onmouseenter = () => !isMobile() && touchObject(c.dataset.id, { source: "chip-hover" });
+      c.onmouseleave = () => !isMobile() && clearTouch();
+      c.onclick = () => focusObject(c.dataset.id, { source: "chip" });
+    });
+    const to = document.getElementById("toggleObjects");
+    if (to)
+      to.onclick = () => {
+        const box = document.getElementById("mnoObjects");
+        box.style.display = box.style.display === "none" ? "flex" : "none";
+      };
+  } else {
+    bindIndexItems();
+  }
+}
+function renderNodePanel(id, gen = ++readerGeneration) {
   closeSheet();
   const vm = buildObjectViewModel(id, readerContext());
   if (!vm) return;
-  if (vm.subtype === "text") return renderTextNode(vm);
-  if (vm.subtype === "fo") return renderFO(vm);
-  if (vm.subtype === "nameo") return renderNameO(vm);
-  if (vm.subtype === "refo") return renderRefO(vm);
-  if (vm.subtype === "relo") return renderRelO(vm);
-}
-function renderTextNode(vm) {
-  const n = vm.node;
-  const objectChips = vm.objects
-    .map((id) => `<span class="chip" data-id="${id}">${shortOf(id)}</span>`)
-    .join("");
-  const refChips = vm.refs
-    .map((id) => `<span class="chip" data-id="${id}">${shortOf(id)}</span>`)
-    .join("");
-  const body =
-    n.type === "MNO"
-      ? `<div style="margin-bottom:8px">${vm.body}</div><div class="disclosure"><button id="toggleObjects" style="font-size:10px;letter-spacing:.18em">objects ${vm.objects.length}</button><div id="mnoObjects" class="chip-row" style="display:none">${objectChips}</div></div>`
-      : `<div class="prose"><p>${vm.body}</p></div>${refChips ? '<div class="section-label">references</div><div class="chip-row">' + refChips + "</div>" : ""}<div class="section-label">objects</div><div class="chip-row">${objectChips}</div>`;
-  if (n.type === "MNO" && !prefersReducedMotion()) {
-    const rEl = document.getElementById("reader");
-    if (rEl) rEl.style.opacity = "0";
-    reader(`${meta(n)}${body}`);
+  const isMno = vm.subtype === "text" && vm.node.type === "MNO";
+  const rEl = document.getElementById("reader");
+  const applyFade = isMno && !prefersReducedMotion() && !!rEl;
+  if (applyFade) rEl.style.opacity = "0";
+  const result = commitReader(vm, gen);
+  if (!result.committed) {
+    // A newer Reader render request superseded this scheduled one
+    // (P-RULE-021) -- the live panel was never touched, so undo the
+    // pre-emptive fade rather than leaving it permanently dimmed.
+    if (applyFade) rEl.style.opacity = "";
+    return;
+  }
+  bindReaderInteractions(vm);
+  if (applyFade) {
     document.fonts.ready.then(() => {
       if (rEl) {
         rEl.style.transition = "opacity 0.12s";
@@ -2554,77 +2586,7 @@ function renderTextNode(vm) {
         }, 140);
       }
     });
-  } else {
-    reader(`${meta(n)}${body}`);
   }
-  document.querySelectorAll(".chip").forEach((c) => {
-    c.onmouseenter = () => !isMobile() && touchObject(c.dataset.id, { source: "chip-hover" });
-    c.onmouseleave = () => !isMobile() && clearTouch();
-    c.onclick = () => focusObject(c.dataset.id, { source: "chip" });
-  });
-  const to = document.getElementById("toggleObjects");
-  if (to)
-    to.onclick = () => {
-      const box = document.getElementById("mnoObjects");
-      box.style.display = box.style.display === "none" ? "flex" : "none";
-    };
-}
-function renderFO(vm) {
-  const n = vm.node;
-  let html = `${meta(n)}`;
-  if (vm.appearsIn.length)
-    html += `<div class="section-label">appears in</div>${renderIndexList(vm.appearsIn)}`;
-  if (vm.sourceNames.length)
-    html += `<div class="section-label">source names</div>${renderIndexList(vm.sourceNames)}`;
-  if (vm.relos.length)
-    html += `<div class="section-label">relation objects</div>${renderIndexList(vm.relos)}`;
-  reader(html);
-  bindIndexItems();
-}
-function wrapScriptSpans(s) {
-  return esc(s).replace(
-    /[؀-ۿ]+/g,
-    (m) => `<span lang="ar" dir="rtl" class="bb-arabic">${m}</span>`,
-  );
-}
-function renderNameO(vm) {
-  const n = vm.node;
-  const label = isArabicScript(n.label)
-    ? `<p class="bb-arabic" lang="ar" dir="rtl">${esc(n.label)}</p>`
-    : "";
-  reader(
-    `${meta(n)}${label}<div class="prose"><p>${wrapScriptSpans(vm.sourceLayer)}</p><p>${wrapScriptSpans(vm.gloss)}</p></div><div class="section-label">attached objects</div>${renderIndexList(vm.attached)}`,
-  );
-  bindIndexItems();
-}
-function renderRefO(vm) {
-  const n = vm.node;
-  let sourceBlock = "";
-  if (vm.sources && vm.sources.length) {
-    sourceBlock = vm.sources
-      .map((s) =>
-        s.url
-          ? `<a class="source-row" href="${s.url}" target="_blank" rel="noopener">${s.label} ↗</a>`
-          : `<span class="source-row" style="opacity:.5;cursor:default">${s.label}</span>`,
-      )
-      .join("");
-    if (vm.statusNote)
-      sourceBlock += `<div style="font-family:var(--mono);font-size:10px;color:var(--ghost);margin-top:10px;letter-spacing:.08em">${vm.statusNote}</div>`;
-  } else if (vm.url) {
-    sourceBlock = `<a class="source-row" href="${vm.url}" target="_blank" rel="noopener">${vm.status || "source"} ↗</a>`;
-  } else {
-    sourceBlock = `<span class="source-row" style="opacity:.45;cursor:default;border-bottom:0">${vm.status || "bibliographic reference"}</span>`;
-  }
-  reader(
-    `${meta(n)}<div class="ref-citation">${vm.citation}</div>${sourceBlock}${vm.linkedNotes.length ? '<div class="section-label">linked notes</div>' + renderIndexList(vm.linkedNotes) : ""}`,
-  );
-  bindIndexItems();
-}
-function renderRelO(vm) {
-  reader(
-    `<div class="meta">RelO · ${vm.node.id}</div><div class="section-label">objects</div>${renderIndexList(vm.participants)}`,
-  );
-  bindIndexItems();
 }
 function openProjectedEdge(e) {
   const s = getEdgeSourceId(e),
@@ -2640,10 +2602,8 @@ function openProjectedEdge(e) {
   renderEdgePanel(s, t, relOIds);
 }
 function renderEdgePanel(s, t, relos) {
-  reader(
-    `<div class="meta">Projected edge</div><div class="edge-head">${labelOf(s)} ↔ ${labelOf(t)}</div><div class="section-label">generated by</div>${renderIndexList(relos)}`,
-  );
-  bindIndexItems();
+  const result = commitReader(buildProjectedEdgeViewModel(s, t, relos), ++readerGeneration);
+  if (result.committed) bindIndexItems();
 }
 function showEdgeSheet(s, t, relos) {
   closeAllDrawers();
@@ -2659,20 +2619,6 @@ function showEdgeSheet(s, t, relos) {
     renderEdgePanel(s, t, relos);
   };
   document.getElementById("sheetClose2").onclick = closeSheet;
-}
-function renderDoc(kind = "statement") {
-  const title =
-    { statement: "Statement", how: "How to read", types: "Object types", sources: "Sources" }[
-      kind
-    ] || "Index";
-  const text = DATA.docs[kind] || DATA.docs.statement;
-  const paras = text
-    .split("\n\n")
-    .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-    .join("");
-  reader(
-    `<div class="meta">Index</div><div class="title">${title}</div><div class="prose">${paras}</div>`,
-  );
 }
 function inlineHandlers(root = document) {
   root.querySelectorAll(".fl").forEach((el) => {

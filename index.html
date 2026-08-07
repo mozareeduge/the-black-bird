@@ -2026,6 +2026,253 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     return null;
   }
+  function buildProjectedEdgeViewModel(sourceId, targetId, relOIds) {
+    return { kind: "projected-edge", sourceId, targetId, relOIds: relOIds || [] };
+  }
+
+  // src/presentation/reader-renderer.js
+  var ARABIC_RUN = /[؀-ۿ]+/g;
+  var ARABIC_TEST = /[؀-ۿ]/;
+  function isArabicScript(s) {
+    return ARABIC_TEST.test(s || "");
+  }
+  function shortLabelOf(id, nodesById) {
+    const n = nodesById[id];
+    return n ? n.shortLabel || n.label : id;
+  }
+  function fullLabelOf(id, nodesById) {
+    return nodesById[id]?.label || id;
+  }
+  function el(doc, tag, className, text) {
+    const node = doc.createElement(tag);
+    if (className) node.className = className;
+    if (text !== void 0) node.textContent = text;
+    return node;
+  }
+  function sectionLabel(text, doc) {
+    return el(doc, "div", "section-label", text);
+  }
+  function chipSpan(id, nodesById, doc) {
+    const chip = el(doc, "span", "chip", shortLabelOf(id, nodesById));
+    chip.dataset.id = id;
+    return chip;
+  }
+  function chipRow(ids, nodesById, doc) {
+    const row = el(doc, "div", "chip-row");
+    for (const id of ids) row.appendChild(chipSpan(id, nodesById, doc));
+    return row;
+  }
+  function indexList(ids, nodesById, doc) {
+    const list = el(doc, "div", "index-list");
+    for (const id of ids) {
+      const item = el(doc, "div", "index-item");
+      item.dataset.id = id;
+      item.appendChild(el(doc, "div", "idx-type", nodesById[id]?.type || ""));
+      item.appendChild(el(doc, "div", "idx-title", shortLabelOf(id, nodesById)));
+      list.appendChild(item);
+    }
+    return list;
+  }
+  function metaBlock(node, doc) {
+    const wrap = doc.createDocumentFragment();
+    wrap.appendChild(el(doc, "div", "meta", `${node.type} \xB7 ${node.id}`));
+    wrap.appendChild(el(doc, "div", "title", node.label));
+    return wrap;
+  }
+  function appendArabicWrapped(parent, text, doc) {
+    const s = text || "";
+    let lastIndex = 0;
+    let m;
+    ARABIC_RUN.lastIndex = 0;
+    while ((m = ARABIC_RUN.exec(s)) !== null) {
+      if (m.index > lastIndex) parent.appendChild(doc.createTextNode(s.slice(lastIndex, m.index)));
+      const span = el(doc, "span", "bb-arabic", m[0]);
+      span.lang = "ar";
+      span.dir = "rtl";
+      parent.appendChild(span);
+      lastIndex = ARABIC_RUN.lastIndex;
+    }
+    if (lastIndex < s.length) parent.appendChild(doc.createTextNode(s.slice(lastIndex)));
+  }
+  function buildTextContent(vm, nodesById, doc) {
+    const root2 = doc.createDocumentFragment();
+    root2.appendChild(metaBlock(vm.node, doc));
+    if (vm.node.type === "MNO") {
+      const bodyWrap = doc.createElement("div");
+      bodyWrap.style.marginBottom = "8px";
+      bodyWrap.innerHTML = vm.body;
+      const disclosure = el(doc, "div", "disclosure");
+      const toggle = el(doc, "button", null, `objects ${vm.objects.length}`);
+      toggle.id = "toggleObjects";
+      toggle.type = "button";
+      toggle.style.fontSize = "10px";
+      toggle.style.letterSpacing = ".18em";
+      const objectsBox = el(doc, "div", "chip-row");
+      objectsBox.id = "mnoObjects";
+      objectsBox.style.display = "none";
+      vm.objects.forEach((id) => objectsBox.appendChild(chipSpan(id, nodesById, doc)));
+      disclosure.append(toggle, objectsBox);
+      root2.append(bodyWrap, disclosure);
+      return root2;
+    }
+    const prose = el(doc, "div", "prose");
+    const p = doc.createElement("p");
+    p.innerHTML = vm.body;
+    prose.appendChild(p);
+    root2.appendChild(prose);
+    if (vm.refs.length) {
+      root2.appendChild(sectionLabel("references", doc));
+      root2.appendChild(chipRow(vm.refs, nodesById, doc));
+    }
+    root2.appendChild(sectionLabel("objects", doc));
+    root2.appendChild(chipRow(vm.objects, nodesById, doc));
+    return root2;
+  }
+  function buildFoContent(vm, nodesById, doc) {
+    const root2 = doc.createDocumentFragment();
+    root2.appendChild(metaBlock(vm.node, doc));
+    if (vm.appearsIn.length) {
+      root2.appendChild(sectionLabel("appears in", doc));
+      root2.appendChild(indexList(vm.appearsIn, nodesById, doc));
+    }
+    if (vm.sourceNames.length) {
+      root2.appendChild(sectionLabel("source names", doc));
+      root2.appendChild(indexList(vm.sourceNames, nodesById, doc));
+    }
+    if (vm.relos.length) {
+      root2.appendChild(sectionLabel("relation objects", doc));
+      root2.appendChild(indexList(vm.relos, nodesById, doc));
+    }
+    return root2;
+  }
+  function buildNameoContent(vm, nodesById, doc) {
+    const root2 = doc.createDocumentFragment();
+    root2.appendChild(metaBlock(vm.node, doc));
+    if (isArabicScript(vm.node.label)) {
+      const label = el(doc, "p", "bb-arabic", vm.node.label);
+      label.lang = "ar";
+      label.dir = "rtl";
+      root2.appendChild(label);
+    }
+    const prose = el(doc, "div", "prose");
+    const layer = doc.createElement("p");
+    appendArabicWrapped(layer, vm.sourceLayer, doc);
+    const gloss = doc.createElement("p");
+    appendArabicWrapped(gloss, vm.gloss, doc);
+    prose.append(layer, gloss);
+    root2.appendChild(prose);
+    root2.appendChild(sectionLabel("attached objects", doc));
+    root2.appendChild(indexList(vm.attached, nodesById, doc));
+    return root2;
+  }
+  function buildRefoContent(vm, nodesById, doc) {
+    const root2 = doc.createDocumentFragment();
+    root2.appendChild(metaBlock(vm.node, doc));
+    root2.appendChild(el(doc, "div", "ref-citation", vm.citation));
+    if (vm.sources && vm.sources.length) {
+      for (const s of vm.sources) {
+        if (s.url) {
+          const a = el(doc, "a", "source-row", `${s.label} \u2197`);
+          a.href = s.url;
+          a.target = "_blank";
+          a.rel = "noopener";
+          root2.appendChild(a);
+        } else {
+          const span = el(doc, "span", "source-row", s.label);
+          span.style.opacity = ".5";
+          span.style.cursor = "default";
+          root2.appendChild(span);
+        }
+      }
+      if (vm.statusNote) {
+        const note = el(doc, "div", null, vm.statusNote);
+        note.style.fontFamily = "var(--mono)";
+        note.style.fontSize = "10px";
+        note.style.color = "var(--ghost)";
+        note.style.marginTop = "10px";
+        note.style.letterSpacing = ".08em";
+        root2.appendChild(note);
+      }
+    } else if (vm.url) {
+      const a = el(doc, "a", "source-row", `${vm.status || "source"} \u2197`);
+      a.href = vm.url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      root2.appendChild(a);
+    } else {
+      const span = el(doc, "span", "source-row", vm.status || "bibliographic reference");
+      span.style.opacity = ".45";
+      span.style.cursor = "default";
+      span.style.borderBottom = "0";
+      root2.appendChild(span);
+    }
+    if (vm.linkedNotes.length) {
+      root2.appendChild(sectionLabel("linked notes", doc));
+      root2.appendChild(indexList(vm.linkedNotes, nodesById, doc));
+    }
+    return root2;
+  }
+  function buildReloContent(vm, nodesById, doc) {
+    const root2 = doc.createDocumentFragment();
+    root2.appendChild(el(doc, "div", "meta", `RelO \xB7 ${vm.node.id}`));
+    root2.appendChild(sectionLabel("objects", doc));
+    root2.appendChild(indexList(vm.participants, nodesById, doc));
+    return root2;
+  }
+  function buildObjectContent(vm, nodesById, doc = document) {
+    if (vm.subtype === "text") return buildTextContent(vm, nodesById, doc);
+    if (vm.subtype === "fo") return buildFoContent(vm, nodesById, doc);
+    if (vm.subtype === "nameo") return buildNameoContent(vm, nodesById, doc);
+    if (vm.subtype === "refo") return buildRefoContent(vm, nodesById, doc);
+    if (vm.subtype === "relo") return buildReloContent(vm, nodesById, doc);
+    return doc.createDocumentFragment();
+  }
+  function buildProjectedEdgeContent(vm, nodesById, doc = document) {
+    const root2 = doc.createDocumentFragment();
+    root2.appendChild(el(doc, "div", "meta", "Projected edge"));
+    root2.appendChild(
+      el(doc, "div", "edge-head", `${fullLabelOf(vm.sourceId, nodesById)} \u2194 ${fullLabelOf(vm.targetId, nodesById)}`)
+    );
+    root2.appendChild(sectionLabel("generated by", doc));
+    root2.appendChild(indexList(vm.relOIds, nodesById, doc));
+    return root2;
+  }
+  var ORIENTATION_TITLES = { statement: "Statement", how: "How to read", types: "Object types", sources: "Sources" };
+  function buildOrientationContent(vm, doc = document) {
+    const root2 = doc.createDocumentFragment();
+    root2.appendChild(el(doc, "div", "meta", "Index"));
+    root2.appendChild(el(doc, "div", "title", ORIENTATION_TITLES[vm.section] || "Index"));
+    const prose = el(doc, "div", "prose");
+    for (const para of (vm.text || "").split("\n\n")) {
+      const p = doc.createElement("p");
+      const lines = para.split("\n");
+      lines.forEach((line, i) => {
+        if (i > 0) p.appendChild(doc.createElement("br"));
+        p.appendChild(doc.createTextNode(line));
+      });
+      prose.appendChild(p);
+    }
+    root2.appendChild(prose);
+    return root2;
+  }
+  function buildReaderContent(viewModel, nodesById, doc = document) {
+    if (viewModel.kind === "object") return buildObjectContent(viewModel, nodesById, doc);
+    if (viewModel.kind === "projected-edge") return buildProjectedEdgeContent(viewModel, nodesById, doc);
+    return buildOrientationContent(viewModel, doc);
+  }
+  function createReaderRenderer({ container, isActive, build }) {
+    function commit(viewModel, txId) {
+      const content = build(viewModel);
+      if (!isActive(txId)) return { committed: false };
+      if (container.replaceChildren) container.replaceChildren(content);
+      else {
+        container.innerHTML = "";
+        container.appendChild(content);
+      }
+      return { committed: true };
+    }
+    return { commit };
+  }
 
   // src/domain/selectors.js
   function selectVisibleNodeIds(nodes2, view) {
@@ -2654,8 +2901,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     nodeSel.attr("tabindex", (d) => focusManager.tabIndexFor(d.id));
   }
   function focusNodeElement(id) {
-    const el = nodeLayer.select(`g.node[data-bb-id="${CSS.escape(id)}"]`).node();
-    if (el && el.focus) el.focus();
+    const el2 = nodeLayer.select(`g.node[data-bb-id="${CSS.escape(id)}"]`).node();
+    if (el2 && el2.focus) el2.focus();
   }
   function nearestNodeInDirection(fromId, dx, dy) {
     const from = byId[fromId];
@@ -2775,13 +3022,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     return d.shortLabel || d.label;
   }
-  function isArabicScript(s) {
+  function isArabicScript2(s) {
     return /[؀-ۿ]/.test(s || "");
   }
   nodeSel.append("text").attr(
     "class",
-    (d) => "node-label" + (d.type === "NameO" && isArabicScript(graphLabelFor(d)) ? " bb-arabic" : "")
-  ).attr("text-anchor", "middle").attr("y", (d) => nodeMetrics(d).labelOffset).attr("lang", (d) => d.type === "NameO" && isArabicScript(graphLabelFor(d)) ? "ar" : null).attr("dir", (d) => d.type === "NameO" && isArabicScript(graphLabelFor(d)) ? "rtl" : null).text((d) => graphLabelFor(d));
+    (d) => "node-label" + (d.type === "NameO" && isArabicScript2(graphLabelFor(d)) ? " bb-arabic" : "")
+  ).attr("text-anchor", "middle").attr("y", (d) => nodeMetrics(d).labelOffset).attr("lang", (d) => d.type === "NameO" && isArabicScript2(graphLabelFor(d)) ? "ar" : null).attr("dir", (d) => d.type === "NameO" && isArabicScript2(graphLabelFor(d)) ? "rtl" : null).text((d) => graphLabelFor(d));
   nodeSel.append("title").text(
     (d) => d.type === "NameO" && d.shortLabel !== d.label ? `${d.shortLabel} \u2014 ${d.label}` : d.label
   );
@@ -2865,16 +3112,16 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const t = uiRuntime.transform;
     const safeRaw = computeFieldSafeRect();
     const safeRect = { x: safeRaw.left, y: safeRaw.top, width: safeRaw.width, height: safeRaw.height };
-    const visible = nodeSel.selectAll("text.node-label").nodes().filter((el) => getComputedStyle(el).getPropertyValue("display") !== "none").map((el) => ({ el, d: d3.select(el).datum() })).filter(({ d }) => d && d.x != null && d.y != null);
+    const visible = nodeSel.selectAll("text.node-label").nodes().filter((el2) => getComputedStyle(el2).getPropertyValue("display") !== "none").map((el2) => ({ el: el2, d: d3.select(el2).datum() })).filter(({ d }) => d && d.x != null && d.y != null);
     const focus = uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null;
     const focusIds = focus ? new Set(focus.ids) : null;
     const core = focus && focus.coreId ? byId[focus.coreId] : null;
     const relParticipants = core && core.type === "RelO" ? new Set(DATA.relations[focus.coreId] || []) : null;
     const entries = [];
-    for (const { el, d } of visible) {
+    for (const { el: el2, d } of visible) {
       let bbox;
       try {
-        bbox = el.getBBox();
+        bbox = el2.getBBox();
       } catch (e) {
         continue;
       }
@@ -2882,7 +3129,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       const isFocusMember = !!(focusIds && focusIds.has(d.id));
       const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
       const tier = labelPriorityTier(d, isActive, isFocusMember, isRelParticipant);
-      entries.push({ el, d, bbox, isActive, tier, isRequired: tier <= 2 });
+      entries.push({ el: el2, d, bbox, isActive, tier, isRequired: tier <= 2 });
     }
     entries.sort((a, b) => a.tier - b.tier);
     const w = (e) => Math.max(1, e.bbox.width);
@@ -3523,14 +3770,14 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       addEv(ev, i === ap.tail.length - 1 ? "current" : "");
     });
     r.innerHTML = parts.join("") + '<button class="clear-route" aria-label="clear route">clear</button>';
-    r.querySelectorAll(".route-item").forEach((el) => {
-      el.onmouseenter = () => touchObject(el.dataset.id, { source: "route-hover" });
-      el.onmouseleave = () => clearTouch();
-      el.onclick = () => focusObject(el.dataset.id, {
+    r.querySelectorAll(".route-item").forEach((el2) => {
+      el2.onmouseenter = () => touchObject(el2.dataset.id, { source: "route-hover" });
+      el2.onmouseleave = () => clearTouch();
+      el2.onclick = () => focusObject(el2.dataset.id, {
         source: "route",
         routePolicy: "replay",
         tracePolicy: "none",
-        sequence: Number(el.dataset.routeIndex)
+        sequence: Number(el2.dataset.routeIndex)
       });
     });
     const ell = r.querySelector("[data-route-open]");
@@ -3726,8 +3973,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       readerEl.innerHTML = "";
       readerEl.scrollTop = 0;
     }
-    if (opts.readerDelay !== false)
-      setTimeout(() => renderNodePanel(id), prefersReducedMotion() ? 0 : opts.readerDelay ?? 160);
+    if (opts.readerDelay !== false) {
+      const scheduledGen = ++readerGeneration;
+      setTimeout(
+        () => renderNodePanel(id, scheduledGen),
+        prefersReducedMotion() ? 0 : opts.readerDelay ?? 160
+      );
+    }
     drawRouteMemory({ duration: opts.routeDuration ?? 420 });
     updateRouteLiveRegion();
   }
@@ -3807,20 +4059,20 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function showObjectPreview(id, pos = {}) {
     const n = byId[id];
     if (!n) return;
-    const el = document.getElementById("microPreview");
-    el.innerHTML = `<div class="micro-preview-title">${esc(n.label)}</div><div class="micro-preview-meta">${esc(n.type)}</div><div class="micro-preview-line">${esc(previewLineForObject(id))}</div>`;
+    const el2 = document.getElementById("microPreview");
+    el2.innerHTML = `<div class="micro-preview-title">${esc(n.label)}</div><div class="micro-preview-meta">${esc(n.type)}</div><div class="micro-preview-line">${esc(previewLineForObject(id))}</div>`;
     const x = pos.x ?? width / 2, y = pos.y ?? 80;
     const pp = placePreviewNearPoint(x, y);
-    el.style.left = `${pp.left}px`;
-    el.style.top = `${pp.top}px`;
-    el.classList.add("visible");
-    el.setAttribute("aria-hidden", "false");
+    el2.style.left = `${pp.left}px`;
+    el2.style.top = `${pp.top}px`;
+    el2.classList.add("visible");
+    el2.setAttribute("aria-hidden", "false");
   }
   function hidePreview() {
-    const el = document.getElementById("microPreview");
-    if (el) {
-      el.classList.remove("visible");
-      el.setAttribute("aria-hidden", "true");
+    const el2 = document.getElementById("microPreview");
+    if (el2) {
+      el2.classList.remove("visible");
+      el2.setAttribute("aria-hidden", "true");
     }
   }
   function touchObject(id, opts = {}) {
@@ -3841,13 +4093,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function showEdgePreview(e, ev) {
     const relos = e.relos || [];
-    const el = document.getElementById("microPreview");
-    el.innerHTML = `<div class="micro-preview-title">Projected edge</div><div class="micro-preview-meta">${relos.length} relation object${relos.length === 1 ? "" : "s"}</div><div class="micro-preview-line">generated by ${relos.map(shortOf).slice(0, 3).join(", ")}</div>`;
+    const el2 = document.getElementById("microPreview");
+    el2.innerHTML = `<div class="micro-preview-title">Projected edge</div><div class="micro-preview-meta">${relos.length} relation object${relos.length === 1 ? "" : "s"}</div><div class="micro-preview-line">generated by ${relos.map(shortOf).slice(0, 3).join(", ")}</div>`;
     const pp = placePreviewNearPoint(ev.clientX, ev.clientY);
-    el.style.left = `${pp.left}px`;
-    el.style.top = `${pp.top}px`;
-    el.classList.add("visible");
-    el.setAttribute("aria-hidden", "false");
+    el2.style.left = `${pp.left}px`;
+    el2.style.top = `${pp.top}px`;
+    el2.classList.add("visible");
+    el2.setAttribute("aria-hidden", "false");
   }
   function closeSheet() {
     document.getElementById("sheet").classList.remove("open");
@@ -3858,41 +4110,62 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     document.getElementById("reader").innerHTML = html;
     inlineHandlers(document.getElementById("reader"));
   }
-  function meta(n) {
-    return `<div class="meta">${n.type} \xB7 ${n.id}</div><div class="title">${n.label}</div>`;
-  }
   function renderIndexList(ids) {
     return `<div class="index-list">${ids.map((id) => `<div class="index-item" data-id="${id}"><div class="idx-type">${byId[id]?.type || ""}</div><div class="idx-title">${labelOf(id)}</div></div>`).join("")}</div>`;
   }
   function bindIndexItems() {
-    document.querySelectorAll(".index-item").forEach((el) => {
-      el.onmouseenter = () => !isMobile() && touchObject(el.dataset.id, { source: "index-hover" });
-      el.onmouseleave = () => !isMobile() && clearTouch();
-      el.onclick = () => focusObject(el.dataset.id, { source: "index-item" });
+    document.querySelectorAll(".index-item").forEach((el2) => {
+      el2.onmouseenter = () => !isMobile() && touchObject(el2.dataset.id, { source: "index-hover" });
+      el2.onmouseleave = () => !isMobile() && clearTouch();
+      el2.onclick = () => focusObject(el2.dataset.id, { source: "index-item" });
     });
   }
+  var readerGeneration = 0;
   function readerContext() {
     return { nodesById: byId, texts: DATA.texts, nameos: DATA.nameos, refs: DATA.refs, relations: DATA.relations };
   }
-  function renderNodePanel(id) {
+  var readerRenderer = createReaderRenderer({
+    container: document.getElementById("reader"),
+    isActive: (gen) => gen === readerGeneration,
+    build: (vm) => buildReaderContent(vm, byId, document)
+  });
+  function commitReader(vm, gen) {
+    const result = readerRenderer.commit(vm, gen);
+    if (result.committed) inlineHandlers(document.getElementById("reader"));
+    return result;
+  }
+  function bindReaderInteractions(vm) {
+    if (vm.kind === "object" && vm.subtype === "text") {
+      document.querySelectorAll(".chip").forEach((c) => {
+        c.onmouseenter = () => !isMobile() && touchObject(c.dataset.id, { source: "chip-hover" });
+        c.onmouseleave = () => !isMobile() && clearTouch();
+        c.onclick = () => focusObject(c.dataset.id, { source: "chip" });
+      });
+      const to = document.getElementById("toggleObjects");
+      if (to)
+        to.onclick = () => {
+          const box = document.getElementById("mnoObjects");
+          box.style.display = box.style.display === "none" ? "flex" : "none";
+        };
+    } else {
+      bindIndexItems();
+    }
+  }
+  function renderNodePanel(id, gen = ++readerGeneration) {
     closeSheet();
     const vm = buildObjectViewModel(id, readerContext());
     if (!vm) return;
-    if (vm.subtype === "text") return renderTextNode(vm);
-    if (vm.subtype === "fo") return renderFO(vm);
-    if (vm.subtype === "nameo") return renderNameO(vm);
-    if (vm.subtype === "refo") return renderRefO(vm);
-    if (vm.subtype === "relo") return renderRelO(vm);
-  }
-  function renderTextNode(vm) {
-    const n = vm.node;
-    const objectChips = vm.objects.map((id) => `<span class="chip" data-id="${id}">${shortOf(id)}</span>`).join("");
-    const refChips = vm.refs.map((id) => `<span class="chip" data-id="${id}">${shortOf(id)}</span>`).join("");
-    const body = n.type === "MNO" ? `<div style="margin-bottom:8px">${vm.body}</div><div class="disclosure"><button id="toggleObjects" style="font-size:10px;letter-spacing:.18em">objects ${vm.objects.length}</button><div id="mnoObjects" class="chip-row" style="display:none">${objectChips}</div></div>` : `<div class="prose"><p>${vm.body}</p></div>${refChips ? '<div class="section-label">references</div><div class="chip-row">' + refChips + "</div>" : ""}<div class="section-label">objects</div><div class="chip-row">${objectChips}</div>`;
-    if (n.type === "MNO" && !prefersReducedMotion()) {
-      const rEl = document.getElementById("reader");
-      if (rEl) rEl.style.opacity = "0";
-      reader(`${meta(n)}${body}`);
+    const isMno = vm.subtype === "text" && vm.node.type === "MNO";
+    const rEl = document.getElementById("reader");
+    const applyFade = isMno && !prefersReducedMotion() && !!rEl;
+    if (applyFade) rEl.style.opacity = "0";
+    const result = commitReader(vm, gen);
+    if (!result.committed) {
+      if (applyFade) rEl.style.opacity = "";
+      return;
+    }
+    bindReaderInteractions(vm);
+    if (applyFade) {
       document.fonts.ready.then(() => {
         if (rEl) {
           rEl.style.transition = "opacity 0.12s";
@@ -3902,71 +4175,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
           }, 140);
         }
       });
-    } else {
-      reader(`${meta(n)}${body}`);
     }
-    document.querySelectorAll(".chip").forEach((c) => {
-      c.onmouseenter = () => !isMobile() && touchObject(c.dataset.id, { source: "chip-hover" });
-      c.onmouseleave = () => !isMobile() && clearTouch();
-      c.onclick = () => focusObject(c.dataset.id, { source: "chip" });
-    });
-    const to = document.getElementById("toggleObjects");
-    if (to)
-      to.onclick = () => {
-        const box = document.getElementById("mnoObjects");
-        box.style.display = box.style.display === "none" ? "flex" : "none";
-      };
-  }
-  function renderFO(vm) {
-    const n = vm.node;
-    let html = `${meta(n)}`;
-    if (vm.appearsIn.length)
-      html += `<div class="section-label">appears in</div>${renderIndexList(vm.appearsIn)}`;
-    if (vm.sourceNames.length)
-      html += `<div class="section-label">source names</div>${renderIndexList(vm.sourceNames)}`;
-    if (vm.relos.length)
-      html += `<div class="section-label">relation objects</div>${renderIndexList(vm.relos)}`;
-    reader(html);
-    bindIndexItems();
-  }
-  function wrapScriptSpans(s) {
-    return esc(s).replace(
-      /[؀-ۿ]+/g,
-      (m) => `<span lang="ar" dir="rtl" class="bb-arabic">${m}</span>`
-    );
-  }
-  function renderNameO(vm) {
-    const n = vm.node;
-    const label = isArabicScript(n.label) ? `<p class="bb-arabic" lang="ar" dir="rtl">${esc(n.label)}</p>` : "";
-    reader(
-      `${meta(n)}${label}<div class="prose"><p>${wrapScriptSpans(vm.sourceLayer)}</p><p>${wrapScriptSpans(vm.gloss)}</p></div><div class="section-label">attached objects</div>${renderIndexList(vm.attached)}`
-    );
-    bindIndexItems();
-  }
-  function renderRefO(vm) {
-    const n = vm.node;
-    let sourceBlock = "";
-    if (vm.sources && vm.sources.length) {
-      sourceBlock = vm.sources.map(
-        (s) => s.url ? `<a class="source-row" href="${s.url}" target="_blank" rel="noopener">${s.label} \u2197</a>` : `<span class="source-row" style="opacity:.5;cursor:default">${s.label}</span>`
-      ).join("");
-      if (vm.statusNote)
-        sourceBlock += `<div style="font-family:var(--mono);font-size:10px;color:var(--ghost);margin-top:10px;letter-spacing:.08em">${vm.statusNote}</div>`;
-    } else if (vm.url) {
-      sourceBlock = `<a class="source-row" href="${vm.url}" target="_blank" rel="noopener">${vm.status || "source"} \u2197</a>`;
-    } else {
-      sourceBlock = `<span class="source-row" style="opacity:.45;cursor:default;border-bottom:0">${vm.status || "bibliographic reference"}</span>`;
-    }
-    reader(
-      `${meta(n)}<div class="ref-citation">${vm.citation}</div>${sourceBlock}${vm.linkedNotes.length ? '<div class="section-label">linked notes</div>' + renderIndexList(vm.linkedNotes) : ""}`
-    );
-    bindIndexItems();
-  }
-  function renderRelO(vm) {
-    reader(
-      `<div class="meta">RelO \xB7 ${vm.node.id}</div><div class="section-label">objects</div>${renderIndexList(vm.participants)}`
-    );
-    bindIndexItems();
   }
   function openProjectedEdge(e) {
     const s = getEdgeSourceId(e), t = getEdgeTargetId(e);
@@ -3981,10 +4190,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     renderEdgePanel(s, t, relOIds);
   }
   function renderEdgePanel(s, t, relos) {
-    reader(
-      `<div class="meta">Projected edge</div><div class="edge-head">${labelOf(s)} \u2194 ${labelOf(t)}</div><div class="section-label">generated by</div>${renderIndexList(relos)}`
-    );
-    bindIndexItems();
+    const result = commitReader(buildProjectedEdgeViewModel(s, t, relos), ++readerGeneration);
+    if (result.committed) bindIndexItems();
   }
   function showEdgeSheet(s, t, relos) {
     closeAllDrawers();
@@ -4001,18 +4208,18 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     document.getElementById("sheetClose2").onclick = closeSheet;
   }
   function inlineHandlers(root2 = document) {
-    root2.querySelectorAll(".fl").forEach((el) => {
-      el.addEventListener("mouseenter", () => {
-        if (!isMobile()) touchObject(el.dataset.id, { source: "inline-hover" });
+    root2.querySelectorAll(".fl").forEach((el2) => {
+      el2.addEventListener("mouseenter", () => {
+        if (!isMobile()) touchObject(el2.dataset.id, { source: "inline-hover" });
       });
-      el.addEventListener("mouseleave", () => {
+      el2.addEventListener("mouseleave", () => {
         if (!isMobile()) clearTouch();
       });
-      el.addEventListener("click", (ev) => {
+      el2.addEventListener("click", (ev) => {
         ev.stopPropagation();
         if (isMobile() && state.responsive.surface === "read")
-          return focusObject(el.dataset.id, { source: "text-link-mobile", openReader: true });
-        focusObject(el.dataset.id, { source: "text-link" });
+          return focusObject(el2.dataset.id, { source: "text-link-mobile", openReader: true });
+        focusObject(el2.dataset.id, { source: "text-link" });
       });
     });
   }
@@ -4145,8 +4352,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     ).join("");
     container.innerHTML = rows;
     container.querySelectorAll("[data-open]").forEach(
-      (el) => el.onclick = () => {
-        const id = el.dataset.open;
+      (el2) => el2.onclick = () => {
+        const id = el2.dataset.open;
         if (state.view.objectVisibility[id] === false) {
           dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true });
         }
@@ -4155,8 +4362,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       }
     );
     container.querySelectorAll("[data-eye]").forEach(
-      (el) => el.onclick = () => {
-        const id = el.dataset.eye;
+      (el2) => el2.onclick = () => {
+        const id = el2.dataset.eye;
         const nextVisible = state.view.objectVisibility[id] === false;
         dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
         renderFieldViewControls();
@@ -4164,8 +4371,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       }
     );
     container.querySelectorAll("[data-solo]").forEach(
-      (el) => el.onclick = async () => {
-        const id = el.dataset.solo;
+      (el2) => el2.onclick = async () => {
+        const id = el2.dataset.solo;
         dispatch({ type: CommandType.ENTER_SOLO, id });
         announceStatus(`Solo: ${byId[id]?.label || id}.`);
         updateVisibility();
@@ -4307,9 +4514,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
   ];
   function showFieldPrompt(text) {
-    const el = document.getElementById("fieldPrompt");
-    el.textContent = text;
-    el.classList.add("visible");
+    const el2 = document.getElementById("fieldPrompt");
+    el2.textContent = text;
+    el2.classList.add("visible");
   }
   function hideFieldPrompt() {
     document.getElementById("fieldPrompt").classList.remove("visible");
