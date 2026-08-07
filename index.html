@@ -2024,6 +2024,34 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return nodes2.filter((n) => isNodeVisible(n, view)).map((n) => n.id);
   }
 
+  // src/controllers/lifecycle-controller.js
+  function createLifecycleController({ dispatch: dispatch2, doc, nav }) {
+    function onVisibilityChange() {
+      dispatch2({ type: CommandType.RECONCILE_DOCUMENT_VISIBILITY, visibility: doc.visibilityState });
+    }
+    function onOnline() {
+      dispatch2({ type: CommandType.RECONCILE_ENVIRONMENT, connectivity: "online" });
+    }
+    function onOffline() {
+      dispatch2({ type: CommandType.RECONCILE_ENVIRONMENT, connectivity: "offline" });
+    }
+    function start() {
+      doc.addEventListener("visibilitychange", onVisibilityChange);
+      if (nav) {
+        nav.addEventListener("online", onOnline);
+        nav.addEventListener("offline", onOffline);
+      }
+    }
+    function stop() {
+      doc.removeEventListener("visibilitychange", onVisibilityChange);
+      if (nav) {
+        nav.removeEventListener("online", onOnline);
+        nav.removeEventListener("offline", onOffline);
+      }
+    }
+    return { start, stop };
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -2824,9 +2852,17 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     resize();
     renderRoute();
   });
-  document.addEventListener("visibilitychange", () => {
-    dispatch({ type: CommandType.RECONCILE_DOCUMENT_VISIBILITY, visibility: document.visibilityState });
+  var lifecycleController = createLifecycleController({
+    dispatch,
+    doc: document,
+    // online/offline fire on window, not navigator -- navigator only carries
+    // the (non-EventTarget) .onLine snapshot property.
+    nav: window
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") updateAfterglowOverlay();
+  });
+  lifecycleController.start();
   resize();
   function getEdgeSourceId(e) {
     return e.source.id || e.source;

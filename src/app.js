@@ -22,6 +22,7 @@ import { computeSoloMembership } from './domain/solo.js';
 import { createTimerRegistry } from './application/timer-registry.js';
 import { buildObjectViewModel } from './domain/reader-view-models.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
+import { createLifecycleController } from './controllers/lifecycle-controller.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -1241,9 +1242,24 @@ window.addEventListener("resize", () => {
   resize();
   renderRoute();
 });
-document.addEventListener("visibilitychange", () => {
-  dispatch({ type: CommandType.RECONCILE_DOCUMENT_VISIBILITY, visibility: document.visibilityState });
+// F05/R3: src/controllers/lifecycle-controller.js (tests/unit/environment.test.js)
+// is the real page-visibility/connectivity authority -- it only ever
+// dispatches RECONCILE_DOCUMENT_VISIBILITY/RECONCILE_ENVIRONMENT, matching
+// P-RULE-030/037 exactly. Resume re-renders the afterglow overlay so expired
+// residues (reconciled in the reducer via domain/trace.js's
+// reconcileTraceDeadlines) actually disappear rather than waiting for the
+// next unrelated render.
+const lifecycleController = createLifecycleController({
+  dispatch,
+  doc: document,
+  // online/offline fire on window, not navigator -- navigator only carries
+  // the (non-EventTarget) .onLine snapshot property.
+  nav: window,
 });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") updateAfterglowOverlay();
+});
+lifecycleController.start();
 resize();
 
 // ── Visibility ─────────────────────────────────────────────────────────────
