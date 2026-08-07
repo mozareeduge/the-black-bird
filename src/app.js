@@ -22,6 +22,7 @@ import { computeSoloMembership } from './domain/solo.js';
 import { createTimerRegistry } from './application/timer-registry.js';
 import { buildObjectViewModel, buildProjectedEdgeViewModel } from './domain/reader-view-models.js';
 import { buildReaderContent, createReaderRenderer } from './presentation/reader-renderer.js';
+import { createRouteRenderer } from './presentation/route-renderer.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
 import { createNavigationController } from './controllers/navigation-controller.js';
@@ -2005,85 +2006,42 @@ function routeApertureEvents() {
   const tailHasFirst = tail.some((ev) => ev.sequence === first.sequence);
   return { leading: tailHasFirst ? [] : [first], tail, collapsed: true };
 }
-function renderRoute() {
-  const r = document.getElementById("route");
-  if (!state.history.route.length) {
-    r.innerHTML = '<span class="route-empty">route is empty</span>';
-    updateRouteLiveRegion();
-    drawRouteMemory({ duration: 0 });
-    renderRouteDrawer();
-    return;
-  }
-  const ap = routeApertureEvents();
-  const parts = [];
-  const addEv = (ev, cls = "") =>
-    parts.push(
-      `<button class="route-item ${cls}" data-route-index="${ev.sequence}" data-id="${ev.id}" title="${esc(labelOf(ev.id))}">${esc(shortOf(ev.id))}</button>`,
-    );
-  ap.leading.forEach((ev) => addEv(ev));
-  if (ap.collapsed) {
-    if (parts.length) parts.push('<span class="sep">·</span>');
-    parts.push(
-      '<button class="route-ellipsis" data-route-open="1" title="show route">···</button>',
-    );
-  }
-  ap.tail.forEach((ev, i) => {
-    if (parts.length) parts.push('<span class="sep">·</span>');
-    addEv(ev, i === ap.tail.length - 1 ? "current" : "");
-  });
-  r.innerHTML = parts.join("") + '<button class="clear-route" aria-label="clear route">clear</button>';
-  r.querySelectorAll(".route-item").forEach((el) => {
-    el.onmouseenter = () => touchObject(el.dataset.id, { source: "route-hover" });
-    el.onmouseleave = () => clearTouch();
-    el.onclick = () =>
-      focusObject(el.dataset.id, {
-        source: "route",
-        routePolicy: "replay",
-        tracePolicy: "none",
-        sequence: Number(el.dataset.routeIndex),
-      });
-  });
-  const ell = r.querySelector("[data-route-open]");
-  if (ell)
-    ell.onclick = () => {
-      renderRouteDrawer();
-      openDrawer("routeDrawer");
-    };
-  // Route-strip clear affects Route only (4.11); field trace has its own
-  // separate public control in the Route drawer footer.
-  r.querySelector(".clear-route").onclick = () => {
+// F05/R3: src/presentation/route-renderer.js's createRouteRenderer() (T19,
+// D-DEC-10/22) is the real DOM-construction authority for the Route strip
+// and drawer -- routeApertureEvents() (above) stays the viewport-aware
+// aperture *selection* it renders, since that decision (how many trailing
+// events fit before the strip collapses) depends on isMobile()/innerWidth,
+// not on presentation mechanics.
+function replayRouteEvent(id, sequence, source) {
+  focusObject(id, { source, routePolicy: "replay", tracePolicy: "none", sequence });
+}
+const routeRenderer = createRouteRenderer({
+  stripContainer: document.getElementById("route"),
+  drawerContainer: document.getElementById("routeList"),
+  labelOf,
+  shortLabelOf: shortOf,
+  onReplay: (id, sequence) => replayRouteEvent(id, sequence, "route"),
+  onDrawerReplay: (id, sequence) => {
+    replayRouteEvent(id, sequence, "route-drawer");
+    closeAllDrawers();
+  },
+  onClearRoute: () => {
     dispatch({ type: CommandType.CLEAR_ROUTE });
     renderRoute();
     drawRouteMemory({ duration: 260 });
-  };
+  },
+  onOpenDrawer: () => openDrawer("routeDrawer"),
+  onHoverStart: (id) => touchObject(id, { source: "route-hover" }),
+  onHoverEnd: () => clearTouch(),
+});
+function renderRoute() {
+  const route = state.history.route;
+  routeRenderer.renderStrip(route, routeApertureEvents());
   updateRouteLiveRegion();
-  renderRouteDrawer();
+  routeRenderer.renderDrawer(route);
 }
 function renderRouteDrawer() {
-  const box = document.getElementById("routeList");
-  if (!box) return;
-  if (!state.history.route.length) {
-    box.innerHTML = '<div class="route-empty" style="padding:18px 0">route is empty</div>';
-    return;
-  }
-  box.innerHTML = state.history.route
-    .map(
-      (ev, i) =>
-        `<div class="route-row" data-id="${ev.id}" data-route-index="${ev.sequence}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`,
-    )
-    .join("");
-  box.querySelectorAll(".route-row").forEach(
-    (row) =>
-      (row.onclick = () => {
-        focusObject(row.dataset.id, {
-          source: "route-drawer",
-          routePolicy: "replay",
-          tracePolicy: "none",
-          sequence: Number(row.dataset.routeIndex),
-        });
-        closeAllDrawers();
-      }),
-  );
+  routeRenderer.renderDrawer(state.history.route);
 }
 // F05: src/presentation/status-renderer.js (tests/e2e/tooltip-keyboard-status.spec.js's
 // "rapid status messages coalesce" case) is the real coalescing authority for

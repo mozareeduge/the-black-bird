@@ -2274,6 +2274,99 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { commit };
   }
 
+  // src/presentation/route-renderer.js
+  function createRouteRenderer({
+    stripContainer,
+    drawerContainer,
+    labelOf: labelOf2,
+    shortLabelOf: shortLabelOf2,
+    onReplay,
+    onDrawerReplay,
+    onClearRoute,
+    onOpenDrawer,
+    onHoverStart,
+    onHoverEnd
+  }) {
+    function emptyNotice(text) {
+      const span = document.createElement("span");
+      span.className = "route-empty";
+      span.textContent = text;
+      return span;
+    }
+    function separator() {
+      const sep = document.createElement("span");
+      sep.className = "sep";
+      sep.textContent = "\xB7";
+      return sep;
+    }
+    function routeButton(ev, extraClass = "") {
+      const btn = document.createElement("button");
+      btn.className = `route-item ${extraClass}`.trim();
+      btn.dataset.routeIndex = String(ev.sequence);
+      btn.dataset.id = ev.id;
+      btn.title = labelOf2(ev.id);
+      btn.textContent = shortLabelOf2(ev.id);
+      btn.onclick = () => onReplay(ev.id, ev.sequence);
+      if (onHoverStart) btn.onmouseenter = () => onHoverStart(ev.id);
+      if (onHoverEnd) btn.onmouseleave = () => onHoverEnd();
+      return btn;
+    }
+    function renderStrip(route, aperture) {
+      stripContainer.replaceChildren();
+      if (!route.length) {
+        stripContainer.appendChild(emptyNotice("route is empty"));
+        return;
+      }
+      const appendWithSep = (node) => {
+        if (stripContainer.children.length) stripContainer.appendChild(separator());
+        stripContainer.appendChild(node);
+      };
+      aperture.leading.forEach((ev) => stripContainer.appendChild(routeButton(ev)));
+      if (aperture.collapsed) {
+        const ellipsis = document.createElement("button");
+        ellipsis.className = "route-ellipsis";
+        ellipsis.dataset.routeOpen = "1";
+        ellipsis.title = "show route";
+        ellipsis.textContent = "\xB7\xB7\xB7";
+        ellipsis.onclick = () => {
+          renderDrawer(route);
+          if (onOpenDrawer) onOpenDrawer();
+        };
+        appendWithSep(ellipsis);
+      }
+      aperture.tail.forEach((ev, i) => appendWithSep(routeButton(ev, i === aperture.tail.length - 1 ? "current" : "")));
+      const clearBtn = document.createElement("button");
+      clearBtn.className = "clear-route";
+      clearBtn.setAttribute("aria-label", "clear route");
+      clearBtn.textContent = "clear";
+      clearBtn.onclick = () => onClearRoute();
+      stripContainer.appendChild(clearBtn);
+    }
+    function renderDrawer(route) {
+      drawerContainer.replaceChildren();
+      if (!route.length) {
+        drawerContainer.appendChild(emptyNotice("route is empty"));
+        return;
+      }
+      route.forEach((ev, i) => {
+        const row = document.createElement("div");
+        row.className = "route-row";
+        row.dataset.id = ev.id;
+        row.dataset.routeIndex = String(ev.sequence);
+        const index = document.createElement("div");
+        index.className = "route-row-index";
+        index.textContent = String(i + 1).padStart(2, "0");
+        const label = document.createElement("div");
+        label.className = "route-row-label";
+        label.textContent = labelOf2(ev.id);
+        row.append(index, label);
+        row.onclick = () => onDrawerReplay(ev.id, ev.sequence);
+        drawerContainer.appendChild(row);
+      });
+    }
+    return { renderStrip, renderDrawer };
+  }
+
   // src/domain/selectors.js
   function selectVisibleNodeIds(nodes2, view) {
     return nodes2.filter((n) => isNodeVisible(n, view)).map((n) => n.id);
@@ -3744,77 +3837,33 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const tailHasFirst = tail.some((ev) => ev.sequence === first.sequence);
     return { leading: tailHasFirst ? [] : [first], tail, collapsed: true };
   }
-  function renderRoute() {
-    const r = document.getElementById("route");
-    if (!state.history.route.length) {
-      r.innerHTML = '<span class="route-empty">route is empty</span>';
-      updateRouteLiveRegion();
-      drawRouteMemory({ duration: 0 });
-      renderRouteDrawer();
-      return;
-    }
-    const ap = routeApertureEvents();
-    const parts = [];
-    const addEv = (ev, cls = "") => parts.push(
-      `<button class="route-item ${cls}" data-route-index="${ev.sequence}" data-id="${ev.id}" title="${esc(labelOf(ev.id))}">${esc(shortOf(ev.id))}</button>`
-    );
-    ap.leading.forEach((ev) => addEv(ev));
-    if (ap.collapsed) {
-      if (parts.length) parts.push('<span class="sep">\xB7</span>');
-      parts.push(
-        '<button class="route-ellipsis" data-route-open="1" title="show route">\xB7\xB7\xB7</button>'
-      );
-    }
-    ap.tail.forEach((ev, i) => {
-      if (parts.length) parts.push('<span class="sep">\xB7</span>');
-      addEv(ev, i === ap.tail.length - 1 ? "current" : "");
-    });
-    r.innerHTML = parts.join("") + '<button class="clear-route" aria-label="clear route">clear</button>';
-    r.querySelectorAll(".route-item").forEach((el2) => {
-      el2.onmouseenter = () => touchObject(el2.dataset.id, { source: "route-hover" });
-      el2.onmouseleave = () => clearTouch();
-      el2.onclick = () => focusObject(el2.dataset.id, {
-        source: "route",
-        routePolicy: "replay",
-        tracePolicy: "none",
-        sequence: Number(el2.dataset.routeIndex)
-      });
-    });
-    const ell = r.querySelector("[data-route-open]");
-    if (ell)
-      ell.onclick = () => {
-        renderRouteDrawer();
-        openDrawer("routeDrawer");
-      };
-    r.querySelector(".clear-route").onclick = () => {
+  function replayRouteEvent(id, sequence, source) {
+    focusObject(id, { source, routePolicy: "replay", tracePolicy: "none", sequence });
+  }
+  var routeRenderer = createRouteRenderer({
+    stripContainer: document.getElementById("route"),
+    drawerContainer: document.getElementById("routeList"),
+    labelOf,
+    shortLabelOf: shortOf,
+    onReplay: (id, sequence) => replayRouteEvent(id, sequence, "route"),
+    onDrawerReplay: (id, sequence) => {
+      replayRouteEvent(id, sequence, "route-drawer");
+      closeAllDrawers();
+    },
+    onClearRoute: () => {
       dispatch({ type: CommandType.CLEAR_ROUTE });
       renderRoute();
       drawRouteMemory({ duration: 260 });
-    };
+    },
+    onOpenDrawer: () => openDrawer("routeDrawer"),
+    onHoverStart: (id) => touchObject(id, { source: "route-hover" }),
+    onHoverEnd: () => clearTouch()
+  });
+  function renderRoute() {
+    const route = state.history.route;
+    routeRenderer.renderStrip(route, routeApertureEvents());
     updateRouteLiveRegion();
-    renderRouteDrawer();
-  }
-  function renderRouteDrawer() {
-    const box = document.getElementById("routeList");
-    if (!box) return;
-    if (!state.history.route.length) {
-      box.innerHTML = '<div class="route-empty" style="padding:18px 0">route is empty</div>';
-      return;
-    }
-    box.innerHTML = state.history.route.map(
-      (ev, i) => `<div class="route-row" data-id="${ev.id}" data-route-index="${ev.sequence}"><div class="route-row-index">${String(i + 1).padStart(2, "0")}</div><div class="route-row-label">${esc(labelOf(ev.id))}</div></div>`
-    ).join("");
-    box.querySelectorAll(".route-row").forEach(
-      (row) => row.onclick = () => {
-        focusObject(row.dataset.id, {
-          source: "route-drawer",
-          routePolicy: "replay",
-          tracePolicy: "none",
-          sequence: Number(row.dataset.routeIndex)
-        });
-        closeAllDrawers();
-      }
-    );
+    routeRenderer.renderDrawer(route);
   }
   var routeLiveRegion = document.getElementById("routeLive");
   var statusRenderer = routeLiveRegion ? createStatusRenderer({ liveRegion: routeLiveRegion }) : null;
