@@ -31,6 +31,7 @@ import { createTooltipRenderer } from './presentation/tooltip-renderer.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
 import { createNavigationController } from './controllers/navigation-controller.js';
+import { createEnvironmentController } from './controllers/environment-controller.js';
 import { createExternalLinkController } from './controllers/external-link-controller.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
@@ -1303,6 +1304,19 @@ const navigationController = createNavigationController({
   doc: document,
 });
 navigationController.start();
+// F05/R3: src/controllers/environment-controller.js (tests/unit/environment.test.js)
+// is the real state.responsive.profile/orientation authority (T11,
+// T-REQ-040/041) -- until this was wired, state.responsive.profile stayed
+// at initial-state.js's "derived" placeholder forever, which silently made
+// the canonical reducer's isMobileProfile() (domain/trace.js's afterglow
+// cap: desktop 8/10s vs mobile 3/4s) always take the desktop branch
+// regardless of the real viewport. computeProfile's 700/1180 thresholds are
+// this field's own canonical breakpoints (tests/unit/environment.test.js),
+// deliberately independent of isMobile()'s 860px CSS media query used for
+// visual layout -- two different, legitimately separate concerns (F08
+// governs whether those CSS tiers themselves need revisiting).
+const environmentController = createEnvironmentController({ dispatch, env: window });
+environmentController.start();
 resize();
 
 // F05/R3: src/controllers/external-link-controller.js (tests/e2e/environmental-resilience.spec.js)

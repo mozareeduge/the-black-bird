@@ -2733,6 +2733,46 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { setSurface, reconcileVisualViewport, ensureNoRedundantSheet, start, stop };
   }
 
+  // src/controllers/environment-controller.js
+  function computeProfile(width2) {
+    if (width2 < 700) return "mobile";
+    if (width2 < 1180) return "compact-desktop";
+    return "desktop";
+  }
+  function computeOrientation(width2, height2) {
+    return height2 >= width2 ? "portrait" : "landscape";
+  }
+  function createEnvironmentController({ dispatch: dispatch2, env }) {
+    function reconcile() {
+      const width2 = env.innerWidth;
+      const height2 = env.innerHeight;
+      const vv = env.visualViewport;
+      dispatch2({
+        type: CommandType.RECONCILE_ENVIRONMENT,
+        profile: computeProfile(width2),
+        orientation: computeOrientation(width2, height2),
+        visualViewport: vv ? { width: vv.width, height: vv.height, offsetTop: vv.offsetTop || 0 } : null
+      });
+    }
+    function onResize() {
+      reconcile();
+    }
+    function start() {
+      env.addEventListener("resize", onResize);
+      if (env.visualViewport && env.visualViewport.addEventListener) {
+        env.visualViewport.addEventListener("resize", onResize);
+      }
+      reconcile();
+    }
+    function stop() {
+      env.removeEventListener("resize", onResize);
+      if (env.visualViewport && env.visualViewport.removeEventListener) {
+        env.visualViewport.removeEventListener("resize", onResize);
+      }
+    }
+    return { start, stop, reconcile };
+  }
+
   // src/controllers/external-link-controller.js
   function createExternalLinkController({ win, doc, container }) {
     function clear() {
@@ -3625,6 +3665,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     doc: document
   });
   navigationController.start();
+  var environmentController = createEnvironmentController({ dispatch, env: window });
+  environmentController.start();
   resize();
   var externalLinkController = createExternalLinkController({
     win: window,
