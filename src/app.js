@@ -23,6 +23,7 @@ import { createTimerRegistry } from './application/timer-registry.js';
 import { buildObjectViewModel } from './domain/reader-view-models.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
+import { createNavigationController } from './controllers/navigation-controller.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -1260,6 +1261,19 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") updateAfterglowOverlay();
 });
 lifecycleController.start();
+// F05/R3: src/controllers/navigation-controller.js (tests/e2e/mobile-chambers.spec.js)
+// is the real visual-viewport authority (T-REQ-041): publishes
+// --bb-visual-viewport-height so keyboard-aware surfaces stay reachable
+// instead of being pushed under an on-screen keyboard by a stale 100vh, and
+// dispatches the resulting RECONCILE_ENVIRONMENT. app.js's own setSurface()
+// (which additionally updates the phase CSS class and remeasures the graph)
+// remains the surface-switch authority; this controller does not replace it.
+const navigationController = createNavigationController({
+  dispatch,
+  env: window,
+  doc: document,
+});
+navigationController.start();
 resize();
 
 // ── Visibility ─────────────────────────────────────────────────────────────

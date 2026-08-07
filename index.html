@@ -2052,6 +2052,40 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { start, stop };
   }
 
+  // src/controllers/navigation-controller.js
+  function createNavigationController({ dispatch: dispatch2, env, doc }) {
+    function setSurface(surface) {
+      dispatch2({ type: CommandType.SET_SURFACE, surface });
+    }
+    function reconcileVisualViewport() {
+      const vv = env.visualViewport;
+      const height2 = vv ? vv.height : env.innerHeight;
+      doc.documentElement.style.setProperty("--bb-visual-viewport-height", `${height2}px`);
+      dispatch2({
+        type: CommandType.RECONCILE_ENVIRONMENT,
+        visualViewport: vv ? { width: vv.width, height: vv.height, offsetTop: vv.offsetTop || 0 } : null
+      });
+    }
+    function ensureNoRedundantSheet(sheetEl) {
+      if (sheetEl && sheetEl.classList.contains("open")) {
+        sheetEl.classList.remove("open");
+        return true;
+      }
+      return false;
+    }
+    function onVisualViewportResize() {
+      reconcileVisualViewport();
+    }
+    function start() {
+      if (env.visualViewport) env.visualViewport.addEventListener("resize", onVisualViewportResize);
+      reconcileVisualViewport();
+    }
+    function stop() {
+      if (env.visualViewport) env.visualViewport.removeEventListener("resize", onVisualViewportResize);
+    }
+    return { setSurface, reconcileVisualViewport, ensureNoRedundantSheet, start, stop };
+  }
+
   // src/app.js
   var BB_UI_COPY = {
     bootstrapUnavailableTitle: "The field could not be opened",
@@ -2863,6 +2897,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     if (document.visibilityState === "visible") updateAfterglowOverlay();
   });
   lifecycleController.start();
+  var navigationController = createNavigationController({
+    dispatch,
+    env: window,
+    doc: document
+  });
+  navigationController.start();
   resize();
   function getEdgeSourceId(e) {
     return e.source.id || e.source;
