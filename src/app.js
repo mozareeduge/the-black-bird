@@ -25,6 +25,7 @@ import { buildReaderContent, createReaderRenderer } from './presentation/reader-
 import { createRouteRenderer } from './presentation/route-renderer.js';
 import { createTraceRenderer, wearOpacityFor, ROUTE_MARK_COLOR } from './presentation/trace-renderer.js';
 import { createViewRenderer } from './presentation/view-renderer.js';
+import { createIndexRenderer } from './presentation/index-renderer.js';
 import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
 import { createNavigationController } from './controllers/navigation-controller.js';
@@ -2703,87 +2704,66 @@ function setObjectGroup(type, value) {
   else fitVisibleField();
   if (uiRuntime.focusedId && !nodeVisible(uiRuntime.focusedId)) returnToField({ reason: "active-hidden-by-filter" });
 }
-function renderObjectRows(container, filter = "", typeFilter = null) {
-  const q = filter.trim().toLowerCase();
-  const rows = nodes
-    .filter(
-      (n) =>
-        (!typeFilter || n.type === typeFilter) &&
-        (!q || n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q)),
-    )
-    .map(
-      (n) =>
-        `<div class="object-row"><div class="otype">${n.type}</div><div class="olabel" data-open="${n.id}">${n.label}</div><button class="icon-small" data-eye="${n.id}">${state.view.objectVisibility[n.id] === false ? "show" : "hide"}</button><button class="icon-small" data-solo="${n.id}">solo</button></div>`,
-    )
-    .join("");
-  container.innerHTML = rows;
-  container.querySelectorAll("[data-open]").forEach(
-    (el) =>
-      (el.onclick = () => {
-        const id = el.dataset.open;
-        // P-RULE-016: Index Open clears an individual hide but never forces
-        // a group-hidden object visible — only the per-object override (not
-        // the type-group gate nodeVisible() also checks) is cleared here.
-        if (state.view.objectVisibility[id] === false) {
-          dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true });
-        }
-        focusObject(id, { source: "object-drawer" });
-        closeAllDrawers();
-      }),
-  );
-  container.querySelectorAll("[data-eye]").forEach(
-    (el) =>
-      (el.onclick = () => {
-        const id = el.dataset.eye;
-        const nextVisible = state.view.objectVisibility[id] === false;
-        dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
-        renderFieldViewControls();
-        updateVisibility();
-        // P-RULE-015 (field attention neutralizes when the focused object
-        // becomes hidden) is deliberately NOT handled the way setObjectGroup
-        // handles it below (a full returnToField()) — the eye toggle lives
-        // inside the open object drawer itself, and returnToField()'s
-        // closeAllDrawers() would close the very drawer the reader is using,
-        // which tests/generated/ordered-pairs.spec.js's [hide, commit]
-        // scenario confirms must stay open. A correct fix needs a
-        // field-attention-only neutralization that leaves drawers/reader/
-        // camera untouched, which app.js's single uiRuntime.focusedId field (it
-        // conflates anchor and field attention) can't express without
-        // deeper surgery — left as disclosed, separate scope.
-      }),
-  );
-  container.querySelectorAll("[data-solo]").forEach(
-    (el) =>
-      (el.onclick = async () => {
-        const id = el.dataset.solo;
-        dispatch({ type: CommandType.ENTER_SOLO, id });
-        announceStatus(`Solo: ${byId[id]?.label || id}.`);
-        updateVisibility();
-        closeAllDrawers();
-        await nextFrame();
-        if (isMobile()) await setReaderOpen(true, { measure: true });
-        // Solo is a view mode: it never appends Route or records wear/afterglow.
-        const result = await commitFocus(id, {
-          source: "index-solo",
-          routePolicy: "none",
-          tracePolicy: "none",
-          openReader: false,
-          surface: "field",
-          lightDuration: 420,
-        });
-        if (!result) return;
-        fitVisibleField({ duration: 760 });
-        drawRouteMemory({ duration: 420 });
-      }),
-  );
-}
+// F05/R3: src/presentation/index-renderer.js is the real Index drawer DOM
+// authority (T20, T-REQ-026/027), including its previously-unwired
+// no-results notice and hidden-by-view disclosure badge (both already
+// designed and tested in isolation, just without a live trigger).
+const indexRenderer = createIndexRenderer({
+  container: document.getElementById("objectList"),
+  copy: UI_COPY,
+  onOpen: (id) => {
+    // P-RULE-016: Index Open clears an individual hide but never forces
+    // a group-hidden object visible — only the per-object override (not
+    // the type-group gate nodeVisible() also checks) is cleared here.
+    if (state.view.objectVisibility[id] === false) {
+      dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true });
+    }
+    focusObject(id, { source: "object-drawer" });
+    closeAllDrawers();
+  },
+  onToggleVisible: (id, nextVisible) => {
+    dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
+    renderFieldViewControls();
+    updateVisibility();
+    // P-RULE-015 (field attention neutralizes when the focused object
+    // becomes hidden) is deliberately NOT handled the way setObjectGroup
+    // handles it below (a full returnToField()) — the eye toggle lives
+    // inside the open object drawer itself, and returnToField()'s
+    // closeAllDrawers() would close the very drawer the reader is using,
+    // which tests/generated/ordered-pairs.spec.js's [hide, commit]
+    // scenario confirms must stay open. A correct fix needs a
+    // field-attention-only neutralization that leaves drawers/reader/
+    // camera untouched, which app.js's single uiRuntime.focusedId field (it
+    // conflates anchor and field attention) can't express without
+    // deeper surgery — left as disclosed, separate scope.
+  },
+  onSolo: async (id) => {
+    dispatch({ type: CommandType.ENTER_SOLO, id });
+    announceStatus(`Solo: ${byId[id]?.label || id}.`);
+    updateVisibility();
+    closeAllDrawers();
+    await nextFrame();
+    if (isMobile()) await setReaderOpen(true, { measure: true });
+    // Solo is a view mode: it never appends Route or records wear/afterglow.
+    const result = await commitFocus(id, {
+      source: "index-solo",
+      routePolicy: "none",
+      tracePolicy: "none",
+      openReader: false,
+      surface: "field",
+      lightDuration: 420,
+    });
+    if (!result) return;
+    fitVisibleField({ duration: 760 });
+    drawRouteMemory({ duration: 420 });
+  },
+});
 function renderObjectLists() {
-  const objectList = document.getElementById("objectList");
   const title = document.getElementById("objectDrawerTitle");
   const typeFilter = uiRuntime.indexFilter === "sources" ? "RefO" : null;
   if (title) title.textContent = uiRuntime.indexFilter === "sources" ? "Sources" : "Index";
-  if (objectList)
-    renderObjectRows(objectList, document.getElementById("objectSearch")?.value || "", typeFilter);
+  const filteredNodes = typeFilter ? nodes.filter((n) => n.type === typeFilter) : nodes;
+  indexRenderer.render(filteredNodes, state.view, document.getElementById("objectSearch")?.value || "");
 }
 function openIndex(filter = "all") {
   uiRuntime.indexFilter = filter;

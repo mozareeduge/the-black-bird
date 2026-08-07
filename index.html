@@ -130,6 +130,7 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .object-row .olabel:hover{color:var(--amber2)}
 .icon-small{height:28px;min-width:36px;border:1px solid var(--line2);background:transparent;color:var(--text2);font-family:var(--mono);font-size:10px;cursor:pointer}
 .icon-small:hover{color:var(--text);border-color:#65594c}
+.idx-hidden-badge{display:inline-block;margin-left:8px;padding:1px 6px;border:1px solid var(--line2);font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--muted);vertical-align:middle;}
 .threshold{position:absolute;inset:0;background:radial-gradient(circle at center,#0d0c0b 0%,#070706 62%,#050505 100%);z-index:60;display:flex;align-items:center;justify-content:center;padding:28px;opacity:1;transition:opacity 520ms ease;}
 .threshold.leaving{opacity:0;pointer-events:none;}
 .threshold-card{width:min(800px,90vw);border:1px solid var(--line2);padding:64px 60px 56px;background:rgba(8,7,7,.72);box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:flex-start;opacity:0;transition:opacity 360ms ease;}
@@ -2498,6 +2499,76 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { render, isNodeVisible, restoreVisibility };
   }
 
+  // src/presentation/index-renderer.js
+  function createIndexRenderer({ container, copy, onOpen, onToggleVisible, onSolo, onHoverStart, onHoverEnd }) {
+    function row(node, view) {
+      const el2 = document.createElement("div");
+      el2.className = "object-row";
+      el2.dataset.id = node.id;
+      const visible = isNodeVisible(node, view);
+      if (!visible) {
+        el2.classList.add("hidden-by-view");
+        el2.setAttribute("aria-label", `${node.label}, hidden by View`);
+      }
+      const type = document.createElement("div");
+      type.className = "otype";
+      type.textContent = node.type;
+      const title = document.createElement("div");
+      title.className = "olabel";
+      title.dataset.open = node.id;
+      title.append(node.label);
+      title.onclick = () => onOpen(node.id);
+      el2.append(type, title);
+      if (onToggleVisible) {
+        const individuallyHidden = view.objectVisibility[node.id] === false;
+        const eye = document.createElement("button");
+        eye.className = "icon-small";
+        eye.dataset.eye = node.id;
+        eye.textContent = individuallyHidden ? "show" : "hide";
+        eye.onclick = () => onToggleVisible(node.id, individuallyHidden);
+        el2.appendChild(eye);
+      }
+      if (onSolo) {
+        const solo = document.createElement("button");
+        solo.className = "icon-small";
+        solo.dataset.solo = node.id;
+        solo.textContent = "solo";
+        solo.onclick = () => onSolo(node.id);
+        el2.appendChild(solo);
+      }
+      if (!visible) {
+        const badge = document.createElement("span");
+        badge.className = "idx-hidden-badge";
+        badge.textContent = copy.states.hiddenByView;
+        title.appendChild(badge);
+      }
+      if (onHoverStart) el2.onmouseenter = () => onHoverStart(node.id);
+      if (onHoverEnd) el2.onmouseleave = () => onHoverEnd();
+      return el2;
+    }
+    function render(nodes2, view, query = "") {
+      container.replaceChildren();
+      const q = query.trim().toLowerCase();
+      const matches = q ? nodes2.filter((n) => n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q)) : nodes2;
+      if (matches.length === 0) {
+        const notice = document.createElement("div");
+        notice.className = "no-results-notice";
+        notice.setAttribute("role", "status");
+        const title = document.createElement("div");
+        title.className = "notice-title";
+        title.textContent = copy.states.noResultsTitle;
+        const body = document.createElement("div");
+        body.className = "notice-body";
+        body.textContent = copy.states.noResultsBody;
+        notice.append(title, body);
+        container.appendChild(notice);
+        return;
+      }
+      for (const node of matches) container.appendChild(row(node, view));
+    }
+    return { render };
+  }
+
   // src/domain/selectors.js
   function selectVisibleNodeIds(nodes2, view) {
     return nodes2.filter((n) => isNodeVisible(n, view)).map((n) => n.id);
@@ -4512,63 +4583,47 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     else fitVisibleField();
     if (uiRuntime.focusedId && !nodeVisible(uiRuntime.focusedId)) returnToField({ reason: "active-hidden-by-filter" });
   }
-  function renderObjectRows(container, filter = "", typeFilter = null) {
-    const q = filter.trim().toLowerCase();
-    const rows = nodes.filter(
-      (n) => (!typeFilter || n.type === typeFilter) && (!q || n.label.toLowerCase().includes(q) || n.id.toLowerCase().includes(q))
-    ).map(
-      (n) => `<div class="object-row"><div class="otype">${n.type}</div><div class="olabel" data-open="${n.id}">${n.label}</div><button class="icon-small" data-eye="${n.id}">${state.view.objectVisibility[n.id] === false ? "show" : "hide"}</button><button class="icon-small" data-solo="${n.id}">solo</button></div>`
-    ).join("");
-    container.innerHTML = rows;
-    container.querySelectorAll("[data-open]").forEach(
-      (el2) => el2.onclick = () => {
-        const id = el2.dataset.open;
-        if (state.view.objectVisibility[id] === false) {
-          dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true });
-        }
-        focusObject(id, { source: "object-drawer" });
-        closeAllDrawers();
+  var indexRenderer = createIndexRenderer({
+    container: document.getElementById("objectList"),
+    copy: UI_COPY,
+    onOpen: (id) => {
+      if (state.view.objectVisibility[id] === false) {
+        dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: true });
       }
-    );
-    container.querySelectorAll("[data-eye]").forEach(
-      (el2) => el2.onclick = () => {
-        const id = el2.dataset.eye;
-        const nextVisible = state.view.objectVisibility[id] === false;
-        dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
-        renderFieldViewControls();
-        updateVisibility();
-      }
-    );
-    container.querySelectorAll("[data-solo]").forEach(
-      (el2) => el2.onclick = async () => {
-        const id = el2.dataset.solo;
-        dispatch({ type: CommandType.ENTER_SOLO, id });
-        announceStatus(`Solo: ${byId[id]?.label || id}.`);
-        updateVisibility();
-        closeAllDrawers();
-        await nextFrame();
-        if (isMobile()) await setReaderOpen(true, { measure: true });
-        const result = await commitFocus(id, {
-          source: "index-solo",
-          routePolicy: "none",
-          tracePolicy: "none",
-          openReader: false,
-          surface: "field",
-          lightDuration: 420
-        });
-        if (!result) return;
-        fitVisibleField({ duration: 760 });
-        drawRouteMemory({ duration: 420 });
-      }
-    );
-  }
+      focusObject(id, { source: "object-drawer" });
+      closeAllDrawers();
+    },
+    onToggleVisible: (id, nextVisible) => {
+      dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
+      renderFieldViewControls();
+      updateVisibility();
+    },
+    onSolo: async (id) => {
+      dispatch({ type: CommandType.ENTER_SOLO, id });
+      announceStatus(`Solo: ${byId[id]?.label || id}.`);
+      updateVisibility();
+      closeAllDrawers();
+      await nextFrame();
+      if (isMobile()) await setReaderOpen(true, { measure: true });
+      const result = await commitFocus(id, {
+        source: "index-solo",
+        routePolicy: "none",
+        tracePolicy: "none",
+        openReader: false,
+        surface: "field",
+        lightDuration: 420
+      });
+      if (!result) return;
+      fitVisibleField({ duration: 760 });
+      drawRouteMemory({ duration: 420 });
+    }
+  });
   function renderObjectLists() {
-    const objectList = document.getElementById("objectList");
     const title = document.getElementById("objectDrawerTitle");
     const typeFilter = uiRuntime.indexFilter === "sources" ? "RefO" : null;
     if (title) title.textContent = uiRuntime.indexFilter === "sources" ? "Sources" : "Index";
-    if (objectList)
-      renderObjectRows(objectList, document.getElementById("objectSearch")?.value || "", typeFilter);
+    const filteredNodes = typeFilter ? nodes.filter((n) => n.type === typeFilter) : nodes;
+    indexRenderer.render(filteredNodes, state.view, document.getElementById("objectSearch")?.value || "");
   }
   function openIndex(filter = "all") {
     uiRuntime.indexFilter = filter;

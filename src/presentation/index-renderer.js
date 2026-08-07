@@ -18,32 +18,58 @@ export function clearIndividualHide(view, id) {
   return { ...view, objectVisibility };
 }
 
-export function createIndexRenderer({ container, copy, onOpen, onHoverStart, onHoverEnd }) {
+// Row markup (.object-row/.otype/.olabel[data-open]/[data-eye]/[data-solo])
+// matches the live app's existing rendering exactly, so no new CSS is
+// needed for those; only the hidden-by-view badge and .no-results-notice
+// (both previously designed and tested in isolation, but with no live
+// trigger) are new.
+export function createIndexRenderer({ container, copy, onOpen, onToggleVisible, onSolo, onHoverStart, onHoverEnd }) {
   function row(node, view) {
     const el = document.createElement('div');
-    el.className = 'index-item';
+    el.className = 'object-row';
     el.dataset.id = node.id;
     const visible = isNodeVisible(node, view);
     if (!visible) {
       el.classList.add('hidden-by-view');
       el.setAttribute('aria-label', `${node.label}, hidden by View`);
     }
+
     const type = document.createElement('div');
-    type.className = 'idx-type';
+    type.className = 'otype';
     type.textContent = node.type;
+
     const title = document.createElement('div');
-    title.className = 'idx-title';
-    title.textContent = node.label;
+    title.className = 'olabel';
+    title.dataset.open = node.id;
+    title.append(node.label);
+    title.onclick = () => onOpen(node.id);
     el.append(type, title);
+
+    if (onToggleVisible) {
+      const individuallyHidden = view.objectVisibility[node.id] === false;
+      const eye = document.createElement('button');
+      eye.className = 'icon-small';
+      eye.dataset.eye = node.id;
+      eye.textContent = individuallyHidden ? 'show' : 'hide';
+      eye.onclick = () => onToggleVisible(node.id, individuallyHidden);
+      el.appendChild(eye);
+    }
+    if (onSolo) {
+      const solo = document.createElement('button');
+      solo.className = 'icon-small';
+      solo.dataset.solo = node.id;
+      solo.textContent = 'solo';
+      solo.onclick = () => onSolo(node.id);
+      el.appendChild(solo);
+    }
     if (!visible) {
       const badge = document.createElement('span');
       badge.className = 'idx-hidden-badge';
       badge.textContent = copy.states.hiddenByView;
-      el.appendChild(badge);
+      title.appendChild(badge);
     }
-    el.onmouseenter = () => onHoverStart && onHoverStart(node.id);
-    el.onmouseleave = () => onHoverEnd && onHoverEnd();
-    el.onclick = () => onOpen(node.id);
+    if (onHoverStart) el.onmouseenter = () => onHoverStart(node.id);
+    if (onHoverEnd) el.onmouseleave = () => onHoverEnd();
     return el;
   }
 
