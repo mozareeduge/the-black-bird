@@ -20,6 +20,7 @@ import { createFocusManager } from './accessibility/focus-manager.js';
 import { isNodeVisible } from './domain/visibility.js';
 import { computeSoloMembership } from './domain/solo.js';
 import { createTimerRegistry } from './application/timer-registry.js';
+import { buildObjectViewModel } from './domain/reader-view-models.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
 const BB_UI_COPY = {
@@ -2456,27 +2457,36 @@ function bindIndexItems() {
     el.onclick = () => focusObject(el.dataset.id, { source: "index-item" });
   });
 }
+// F05/R3: src/domain/reader-view-models.js's buildObjectViewModel() (T18,
+// T-REQ-025) is the real derived-data authority for the Reader -- appears-in/
+// source-names/relos/citation-sources are computed there, once, instead of
+// being recomputed inline per render function. This file's render* functions
+// only turn that structured view model into HTML.
+function readerContext() {
+  return { nodesById: byId, texts: DATA.texts, nameos: DATA.nameos, refs: DATA.refs, relations: DATA.relations };
+}
 function renderNodePanel(id) {
   closeSheet();
-  const n = byId[id];
-  if (["RNO", "MNO"].includes(n.type)) return renderTextNode(n);
-  if (n.type === "FO") return renderFO(n);
-  if (n.type === "NameO") return renderNameO(n);
-  if (n.type === "RefO") return renderRefO(n);
-  if (n.type === "RelO") return renderRelO(n);
+  const vm = buildObjectViewModel(id, readerContext());
+  if (!vm) return;
+  if (vm.subtype === "text") return renderTextNode(vm);
+  if (vm.subtype === "fo") return renderFO(vm);
+  if (vm.subtype === "nameo") return renderNameO(vm);
+  if (vm.subtype === "refo") return renderRefO(vm);
+  if (vm.subtype === "relo") return renderRelO(vm);
 }
-function renderTextNode(n) {
-  const t = DATA.texts[n.id];
-  const objectChips = (t.objects || [])
+function renderTextNode(vm) {
+  const n = vm.node;
+  const objectChips = vm.objects
     .map((id) => `<span class="chip" data-id="${id}">${shortOf(id)}</span>`)
     .join("");
-  const refChips = (t.refs || [])
+  const refChips = vm.refs
     .map((id) => `<span class="chip" data-id="${id}">${shortOf(id)}</span>`)
     .join("");
   const body =
     n.type === "MNO"
-      ? `<div style="margin-bottom:8px">${t.body}</div><div class="disclosure"><button id="toggleObjects" style="font-size:10px;letter-spacing:.18em">objects ${(t.objects || []).length}</button><div id="mnoObjects" class="chip-row" style="display:none">${objectChips}</div></div>`
-      : `<div class="prose"><p>${t.body}</p></div>${refChips ? '<div class="section-label">references</div><div class="chip-row">' + refChips + "</div>" : ""}<div class="section-label">objects</div><div class="chip-row">${objectChips}</div>`;
+      ? `<div style="margin-bottom:8px">${vm.body}</div><div class="disclosure"><button id="toggleObjects" style="font-size:10px;letter-spacing:.18em">objects ${vm.objects.length}</button><div id="mnoObjects" class="chip-row" style="display:none">${objectChips}</div></div>`
+      : `<div class="prose"><p>${vm.body}</p></div>${refChips ? '<div class="section-label">references</div><div class="chip-row">' + refChips + "</div>" : ""}<div class="section-label">objects</div><div class="chip-row">${objectChips}</div>`;
   if (n.type === "MNO" && !prefersReducedMotion()) {
     const rEl = document.getElementById("reader");
     if (rEl) rEl.style.opacity = "0";
@@ -2505,19 +2515,15 @@ function renderTextNode(n) {
       box.style.display = box.style.display === "none" ? "flex" : "none";
     };
 }
-function renderFO(n) {
+function renderFO(vm) {
+  const n = vm.node;
   let html = `${meta(n)}`;
-  const appears = appearingIn(n.id),
-    relos = relosFor(n.id),
-    names = nodes
-      .filter((x) => x.type === "NameO" && (DATA.nameos[x.id]?.attached || []).includes(n.id))
-      .map((x) => x.id);
-  if (appears.length)
-    html += `<div class="section-label">appears in</div>${renderIndexList(appears)}`;
-  if (names.length)
-    html += `<div class="section-label">source names</div>${renderIndexList(names)}`;
-  if (relos.length)
-    html += `<div class="section-label">relation objects</div>${renderIndexList(relos)}`;
+  if (vm.appearsIn.length)
+    html += `<div class="section-label">appears in</div>${renderIndexList(vm.appearsIn)}`;
+  if (vm.sourceNames.length)
+    html += `<div class="section-label">source names</div>${renderIndexList(vm.sourceNames)}`;
+  if (vm.relos.length)
+    html += `<div class="section-label">relation objects</div>${renderIndexList(vm.relos)}`;
   reader(html);
   bindIndexItems();
 }
@@ -2527,46 +2533,42 @@ function wrapScriptSpans(s) {
     (m) => `<span lang="ar" dir="rtl" class="bb-arabic">${m}</span>`,
   );
 }
-function renderNameO(n) {
-  const no = DATA.nameos[n.id];
+function renderNameO(vm) {
+  const n = vm.node;
   const label = isArabicScript(n.label)
     ? `<p class="bb-arabic" lang="ar" dir="rtl">${esc(n.label)}</p>`
     : "";
   reader(
-    `${meta(n)}${label}<div class="prose"><p>${wrapScriptSpans(no.sourceLayer)}</p><p>${wrapScriptSpans(no.gloss)}</p></div><div class="section-label">attached objects</div>${renderIndexList(no.attached || [])}`,
+    `${meta(n)}${label}<div class="prose"><p>${wrapScriptSpans(vm.sourceLayer)}</p><p>${wrapScriptSpans(vm.gloss)}</p></div><div class="section-label">attached objects</div>${renderIndexList(vm.attached)}`,
   );
   bindIndexItems();
 }
-function renderRefO(n) {
-  const r = DATA.refs[n.id];
-  const linked = Object.entries(DATA.texts)
-    .filter(([, t]) => (t.refs || []).includes(n.id))
-    .map(([tid]) => tid);
+function renderRefO(vm) {
+  const n = vm.node;
   let sourceBlock = "";
-  if (r.sources && r.sources.length) {
-    sourceBlock = r.sources
+  if (vm.sources && vm.sources.length) {
+    sourceBlock = vm.sources
       .map((s) =>
         s.url
           ? `<a class="source-row" href="${s.url}" target="_blank" rel="noopener">${s.label} ↗</a>`
           : `<span class="source-row" style="opacity:.5;cursor:default">${s.label}</span>`,
       )
       .join("");
-    if (r.statusNote)
-      sourceBlock += `<div style="font-family:var(--mono);font-size:10px;color:var(--ghost);margin-top:10px;letter-spacing:.08em">${r.statusNote}</div>`;
-  } else if (r.url) {
-    sourceBlock = `<a class="source-row" href="${r.url}" target="_blank" rel="noopener">${r.status || "source"} ↗</a>`;
+    if (vm.statusNote)
+      sourceBlock += `<div style="font-family:var(--mono);font-size:10px;color:var(--ghost);margin-top:10px;letter-spacing:.08em">${vm.statusNote}</div>`;
+  } else if (vm.url) {
+    sourceBlock = `<a class="source-row" href="${vm.url}" target="_blank" rel="noopener">${vm.status || "source"} ↗</a>`;
   } else {
-    sourceBlock = `<span class="source-row" style="opacity:.45;cursor:default;border-bottom:0">${r.status || "bibliographic reference"}</span>`;
+    sourceBlock = `<span class="source-row" style="opacity:.45;cursor:default;border-bottom:0">${vm.status || "bibliographic reference"}</span>`;
   }
   reader(
-    `${meta(n)}<div class="ref-citation">${r.citation}</div>${sourceBlock}${linked.length ? '<div class="section-label">linked notes</div>' + renderIndexList(linked) : ""}`,
+    `${meta(n)}<div class="ref-citation">${vm.citation}</div>${sourceBlock}${vm.linkedNotes.length ? '<div class="section-label">linked notes</div>' + renderIndexList(vm.linkedNotes) : ""}`,
   );
   bindIndexItems();
 }
-function renderRelO(n) {
-  const parts = DATA.relations[n.id] || [];
+function renderRelO(vm) {
   reader(
-    `<div class="meta">RelO · ${n.id}</div><div class="section-label">objects</div>${renderIndexList(parts)}`,
+    `<div class="meta">RelO · ${vm.node.id}</div><div class="section-label">objects</div>${renderIndexList(vm.participants)}`,
   );
   bindIndexItems();
 }
