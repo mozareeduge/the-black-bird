@@ -138,4 +138,46 @@ test.describe('Reader subject view models and renderer (T18)', () => {
     const activeId = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
     expect(activeId).toBe('FO.CAIN');
   });
+
+  test('Reader index-list cross-references (appears in / relation objects) show the full canonical RNO/MNO title and the full opaque RelO id, never the compact shortLabel (baseline-preservation P2, H-VIS reader semantics)', async ({
+    page,
+  }) => {
+    const { DATA } = await loadModels();
+    const nodesById = Object.fromEntries(DATA.nodes.map((n) => [n.id, n]));
+    // FO.CORPSE appears in multiple RNOs/MNOs and participates in multiple RelOs
+    // (verified against canonical-data.js), so its FO Reader panel exercises both
+    // the "appears in" and "relation objects" index-list sections.
+    const foId = 'FO.CORPSE';
+    const appearsInIds = Object.entries(DATA.texts)
+      .filter(([, t]) => (t.objects || []).includes(foId))
+      .map(([id]) => id);
+    const relOIds = Object.entries(DATA.relations)
+      .filter(([, participants]) => participants.includes(foId))
+      .map(([id]) => id);
+    expect(appearsInIds.length).toBeGreaterThan(0);
+    expect(relOIds.length).toBeGreaterThan(0);
+
+    await gotoField(page, { reduced: true });
+    await clickNode(page, foId);
+    const titles = await page.locator('#reader .index-item .idx-title').allTextContents();
+
+    for (const id of appearsInIds) {
+      const fullTitle = nodesById[id].label;
+      const shortTitle = nodesById[id].shortLabel;
+      expect(titles, `expected full RNO/MNO title "${fullTitle}" for ${id}`).toContain(fullTitle);
+      if (shortTitle !== fullTitle) {
+        expect(titles, `must not show compact shortLabel "${shortTitle}" for ${id} in the Reader index`).not.toContain(
+          shortTitle
+        );
+      }
+    }
+    for (const id of relOIds) {
+      // A RelO's canonical `label` *is* its full opaque id (e.g. "RelO.R7080EA25").
+      expect(titles, `expected full opaque RelO id "${id}" in the Reader index`).toContain(id);
+      const shortTitle = nodesById[id].shortLabel;
+      expect(titles, `must not show compact shortLabel "${shortTitle}" for ${id} in the Reader index`).not.toContain(
+        shortTitle
+      );
+    }
+  });
 });

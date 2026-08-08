@@ -12,6 +12,157 @@
 <meta property="og:description" content="The Black Bird is a born-digital hypergraph research poem by Mohammad Zare, built from a black bird beside a body into a field of sources, names, relations, and routes." />
 <script src="vendor/d3.v7.9.0.min.js"></script>
 <style>
+/* T25: single authority for reduced motion, forced-colors/high-contrast,
+   missing-font layout safety, and 200%-zoom/320px-reflow safety
+   (T-REQ-038/039/040, P-RULE-022/033/034, D-DEC-18/19/21). This file must be
+   loaded after every other stylesheet (or win on specificity/!important
+   regardless of order) so it is the one place these cross-cutting concerns
+   are guaranteed, rather than depending on every future module remembering
+   its own reduced-motion/forced-colors block. */
+
+/* ── Reduced motion authority (T-REQ-039) ────────────────────────────────────
+   Every CSS transition/animation, in every stylesheet -- including modules
+   not yet wired into index.html (layout.css's 620ms grid-template-columns
+   transition, mobile.css's .sheet transform transition) -- collapses to an
+   effective instant end-state. This is deliberately broader than any single
+   module's own reduced-motion block (field.css already has one; this is the
+   backstop for everything else, present and future). JS motion paths
+   (camera pan/fit duration, focus-force settling) already gate on
+   prefers-reduced-motion in src/app.js and the layout/camera modules --
+   this is the CSS-side half of that same authority. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Forced-colors / increased contrast (T-REQ-038, D-DEC-21) ───────────────
+   Interactive state that is currently signalled by color alone (rail/bottom-
+   nav "active", link hover) gets an explicit non-color affordance so it
+   still reads once the platform's forced palette removes the color
+   difference. The field/route/wear/afterglow SVG layers keep their authored
+   colors (forced-color-adjust: none) because, per D-DEC-21, that color is
+   supplementary to -- never a substitute for -- the shape/structure
+   distinction already carried by morphology, clearing geometry, and the
+   route/wear/afterglow layers being separate elements (T17); exempting them
+   matches the standard "meaningful graphics" allowance for forced-colors. */
+@media (forced-colors: active) {
+  a,
+  button,
+  .rail-btn,
+  .tool-btn,
+  .chip,
+  .bottom-nav button,
+  .about-nav-btn,
+  .icon-small,
+  .th-actions button {
+    border: 1px solid ButtonText;
+  }
+  .rail-btn.active,
+  .bottom-nav button.active,
+  .fl.active,
+  [aria-current="true"],
+  [aria-current="page"],
+  [aria-selected="true"] {
+    border-color: Highlight;
+    outline: 1px solid Highlight;
+  }
+  a:focus-visible,
+  button:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+  .bb-body,
+  .bb-rno-ring,
+  .bb-aperture-core,
+  .bb-aperture-rim,
+  .bb-clearing-field,
+  .node-route-halo,
+  .node-focus-ring,
+  .bb-wear,
+  .bb-afterglow {
+    forced-color-adjust: none;
+  }
+}
+
+/* ── Missing-font layout safety (T-REQ-038) ──────────────────────────────────
+   --mono/--serif/--bb-arabic already end in a generic family (monospace/
+   serif) so text stays legible if the woff2 files fail to load; the risk is
+   layout, not legibility -- fallback metrics are wider/taller than the
+   authored fonts. Nothing here may use a fixed height/no-wrap on running
+   text, so a fallback font reflows instead of clipping or overlapping. */
+.poem,
+.prose,
+.about-tile-desc,
+.about-grammar-desc,
+.ref-citation {
+  overflow-wrap: break-word;
+}
+
+/* ── 200% zoom / 320px reflow safety (T-REQ-040, P-RULE-033) ─────────────────
+   The composition grid (T23) and mobile chambers (T24) are already
+   responsive by breakpoint, but grid/flex children default to a content-
+   based min-width that can force horizontal scroll at narrow effective
+   widths (200% page zoom on a 640px-class viewport, or the 320px CSS-px
+   reflow baseline). min-width: 0 lets them shrink to the track instead. */
+.app-frame,
+.main,
+.rail,
+.map-wrap,
+.panel,
+.drawer,
+.about-panel {
+  min-width: 0;
+}
+@media (max-width: 320px) {
+  .about-panel,
+  .drawer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}
+
+/* ── External destination failure recovery (T-REQ-042, P-RULE-037) ──────────
+   A local, non-modal status -- never a modal/alert -- so a blocked popup or
+   unreachable external destination never interrupts the reading session.
+   See src/controllers/external-link-controller.js. */
+.external-link-status {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--line2, #3a352e);
+  background: rgba(13, 12, 11, 0.96);
+  color: var(--text2, #b3aa9d);
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.external-link-status-text {
+  flex: 1 1 auto;
+  overflow-wrap: break-word;
+}
+.external-link-status button {
+  border: 1px solid var(--line2, #3a352e);
+  background: transparent;
+  color: var(--text, #e7e1d7);
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 4px 8px;
+}
 @font-face{font-family:'IBM Plex Mono';src:url('assets/fonts/IBMPlexMono-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
 @font-face{font-family:'IBM Plex Mono';src:url('assets/fonts/IBMPlexMono-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap;}
 @font-face{font-family:'Crimson Pro';src:url('assets/fonts/crimson-pro-latin-ext-400-normal.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap;}
@@ -2132,7 +2283,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       const item = el(doc, "div", "index-item");
       item.dataset.id = id;
       item.appendChild(el(doc, "div", "idx-type", nodesById[id]?.type || ""));
-      item.appendChild(el(doc, "div", "idx-title", shortLabelOf(id, nodesById)));
+      item.appendChild(el(doc, "div", "idx-title", fullLabelOf(id, nodesById)));
       list.appendChild(item);
     }
     return list;

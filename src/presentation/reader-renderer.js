@@ -44,13 +44,17 @@ function chipRow(ids, nodesById, doc) {
   return row;
 }
 
+// Reader cross-reference lists are reading-facing (H-VIS/P2): they must carry
+// the full canonical label -- including the full opaque RelO id, since a
+// RelO's canonical `label` *is* its opaque id -- never the compact
+// `shortLabel` chip form.
 function indexList(ids, nodesById, doc) {
   const list = el(doc, 'div', 'index-list');
   for (const id of ids) {
     const item = el(doc, 'div', 'index-item');
     item.dataset.id = id;
     item.appendChild(el(doc, 'div', 'idx-type', nodesById[id]?.type || ''));
-    item.appendChild(el(doc, 'div', 'idx-title', shortLabelOf(id, nodesById)));
+    item.appendChild(el(doc, 'div', 'idx-title', fullLabelOf(id, nodesById)));
     list.appendChild(item);
   }
   return list;

@@ -7,6 +7,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(here, '..');
 
 const PLACEHOLDER = '/*__BB_BUILD_APP_SCRIPT__*/';
+const A11Y_CSS_PLACEHOLDER = '/*__BB_BUILD_ACCESSIBILITY_CSS__*/';
 
 function extractCanonicalDataText(source) {
   const m = source.match(/export const DATA = (\{[\s\S]*\});\n?$/);
@@ -52,10 +53,27 @@ export function build() {
   if (!template.includes(PLACEHOLDER)) {
     throw new Error('src/index.template.html is missing the app-script placeholder');
   }
+  if (!template.includes(A11Y_CSS_PLACEHOLDER)) {
+    throw new Error('src/index.template.html is missing the accessibility-CSS placeholder');
+  }
   const dataText = extractCanonicalDataText(dataModule);
   const { text: bundledAppJs, metafile } = bundleAppScript();
   const scriptContent = `const DATA = ${dataText};\n${bundledAppJs}`;
-  return { html: template.replace(PLACEHOLDER, scriptContent), metafile };
+  // T25 (reduced-motion/forced-colors/missing-font/reflow authority) is
+  // loaded from its own source file into the real production <style> block
+  // (E1: production CSS, not isolated unwired CSS a test injects for
+  // itself). Placed first, not last: its forced-colors/missing-font/reflow
+  // rules target selectors nothing else in the template touches, so source
+  // order doesn't matter for them, but its reduced-motion block is a
+  // deliberate backstop (this file's own header comment) for transitions no
+  // more specific rule already handles -- the template's existing, more
+  // specific `*{transition:none!important}` blanket rule and scoped field
+  // rules (declared later, so they still win at equal specificity) already
+  // cover everything today; accessibility.css exists to catch what they
+  // don't, present or future, without being weakened to match them.
+  const a11yCss = readFileSync(path.join(ROOT, 'src/styles/accessibility.css'), 'utf8').trim();
+  const htmlWithCss = template.replace(A11Y_CSS_PLACEHOLDER, a11yCss);
+  return { html: htmlWithCss.replace(PLACEHOLDER, scriptContent), metafile };
 }
 
 function main() {
