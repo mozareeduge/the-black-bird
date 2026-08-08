@@ -1114,6 +1114,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   // src/layout/pointer-ownership.js
   var MOUSE_PEN_RADIUS = 14;
   var TOUCH_RADIUS = 18;
+  var MOVE_SLOP = { mouse: 6, pen: 6, touch: 10 };
+  var SYNTHETIC_CLICK_SUPPRESS_MS = 400;
   function rectContains(rect, point) {
     if (!rect) return false;
     return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height;
@@ -1135,6 +1137,49 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       return a.canonicalIndex - b.canonicalIndex;
     });
     return inRange[0].id;
+  }
+  function createGestureArbiter() {
+    let active = null;
+    let secondPointerId = null;
+    let lastCommitAt = null;
+    function pointerDown(pointerId, point, ownerId, modality = "mouse") {
+      if (active) {
+        secondPointerId = pointerId;
+        return;
+      }
+      active = { pointerId, ownerId, startX: point.x, startY: point.y, modality, moved: false, invalidated: false };
+    }
+    function pointerMove(pointerId, point) {
+      if (!active || active.pointerId !== pointerId) return;
+      const slop = MOVE_SLOP[active.modality] ?? MOVE_SLOP.mouse;
+      if (Math.hypot(point.x - active.startX, point.y - active.startY) > slop) active.moved = true;
+    }
+    function pointerCancel(pointerId) {
+      if (active && active.pointerId === pointerId) active.invalidated = true;
+    }
+    function pointerUp(pointerId, ownerIdAtUp) {
+      if (!active || active.pointerId !== pointerId) {
+        return { commit: false, reason: "no-active-pointer" };
+      }
+      let result;
+      if (active.invalidated) result = { commit: false, reason: "invalidated-or-cancelled" };
+      else if (secondPointerId != null) result = { commit: false, reason: "second-pointer" };
+      else if (active.moved) result = { commit: false, reason: "moved-beyond-slop" };
+      else if (ownerIdAtUp !== active.ownerId) result = { commit: false, reason: "owner-changed" };
+      else result = { commit: true, ownerId: active.ownerId };
+      if (result.commit) lastCommitAt = Date.now();
+      active = null;
+      secondPointerId = null;
+      return result;
+    }
+    function shouldSuppressSyntheticClick(now = Date.now()) {
+      return lastCommitAt != null && now - lastCommitAt < SYNTHETIC_CLICK_SUPPRESS_MS;
+    }
+    function reset() {
+      active = null;
+      secondPointerId = null;
+    }
+    return { pointerDown, pointerMove, pointerCancel, pointerUp, shouldSuppressSyntheticClick, reset };
   }
 
   // src/state/command-types.js
@@ -2879,6 +2924,61 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { start, stop, onEscape };
   }
 
+  // src/controllers/pointer-controller.js
+  function createPointerController({ surface, dispatch: dispatch2, onCommit, getCandidates, getFocusMemberIds, toPoint }) {
+    const arbiter = createGestureArbiter();
+    function point(evt) {
+      if (toPoint) return toPoint(evt);
+      return { x: evt.clientX ?? 0, y: evt.clientY ?? 0 };
+    }
+    function ownerAt(evt) {
+      const candidates = getCandidates();
+      const modality = evt.pointerType || "mouse";
+      const focusMemberIds = getFocusMemberIds ? getFocusMemberIds() : /* @__PURE__ */ new Set();
+      return resolvePointerOwner(point(evt), candidates, { modality, focusMemberIds });
+    }
+    function onPointerDown(evt) {
+      const ownerId = ownerAt(evt);
+      if (ownerId == null) return;
+      arbiter.pointerDown(evt.pointerId, point(evt), ownerId, evt.pointerType || "mouse");
+    }
+    function onPointerMove(evt) {
+      arbiter.pointerMove(evt.pointerId, point(evt));
+    }
+    function onPointerCancel(evt) {
+      arbiter.pointerCancel(evt.pointerId);
+    }
+    function onPointerUp(evt) {
+      const ownerIdAtUp = ownerAt(evt);
+      const result = arbiter.pointerUp(evt.pointerId, ownerIdAtUp);
+      if (result.commit) {
+        if (onCommit) onCommit(result.ownerId);
+        else dispatch2({ type: CommandType.COMMIT_OBJECT, id: result.ownerId, source: "pointer" });
+      }
+    }
+    function onClick(evt) {
+      if (arbiter.shouldSuppressSyntheticClick()) {
+        evt.preventDefault?.();
+        evt.stopPropagation?.();
+      }
+    }
+    function start() {
+      surface.addEventListener("pointerdown", onPointerDown);
+      surface.addEventListener("pointermove", onPointerMove);
+      surface.addEventListener("pointerup", onPointerUp);
+      surface.addEventListener("pointercancel", onPointerCancel);
+      surface.addEventListener("click", onClick);
+    }
+    function stop() {
+      surface.removeEventListener("pointerdown", onPointerDown);
+      surface.removeEventListener("pointermove", onPointerMove);
+      surface.removeEventListener("pointerup", onPointerUp);
+      surface.removeEventListener("pointercancel", onPointerCancel);
+      surface.removeEventListener("click", onClick);
+    }
+    return { start, stop, arbiter };
+  }
+
   // src/controllers/external-link-controller.js
   function createExternalLinkController({ win, doc, container }) {
     function clear() {
@@ -3407,10 +3507,8 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return isAperture(d) ? "APERTURE" : d.type;
   }
   var nodeMetrics = computeNodeMetrics;
-  function resolveNearestVisibleNode(screenPoint, opts = {}) {
+  function buildPointerCandidates() {
     const t = uiRuntime.transform;
-    const focusIds = opts.focusIds || null;
-    const point = { x: screenPoint[0], y: screenPoint[1] };
     const candidates = [];
     simNodes.forEach((d, i) => {
       if (!nodeVisible(d.id) || d.x == null || d.y == null) return;
@@ -3420,19 +3518,15 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
         id: d.id,
         screenX: sx,
         screenY: sy,
-        // Circumscribing square around the node's true circular/diamond body:
-        // resolvePointerOwner's contract takes a rectangle (T-REQ-021), and the
-        // radius-gated inRange filter below is what actually governs candidacy
-        // -- this only affects containment-tier tie-breaking at the margins.
         bodyRect: { x: sx - r, y: sy - r, width: r * 2, height: r * 2 },
         canonicalIndex: i
       });
     });
-    const ownerId = resolvePointerOwner(point, candidates, {
-      modality: opts.touch ? "touch" : "mouse",
-      focusMemberIds: focusIds || /* @__PURE__ */ new Set()
-    });
-    return ownerId ? byId[ownerId] : null;
+    return candidates;
+  }
+  function pointerFocusMemberIds() {
+    const focus = uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null;
+    return focus ? new Set(focus.ids) : /* @__PURE__ */ new Set();
   }
   function visibleNodesList() {
     return simNodes.filter((d) => nodeVisible(d.id) && d.x != null && d.y != null);
@@ -3587,24 +3681,48 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     if (isMobile()) return;
     clearTimeout(uiRuntime.previewTimer);
     clearTouch();
-  }).on("click", (ev, d) => {
-    ev.stopPropagation();
+  });
+  updateRovingTabindex(null);
+  var suppressNextNodeClick = false;
+  function commitFromPointer(id) {
     clearTimeout(uiRuntime.previewTimer);
     hidePreview();
-    const focus = uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null;
-    const resolved = resolveNearestVisibleNode(d3.pointer(ev, svg.node()), {
-      touch: isMobile(),
-      focusIds: focus ? new Set(focus.ids) : null
-    }) || d;
     if (uiRuntime.onboardingActive) {
       uiRuntime.onboardingActive = false;
       hideFieldPrompt();
-      return focusObject(resolved.id, { source: "onboarding-interrupt" });
+      return focusObject(id, { source: "onboarding-interrupt" });
     }
-    if (isMobile()) return selectInField(resolved.id, { source: "graph-mobile" });
-    focusObject(resolved.id, { source: "graph" });
+    if (isMobile()) return selectInField(id, { source: "graph-mobile" });
+    focusObject(id, { source: "graph" });
+  }
+  var pointerController = createPointerController({
+    surface: svg.node(),
+    onCommit: (id) => {
+      suppressNextNodeClick = true;
+      commitFromPointer(id);
+    },
+    getCandidates: buildPointerCandidates,
+    getFocusMemberIds: pointerFocusMemberIds,
+    toPoint: (evt) => {
+      const [x, y] = d3.pointer(evt, svg.node());
+      return { x, y };
+    }
   });
-  updateRovingTabindex(null);
+  pointerController.start();
+  nodeLayer.node().addEventListener("click", (evt) => {
+    if (suppressNextNodeClick) {
+      suppressNextNodeClick = false;
+      evt.preventDefault();
+      evt.stopPropagation();
+      return;
+    }
+    const nodeEl = evt.target.closest(".node");
+    const datum = nodeEl && d3.select(nodeEl).datum();
+    if (datum) {
+      evt.stopPropagation();
+      commitFromPointer(datum.id);
+    }
+  });
   projSel.on("mouseenter", (ev, d) => {
     if (isMobile()) return;
     showEdgePreview(d, ev);

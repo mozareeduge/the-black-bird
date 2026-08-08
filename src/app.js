@@ -34,6 +34,7 @@ import { createNavigationController } from './controllers/navigation-controller.
 import { createEnvironmentController } from './controllers/environment-controller.js';
 import { createModalController } from './controllers/modal-controller.js';
 import { createKeyboardController } from './controllers/keyboard-controller.js';
+import { createPointerController } from './controllers/pointer-controller.js';
 import { createExternalLinkController } from './controllers/external-link-controller.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
@@ -717,15 +718,15 @@ function nodeR(d) {
 }
 // ── Deterministic screen-space pointer resolution (4.3, fixes BB-R06) ──────
 // The DOM element under the pointer is not authoritative when hit areas
-// overlap in a dense cluster. Given a click point in the SVG's own pixel
-// space (which is 1:1 with mapWrap CSS pixels via the viewBox), find the
-// nearest VISIBLE node whose screen distance is inside the target radius.
-// Ties: prefer the node whose visible body contains the pointer; then the
-// active focus set; then canonical DATA order (simNodes iteration order).
-function resolveNearestVisibleNode(screenPoint, opts = {}) {
+// overlap in a dense cluster (BB-R06). Candidates carry each visible node's
+// current screen position (SVG-local pixel space, 1:1 with mapWrap CSS
+// pixels via the viewBox) and a circumscribing body rect;
+// resolvePointerOwner (src/controllers/pointer-controller.js) resolves a
+// point against them. Ties: prefer the node whose visible body contains the
+// pointer; then the active focus set; then canonical DATA order (simNodes
+// iteration order).
+function buildPointerCandidates() {
   const t = uiRuntime.transform;
-  const focusIds = opts.focusIds || null;
-  const point = { x: screenPoint[0], y: screenPoint[1] };
   const candidates = [];
   simNodes.forEach((d, i) => {
     if (!nodeVisible(d.id) || d.x == null || d.y == null) return;
@@ -736,19 +737,15 @@ function resolveNearestVisibleNode(screenPoint, opts = {}) {
       id: d.id,
       screenX: sx,
       screenY: sy,
-      // Circumscribing square around the node's true circular/diamond body:
-      // resolvePointerOwner's contract takes a rectangle (T-REQ-021), and the
-      // radius-gated inRange filter below is what actually governs candidacy
-      // -- this only affects containment-tier tie-breaking at the margins.
       bodyRect: { x: sx - r, y: sy - r, width: r * 2, height: r * 2 },
       canonicalIndex: i,
     });
   });
-  const ownerId = resolvePointerOwner(point, candidates, {
-    modality: opts.touch ? 'touch' : 'mouse',
-    focusMemberIds: focusIds || new Set(),
-  });
-  return ownerId ? byId[ownerId] : null;
+  return candidates;
+}
+function pointerFocusMemberIds() {
+  const focus = uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null;
+  return focus ? new Set(focus.ids) : new Set();
 }
 // ── Roving tabindex + directional keyboard navigation (4.15, BB-R17) ───────
 function visibleNodesList() {
@@ -1039,32 +1036,89 @@ nodeSel
     if (isMobile()) return;
     clearTimeout(uiRuntime.previewTimer);
     clearTouch();
-  })
-  .on("click", (ev, d) => {
-    ev.stopPropagation();
-    // A hover-preview timer armed by mouseenter (200ms) can still be pending
-    // when the click lands (P-SCN-020) — without this it fires after commit
-    // and shows a stale hover preview for the object just committed.
-    clearTimeout(uiRuntime.previewTimer);
-    hidePreview();
-    // The datum bound to the DOM element under the pointer is not
-    // authoritative when hit areas overlap (BB-R06) — resolve the true
-    // nearest visible node in screen space and commit that instead.
-    const focus = uiRuntime.focusedId ? buildFocusSet(uiRuntime.focusedId) : null;
-    const resolved =
-      resolveNearestVisibleNode(d3.pointer(ev, svg.node()), {
-        touch: isMobile(),
-        focusIds: focus ? new Set(focus.ids) : null,
-      }) || d;
-    if (uiRuntime.onboardingActive) {
-      uiRuntime.onboardingActive = false;
-      hideFieldPrompt();
-      return focusObject(resolved.id, { source: "onboarding-interrupt" });
-    }
-    if (isMobile()) return selectInField(resolved.id, { source: "graph-mobile" });
-    focusObject(resolved.id, { source: "graph" });
   });
 updateRovingTabindex(null);
+// F05/R3: src/controllers/pointer-controller.js (T16, T-REQ-021/022/023)
+// is the real pointer-commit authority, replacing the old node-level
+// "click" handler. A commit only ever comes from a validated
+// pointerdown-move-up gesture (commitOnPointerUpOnly) via
+// buildPointerCandidates/resolvePointerOwner -- the same BB-R06
+// nearest-visible-node resolution the old click handler already used, now
+// gated by real gesture arbitration (T-REQ-022's "no pinch or pan
+// ownership") that the old handler never had: a touch pan/drag starting on
+// a node no longer risks a spurious commit from the browser's trailing
+// synthetic click (critical-triples.spec.js's "[pointerdown, pan-or-cancel,
+// synthetic-click]" case).
+//
+// suppressNextNodeClick is a one-shot flag, not pointer-controller's own
+// time-windowed shouldSuppressSyntheticClick(): a committing tap's own
+// trailing native "click" event always arrives as the very next click on
+// that node (immediately for a real tap, delayed up to ~300ms for a
+// touch-compatibility synthetic click on older mobile browsers), so
+// consuming the flag on whichever click arrives first suppresses exactly
+// that one event -- and only that one -- regardless of how much real time
+// elapses before it fires. A fixed time window instead (this file's first
+// attempt) incorrectly swallowed any later, wholly unrelated click on a
+// *different* node that happened to land inside the same window, breaking
+// tooltip-keyboard-status.spec.js's rapid pointer-then-touch modality
+// switch (P-SCN-097) and a rapid two-node commit sequence alike.
+let suppressNextNodeClick = false;
+function commitFromPointer(id) {
+  clearTimeout(uiRuntime.previewTimer);
+  hidePreview();
+  if (uiRuntime.onboardingActive) {
+    uiRuntime.onboardingActive = false;
+    hideFieldPrompt();
+    return focusObject(id, { source: "onboarding-interrupt" });
+  }
+  if (isMobile()) return selectInField(id, { source: "graph-mobile" });
+  focusObject(id, { source: "graph" });
+}
+const pointerController = createPointerController({
+  surface: svg.node(),
+  onCommit: (id) => {
+    suppressNextNodeClick = true;
+    commitFromPointer(id);
+  },
+  getCandidates: buildPointerCandidates,
+  getFocusMemberIds: pointerFocusMemberIds,
+  toPoint: (evt) => {
+    const [x, y] = d3.pointer(evt, svg.node());
+    return { x, y };
+  },
+});
+pointerController.start();
+// A committing node click's own trailing native click event bubbles from
+// the node, through nodeLayer, to the SVG's background-click-to-deselect
+// handler (svg.on("click", ...) above) -- without this, every commit would
+// immediately undo itself. Scoped to nodeLayer specifically so
+// stopPropagation here reliably reaches the background handler before it
+// runs: two independent listeners on the *same* element (svg) can't
+// arbitrate each other via stopPropagation, only a descendant-scoped one
+// can stop an event from ever reaching an ancestor-scoped one.
+nodeLayer.node().addEventListener("click", (evt) => {
+  if (suppressNextNodeClick) {
+    suppressNextNodeClick = false;
+    evt.preventDefault();
+    evt.stopPropagation();
+    return;
+  }
+  // Fallback commit: a "click" reaching here without a preceding validated
+  // pointer gesture (its coordinates never resolved to an owner, so the
+  // arbiter never tracked it -- e.g. assistive-technology-simulated
+  // activation, or any input path that produces a click without a real
+  // pointerdown/pointerup sequence) still commits the node it actually
+  // targeted, exactly like the pre-pointer-controller click handler always
+  // did. tests/e2e/tooltip-keyboard-status.spec.js's P-SCN-097
+  // touch-simulation case (dispatching pointerdown/up with no clientX/Y,
+  // then a plain click) depends on exactly this path.
+  const nodeEl = evt.target.closest(".node");
+  const datum = nodeEl && d3.select(nodeEl).datum();
+  if (datum) {
+    evt.stopPropagation();
+    commitFromPointer(datum.id);
+  }
+});
 
 // Edge events
 projSel

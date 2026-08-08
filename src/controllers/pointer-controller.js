@@ -7,10 +7,16 @@ import { resolvePointerOwner, createGestureArbiter } from '../layout/pointer-own
 // itself. Keyboard commits never go through this controller or its pointer
 // solver at all (T-REQ-021's "keyboard bypasses pointer solver" is
 // structural: a keyboard controller dispatches COMMIT_OBJECT directly).
-export function createPointerController({ surface, dispatch, getCandidates, getFocusMemberIds }) {
+export function createPointerController({ surface, dispatch, onCommit, getCandidates, getFocusMemberIds, toPoint }) {
   const arbiter = createGestureArbiter();
 
+  // Candidates carry screenX/screenY in whatever coordinate space the
+  // caller's geometry actually lives in (e.g. SVG-local, if the candidates
+  // come from a zoom/pan-transformed <svg>) -- toPoint lets the caller
+  // convert a raw pointer event into that same space instead of assuming
+  // viewport (clientX/clientY) coordinates always match it.
   function point(evt) {
+    if (toPoint) return toPoint(evt);
     return { x: evt.clientX ?? 0, y: evt.clientY ?? 0 };
   }
 
@@ -39,7 +45,12 @@ export function createPointerController({ surface, dispatch, getCandidates, getF
     const ownerIdAtUp = ownerAt(evt);
     const result = arbiter.pointerUp(evt.pointerId, ownerIdAtUp);
     if (result.commit) {
-      dispatch({ type: CommandType.COMMIT_OBJECT, id: result.ownerId, source: 'pointer' });
+      // onCommit lets the caller route a validated commit through its own
+      // full presentation orchestration (camera fit, Reader, Route memory,
+      // ...) instead of a bare state dispatch; falls back to a raw
+      // COMMIT_OBJECT dispatch when the caller only supplies `dispatch`.
+      if (onCommit) onCommit(result.ownerId);
+      else dispatch({ type: CommandType.COMMIT_OBJECT, id: result.ownerId, source: 'pointer' });
     }
   }
 
