@@ -2,6 +2,85 @@
 
 This file is the canonical project log. Keep it in the repository root. Update it after every Claude Code round.
 
+## 2026-08-08 — Head-driver correction (v4), R0–R5: full architecture swap-in, 115/115 coverage re-proven, zero-exclusion accessibility
+
+Branch: `claude/black-bird-system-recomposition-9hpoia`
+PR: #9 (draft)
+Base: `main@5972b2b2e4a70b2b2f457b6345f84894af95ef2a`
+
+A head-driver correction package (v4) was applied on top of the F00–F07
+continuation round below, correcting defects in that round's finalization
+authority and execution gates discovered from the live repository. Where it
+explicitly superseded a prior interpretation, the correction controls; prior
+F01/F03/F07 completion claims were re-verified from scratch rather than
+trusted. Executed continuously as R0–R5 of the correction's ledger:
+
+- **R0 — repaired F01's truth contracts and gates.** Fixed the closure
+  contract and `verify:closure` machinery itself so later rounds have a
+  trustworthy gate to run against (see `scripts/verify-closure.mjs`,
+  `scripts/check-contract-coherence.mjs`).
+- **R1 — eliminated the legacy dual semantic store.** Normalized Route/trace
+  domain shape and delegated the reducer to its real domain owners
+  (`src/domain/*`), then removed the legacy `S`/`canonicalState` parallel
+  store entirely so `src/state/reducer.js` + `src/application/dispatcher.js`
+  + `transaction-controller.js` are the only semantic mutation authority.
+  `scripts/check-semantic-duplication.mjs` now asserts no duplicate
+  authority remains in `src/app.js`.
+- **R2/R3 — wired every remaining F05 controller/renderer into
+  `src/app.js`**, the sole production entry point, in the correction's
+  specified dependency order, strengthening several modules rather than
+  importing them as stubs: `reader-renderer.js` gained a render-generation
+  counter decoupled from the dispatcher's transaction system (the shared
+  transaction counter invalidates on *any* dispatch, not just the one the
+  Reader is waiting on — using it caused the Reader to silently fail to
+  render after real commits); `keyboard-controller.js` gained
+  `preventDefault` on Enter/Space and an optional directional-handling
+  gate; `pointer-controller.js` gained an `onCommit` callback and a
+  `toPoint` coordinate converter, and its app.js wiring fixed three real
+  bugs (SVG-local vs. viewport coordinate mismatch, a same-element
+  `click`-listener arbitration conflict with the background-deselect
+  handler, and a 400ms suppression window that false-positived on rapid
+  distinct commits — replaced with a one-shot suppression flag).
+  `scripts/check-production-ownership.mjs` went from 28/40 to 40/40
+  required modules reachable over the course of this work — R2/R3 is
+  complete.
+- **R4 — re-proved F04 geometry and F06's 115-scenario coverage** on the
+  now-fully-wired production path: `npm run verify:closure:local` passed
+  16/17 checks (1 non-blocking skip for missing Firefox/WebKit binaries),
+  including 115/115 scenario coverage, 40/40 production ownership, and all
+  unit/e2e/a11y/legacy suites. No regression from the R2/R3 wiring.
+- **R5 — removed F07's `color-contrast` axe exclusion entirely** rather
+  than leaving it excluded pending human review, per the correction's
+  explicit instruction that this is not an artistic exception. Root cause:
+  the warm/cold focus recession effect dimmed a node's entire `<g>`
+  (`applyWarmColdStyling`/`applyClearingStyling`/`transitionToFieldLighting`
+  in `src/app.js`) via SVG group `opacity`, which multiplicatively dimmed
+  the node's label text along with its body/ring/halo — at the
+  cold-context/non-member opacity values (0.16–0.38), label text contrast
+  against the field background dropped well below the 4.5:1 AA floor. Fix:
+  recession opacity now targets only the node's visual body/ring/halo
+  (`:scope > *:not(.node-label)`); the label always renders at full
+  opacity, and cold recession for text is instead conveyed by a hue shift
+  (`g.node[data-bb-light="cold-rest"] .node-label` → `var(--bb-cold-text)`
+  in `src/index.template.html`, chosen to clear 4.5:1 against the field
+  background) plus the pre-existing tiered size/weight/blur/density cues on
+  the body — hue/weight/halo/density/emphasis instead of contrast-violating
+  opacity alone. `tests/a11y/axe.spec.js`'s `KNOWN_OUT_OF_SCOPE_RULE_IDS`
+  exclusion set was removed; the five app-state axe scans (including the
+  engaged-Field-with-focused-object state that exercises cold-context
+  nodes) pass with zero exclusions.
+
+Commands run before every commit in this round: `npm run build`,
+`npm run test:unit`, `npx playwright test --project=chromium` (full e2e),
+`npx playwright test tests/a11y tests/black-bird-*` (legacy + a11y), plus
+`scripts/check-production-ownership.mjs` / `check-semantic-duplication.mjs`
+/ `check-contract-coherence.mjs`; `npm run verify:closure:local` at R4.
+
+Known risks / next step: R6 (F08 responsive/visual closure), R7 (F09/F10
+evidence generator replacement and CI workflow separation), and R8 (F11/F12
+freeze and candidate-review-packet delivery) remain, per the correction's
+ledger. PR #9 stays draft, unmerged, undeployed throughout.
+
 ## 2026-08-05 — Candidate finalization (T30–T31), CI automation, and disclosed-gap closure
 
 Branch: `claude/black-bird-system-recomposition-9hpoia`

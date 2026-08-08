@@ -1681,7 +1681,20 @@ function applyWarmColdStyling(focus, dur) {
   currentPenumbraVisible = true;
   const focusIds = new Set(focus.ids),
     neighborIds = new Set(focus.neighborIds);
+  // Opacity recession (F07/R5) applies only to the node's visual body/ring/
+  // halo (":not(.node-label)"), never to its label text -- a WCAG AA text
+  // contrast floor must hold in every lighting state, so cold/related
+  // recession for the label is instead conveyed by hue (data-bb-light ->
+  // var(--bb-cold-text) in CSS) plus the existing tiered size/weight/blur.
+  // The <g class="node"> itself still goes to 0 opacity when the node isn't
+  // visible at all, which correctly hides its label too (real invisibility,
+  // not a recession effect).
   nodeSel
+    .transition()
+    .duration(dur)
+    .attr("opacity", (d) => (nodeVisible(d.id) ? 1 : 0));
+  nodeSel
+    .selectAll(":scope > *:not(.node-label)")
     .transition()
     .duration(dur)
     .attr("opacity", (d) => {
@@ -1734,7 +1747,14 @@ function applyClearingStyling(focus, dur) {
   currentPenumbraVisible = false;
   updateWarmPenumbra(null, dur);
   const memberIds = new Set([focus.coreId, ...clearingMemberIdsFor(focus.coreId)]);
+  // See applyWarmColdStyling's comment: recession opacity targets the body/
+  // ring/halo only, never the label text (F07/R5).
   nodeSel
+    .transition()
+    .duration(dur)
+    .attr("opacity", (d) => (nodeVisible(d.id) ? 1 : 0));
+  nodeSel
+    .selectAll(":scope > *:not(.node-label)")
     .transition()
     .duration(dur)
     .attr("opacity", (d) => {
@@ -1847,7 +1867,17 @@ function transitionToFieldLighting(opts = {}) {
   currentPenumbraVisible = false;
   updateClearing(null);
   updateWarmPenumbra(null, dur);
+  // See applyWarmColdStyling's comment: recession opacity targets the body/
+  // ring/halo only, never the label text (F07/R5). In practice a NameO node
+  // with sourceNames off has its label hidden entirely by
+  // updateLabelVisibility(), but this keeps the invariant unconditional
+  // rather than relying on that as the only guard.
   nodeSel
+    .transition()
+    .duration(dur)
+    .attr("opacity", (d) => (nodeVisible(d.id) ? 1 : 0));
+  nodeSel
+    .selectAll(":scope > *:not(.node-label)")
     .transition()
     .duration(dur)
     .attr("opacity", (d) => {

@@ -308,11 +308,17 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .bb-body,.bb-rno-ring{transition:opacity .35s ease,fill .35s ease,stroke-opacity .35s ease;}
 .bb-cold-rest{filter:blur(var(--bb-dof-max));}
 .bb-arabic{font-family:var(--bb-arabic);}
-.node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;}
+.node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;transition:fill .35s ease;}
 .node-label.quiet{fill:#92887a}
 .node-label.bb-arabic{font-family:var(--bb-arabic);}
+/* F07/R5: cold recession is conveyed to node-label text by hue (this rule)
+   plus the existing tiered size/weight/blur/density cues on the node body --
+   never by opacity, since a WCAG AA text contrast floor must hold regardless
+   of focus/clearing state. var(--bb-cold-text) is chosen to clear 4.5:1
+   against the field background at full opacity. */
+g.node[data-bb-light="cold-rest"] .node-label:not(.quiet){fill:var(--bb-cold-text);}
 @media(prefers-reduced-motion:reduce){
-  .bb-node,.bb-edge,.bb-clearing-field,.bb-wear,.bb-afterglow,.bb-body,.bb-rno-ring{transition-duration:.01ms!important;animation:none!important;}
+  .bb-node,.bb-edge,.bb-clearing-field,.bb-wear,.bb-afterglow,.bb-body,.bb-rno-ring,.node-label{transition-duration:.01ms!important;animation:none!important;}
   .bb-cold-rest{filter:none!important;}
 }
 .bb-unavailable{position:fixed;inset:0;z-index:9999;background:radial-gradient(circle at center,#0d0c0b 0%,#070706 62%,#050505 100%);display:flex;align-items:center;justify-content:center;padding:28px;}

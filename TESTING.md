@@ -28,16 +28,25 @@ independently of the still-live application:
   `COV-CRITICAL-TRIPLES`/`COV-ORDERED-ACTION-PAIRS` coverage specs.
 - `npm run test:a11y` — Playwright + axe-core over `tests/a11y/**`: automated
   scans at five app states plus explicit focus/modal/tooltip/target-size/
-  reflow/status/reduced-motion checks. Two real findings from an earlier
-  round (`nested-interactive` on `#graphSvg`, `aria-dialog-name` on the
-  drawers) were fixed at the source once `src/**` access was available
-  (`#graphSvg` is now `role="group"`; every drawer is `aria-labelledby` its
-  visible heading) — see `.bb-control/CONFLICT.json`'s `T31-redo` entry. One
-  real but intermittent finding remains excluded by name,
-  `color-contrast` on "cold" node labels: T04's authored warm/cold visual
-  system deliberately lets unfocused labels dim as part of the intended
-  recession effect, and whether that should have a hard contrast floor is
-  an artistic call for human review, not a bug this suite silently patches.
+  reflow/status/reduced-motion checks, with zero rule exclusions. Three real
+  findings from earlier rounds were fixed at the source, not excluded:
+  `nested-interactive` on `#graphSvg` and `aria-dialog-name` on the drawers
+  once `src/**` access was available (`#graphSvg` is now `role="group"`;
+  every drawer is `aria-labelledby` its visible heading — see
+  `.bb-control/CONFLICT.json`'s `T31-redo` entry), and `color-contrast` on
+  "cold" node label text (F07/R5): the warm/cold recession effect previously
+  dimmed a node's entire `<g>` including its label text via SVG group
+  opacity, which could push label contrast below 4.5:1. The fix
+  (`src/app.js`'s `applyWarmColdStyling`/`applyClearingStyling`/
+  `transitionToFieldLighting`) now applies recession opacity only to the
+  node's visual body/ring/halo (everything but `.node-label`); the label
+  itself always renders at full opacity, and coldness is instead conveyed by
+  a hue shift (`g.node[data-bb-light="cold-rest"] .node-label` ->
+  `var(--bb-cold-text)`, `src/index.template.html`) chosen to clear 4.5:1
+  against the field background, plus the pre-existing tiered size/weight/
+  blur/density cues on the body. The intended recession effect survives; the
+  hard-contrast question is no longer live because text opacity is no
+  longer the mechanism that conveys it.
 - `npm run test:cross-browser` — the same semantic smoke suite
   (`tests/cross-browser/smoke.spec.js`) against Chromium/Firefox/WebKit
   projects declared in `playwright.config.cjs`. Verified green on Chromium
@@ -187,61 +196,67 @@ independently of the still-live application:
   scanning at five app states; a dedicated `Final Candidate Gate` CI
   workflow that regenerates and gates evidence on every push.
 
-## F00–F07: continuation round (swap-in in progress)
+## F00–F12: continuation round (swap-in complete through F07)
 
 A second round, executed against a drop-in continuation authority package on
-top of the T00–T31 candidate above, is underway on this branch. Its explicit
-goal is the "full swap-in" T00–T31 called "a distinct, higher-risk future
-round, out of this one's scope." Real progress so far, each swap verified by
-the full suite (`test:unit`/`test:e2e`/`test:a11y`/`test:full`) before commit:
+top of the T00–T31 candidate above, and then a head-driver correction package
+(v4) on top of that, is underway on this branch. Its explicit goal is the
+"full swap-in" T00–T31 called "a distinct, higher-risk future round, out of
+this one's scope." Every module below is wired into `src/app.js`, the sole
+production entry point (`scripts/build.mjs` inlines only `src/app.js` plus
+canonical `DATA` into `index.html`), and reachable per
+`scripts/check-production-ownership.mjs` (40/40 required modules). Each swap
+was verified by the full suite (`test:unit`/`test:e2e`/`test:a11y`/
+`test:full`) plus the closure gates (`node scripts/check-production-ownership.mjs`
+/ `check-semantic-duplication.mjs` / `check-contract-coherence.mjs`) before
+commit:
 
-- **Semantic mutation authority (F03):** `src/state/reducer.js` +
-  `src/application/dispatcher.js` + `transaction-controller.js` are now the
-  real validate → reduce → transact authority `dispatch()` calls for every
-  semantic command; `S`, the legacy read-model, is not replaced wholesale and
-  still drives rendering (disclosed, not an oversight — see `src/app.js`'s
-  own "Canonical semantic state (F03)" comment).
+- **Semantic mutation authority (F02/F03):** `src/state/reducer.js` +
+  `src/application/dispatcher.js` + `transaction-controller.js` are the real
+  validate → reduce → transact authority `dispatch()` calls for every
+  semantic command; the legacy parallel semantic store was eliminated (R1) —
+  `checkSemanticDuplication.mjs` asserts no duplicate authority remains in
+  `src/app.js`.
 - **Geometry authority (F02/F04):** `authored-world.js`, `focus-targets.js`,
   `camera.js`, `label-solver.js`, and `pointer-ownership.js` are wired in as
   the real authority for world coordinates, focus-force targeting, camera
-  framing, label placement, and pointer-to-node resolution.
-- **Presentation (F05, partial):** `bootstrap-renderer.js` and
-  `field-renderer.js` are wired in. `status-renderer.js` +
-  `accessibility/announcement-manager.js` now own the single `#routeLive`
-  polite live region's coalescing behavior (replacing an ad hoc
-  textContent-set), extended past Route-only announcements to also announce
-  Solo entry (`Solo: <label>.`) and Field-restore
-  (`Restore Field`/`Show All`, `Field restored.`) — previously-silent state
-  transitions a screen-reader user landing on the Index drawer had no other
-  way to learn about. The remaining seven presentation renderers
-  (`index-`, `modal-`, `reader-`, `route-`, `solo-`, `tooltip-`,
-  `trace-`, `view-renderer.js`) and all seven `src/controllers/*.js` modules
-  are still not wired into `src/app.js` — this is real, disclosed remaining
-  scope, not a gap silently left off this list.
-- **Scenario coverage (F06):** all 115 declared product scenarios are now
-  accounted for (covered or explicitly reasoned) with zero silent gaps.
-- **Accessibility (F07):** verified zero silent exclusions beyond the one
-  already-disclosed `color-contrast` finding above; no code change was
-  needed.
+  framing, label placement, and pointer-to-node resolution; re-proven on the
+  fully-wired production path (R4).
+- **Presentation and controllers (F05, complete):** all nine presentation
+  renderers (`bootstrap-`, `field-`, `status-`, `index-`, `modal-`, `reader-`,
+  `route-`, `solo-`, `tooltip-`, `trace-`, `view-renderer.js`) and all seven
+  `src/controllers/*.js` modules (lifecycle, navigation, environment, modal,
+  keyboard, pointer, external-link) are wired into `src/app.js` (R3),
+  strengthening several modules in the process rather than importing them as
+  stubs: `reader-renderer.js` gained a dedicated render-generation counter
+  decoupled from the command-dispatch transaction system;
+  `keyboard-controller.js` gained `preventDefault` on Enter/Space and an
+  optional directional-handling gate; `pointer-controller.js` gained an
+  `onCommit` callback and a `toPoint` coordinate converter so pointer
+  ownership resolves in the same SVG-local space as node geometry.
+- **Scenario coverage (F06):** all 115 declared product scenarios are
+  accounted for (covered or explicitly reasoned) with zero silent gaps,
+  re-verified on the fully-wired production path (R4).
+- **Accessibility (F07, complete, zero exclusions):** the one previously
+  excluded finding, `color-contrast` on "cold" node label text, is fixed at
+  the source rather than excluded (R5) — see the `test:a11y` bullet above for
+  the mechanism. `tests/a11y/axe.spec.js` carries no rule-ID exclusion list;
+  every axe finding at serious/critical severity fails the suite.
 
 ## Known limits
 
-- **Label placement: 8 candidates, first-valid rather than
-  cost-minimizing selection, in the live app.** `recomputeLabelPlacements()`
-  in `src/app.js` (spec §4.6) does try all 8 directions (four
-  orthogonal + four diagonal), but accepts the first collision-free
-  candidate rather than scoring all valid candidates and picking the
-  cheapest (`src/layout/label-solver.js`, in the not-yet-integrated
-  layered tree, does implement true cost-scoring). In the densest
-  canonical RelO cluster this leaves a small, timing-dependent number of
-  residual overlaps (observed 1-2 across repeated runs) — bounded and
-  asserted by `tests/black-bird-world-camera.spec.js`, not a full "zero
-  overlaps everywhere" guarantee. Ordinary (non-densest) clusters are
-  collision-free.
-- **One real, intermittent WCAG AA color-contrast finding**, disclosed
-  above, in the a11y bullet, and in `.bb-control/CONFLICT.json` — an
-  artistic-recession-effect question for human review, not silently
-  patched.
+- **Label placement: bounded residual overlap in the densest cluster.**
+  `recomputeLabelPlacements()` in `src/app.js` (spec §4.6) now delegates to
+  `src/layout/label-solver.js`'s `solveLabels()` (R2/R4), which scores all 8
+  candidate positions (four orthogonal + four diagonal) per label against
+  overlap/safe-area/edge-crossing/distance/stability weights and picks the
+  cheapest zero-overlap candidate (or, for the always-shown active label, the
+  least-bad candidate if none are overlap-free) — real cost-minimization, not
+  first-valid selection. In the densest canonical RelO cluster this still
+  leaves a small, timing-dependent number of residual overlaps (observed 1-2
+  across repeated runs) — bounded and asserted by
+  `tests/black-bird-world-camera.spec.js`, not a full "zero overlaps
+  everywhere" guarantee. Ordinary (non-densest) clusters are collision-free.
 - **Cross-browser Firefox/WebKit** verified only on Chromium in every
   sandboxed session run so far, for the environment reasons described
   above; the same spec runs unmodified wherever those binaries are

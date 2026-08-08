@@ -15,20 +15,18 @@ const { gotoField, clickNode } = require('../bb-helpers.cjs');
 // node children) and aria-dialog-name (drawer/panel role="dialog" elements with
 // no accessible name) were fixed at the source (see CONFLICT.json's T31-redo
 // entry): #graphSvg is now role="group", and every drawer is aria-labelledby
-// its existing visible heading. One real, disclosed, but genuinely intermittent
-// finding remains and is excluded here rather than fixed: color-contrast on
-// unfocused/"cold" node label text (T04's warm/cold numeric bands, part of the
-// authored temporal-material-distinction / attention-depth visual system,
-// pending_user_review in candidate-evidence/human-review.json). Whether "cold"
-// labels should be brightened to a hard 4.5:1 floor is an artistic call about
-// the intended recession effect, not a bug this task can decide -- flagged for
-// the human review pass, not silently patched.
-const KNOWN_OUT_OF_SCOPE_RULE_IDS = new Set(['color-contrast']);
-
+// its existing visible heading. color-contrast on unfocused/"cold" node label
+// text was also fixed at the source (F07/R5, src/app.js's applyWarmColdStyling/
+// applyClearingStyling/transitionToFieldLighting): cold/related recession
+// opacity now applies only to the node's visual body/ring/halo, never to its
+// label text, so text always renders at full opacity; the recession effect
+// for text is conveyed by hue instead (data-bb-light="cold-rest" ->
+// var(--bb-cold-text) in src/index.template.html, chosen to clear 4.5:1
+// against the field background), plus the pre-existing tiered size/weight/
+// blur/density cues on the node body. No exclusion remains -- every rule axe
+// reports at serious/critical severity is a real failure.
 function seriousOrCritical(results) {
-  return results.violations
-    .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-    .filter((v) => !KNOWN_OUT_OF_SCOPE_RULE_IDS.has(v.id));
+  return results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
 }
 
 test.describe('axe-core automated accessibility scan (T28, T-REQ-047)', () => {
