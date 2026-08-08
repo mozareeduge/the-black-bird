@@ -341,8 +341,16 @@ const MOTION_RECORDINGS = [
   }],
   ['temporal-truth-and-clears', async (page) => {
     await gotoField(page, { reduced: true });
-    await clickNode(page, 'FO.CORPSE');
-    await clickNode(page, 'FO.CAIN');
+    // routeApertureEvents() (src/app.js) only collapses the strip to an
+    // ellipsis -- the sole way to open the route drawer, D-DEC-10/22 -- once
+    // history.route.length exceeds maxTail+1 (5 at this >=1180px viewport,
+    // including the 1 onboarding event). Two commits never collapses it, so
+    // the ellipsis never appears and this recording silently skipped its own
+    // drawer-open/clear-trace action, landing under the required 8s floor.
+    // Six distinct commits (5 here + onboarding's 1) reliably collapses it.
+    for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.BURIAL', 'FO.ALLAH', 'FO.ABEL']) {
+      await clickNode(page, id);
+    }
     await page.waitForTimeout(1000);
     const ellipsis = page.locator('#route [data-route-open], #route .route-ellipsis').first();
     if (await ellipsis.count()) {
