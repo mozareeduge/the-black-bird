@@ -24,7 +24,8 @@ independently of the still-live application:
   only, over `tests/e2e/**` and `tests/generated/**`: bootstrap failure
   surfaces, field rendering, Reader, Route/trace, View/Index/Solo, modals/
   About, tooltip/keyboard/status, desktop composition, mobile chambers,
-  environmental resilience, reduced motion, plus the generated
+  environmental resilience, reduced motion, responsive/visual closure
+  (`responsive-visual-closure.spec.js` — F08/R6, below), plus the generated
   `COV-CRITICAL-TRIPLES`/`COV-ORDERED-ACTION-PAIRS` coverage specs.
 - `npm run test:a11y` — Playwright + axe-core over `tests/a11y/**`: automated
   scans at five app states plus explicit focus/modal/tooltip/target-size/
@@ -242,6 +243,22 @@ commit:
   the source rather than excluded (R5) — see the `test:a11y` bullet above for
   the mechanism. `tests/a11y/axe.spec.js` carries no rule-ID exclusion list;
   every axe finding at serious/critical severity fails the suite.
+- **Responsive/visual closure (F08, complete):** the target contract's "no
+  sheet leak, label collision, clipped required content, or chrome/focus
+  conflict" bar was verified directly against the live, fully-wired page
+  (R6) — a 1024x640 "overlay leak" and mobile dense-cluster label collisions
+  had been named as defects to reproduce and repair, but neither reproduced:
+  drawers/About settle fully inside the 1024x640 viewport once their
+  320ms open transition completes (an initial reproduction attempt that
+  measured mid-transition was itself the artifact, not a real defect), and
+  node-label overlap count is 0 across all three dense RelO clusters at both
+  390x844 and 430x932 (the label-solver/authored-world work landed since the
+  older, now-stale collision report was written evidently already resolved
+  it). 320px reflow, a 200%-zoom-equivalent viewport, landscape mobile, and
+  forced-colors mode were also verified with no horizontal overflow and no
+  chrome clipped out of frame. `tests/e2e/responsive-visual-closure.spec.js`
+  makes all of this permanent, durable coverage against `index.html` itself
+  rather than an informal one-time check.
 
 ## Known limits
 
