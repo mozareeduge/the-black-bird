@@ -2773,6 +2773,64 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { start, stop, reconcile };
   }
 
+  // src/presentation/modal-renderer.js
+  var INERT_TARGETS_SELECTOR = ".rail, #mainLayout, .bottom-nav";
+  function setBackgroundInert(doc, inert) {
+    doc.querySelectorAll(INERT_TARGETS_SELECTOR).forEach((el2) => {
+      if (inert) el2.setAttribute("inert", "");
+      else el2.removeAttribute("inert");
+    });
+  }
+  function openPanel(panelEl) {
+    panelEl.classList.add("open");
+    panelEl.setAttribute("aria-hidden", "false");
+    panelEl.removeAttribute("inert");
+  }
+  function closePanel(panelEl) {
+    panelEl.classList.remove("open");
+    panelEl.setAttribute("aria-hidden", "true");
+    panelEl.setAttribute("inert", "");
+  }
+  function focusFirstIn(panelEl) {
+    const focusable = panelEl.querySelector('button, [href], input, [tabindex]:not([tabindex="-1"])');
+    if (focusable && focusable.focus) focusable.focus();
+    return focusable || null;
+  }
+
+  // src/controllers/modal-controller.js
+  function createModalController({ doc, panels, fallbackFor }) {
+    let current = null;
+    function isUsableInvoker(el2) {
+      return !!el2 && typeof el2.focus === "function" && doc.contains(el2);
+    }
+    function open(kind, invoker) {
+      const panel = panels[kind];
+      if (!panel) throw new Error(`modal-controller: unknown kind "${kind}"`);
+      if (current && current.kind !== kind) {
+        closePanel(panels[current.kind]);
+      }
+      current = { kind, invoker: isUsableInvoker(invoker) ? invoker : null };
+      setBackgroundInert(doc, true);
+      openPanel(panel);
+      focusFirstIn(panel);
+      return current;
+    }
+    function close() {
+      if (!current) return null;
+      const { kind, invoker } = current;
+      closePanel(panels[kind]);
+      setBackgroundInert(doc, false);
+      current = null;
+      const target = isUsableInvoker(invoker) ? invoker : fallbackFor(kind);
+      if (target && target.focus) target.focus();
+      return target || null;
+    }
+    function activeKind() {
+      return current ? current.kind : null;
+    }
+    return { open, close, activeKind };
+  }
+
   // src/controllers/external-link-controller.js
   function createExternalLinkController({ win, doc, container }) {
     function clear() {
@@ -5015,6 +5073,11 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       behavior: prefersReducedMotion() ? "auto" : "smooth"
     });
   }
+  var modalController = createModalController({
+    doc: document,
+    panels: { about: document.getElementById("aboutPanel") },
+    fallbackFor: () => document.querySelector('.rail-btn[data-action="about"]')
+  });
   function openAbout(origin) {
     dispatch({ type: CommandType.OPEN_OVERLAY, kind: "about", invoker: origin || "unknown" });
     closeAllDrawers();
@@ -5022,22 +5085,16 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     hidePreview();
     const panel = document.getElementById("aboutPanel");
     panel.classList.toggle("from-threshold", origin === "threshold");
-    panel.classList.add("open");
-    panel.removeAttribute("inert");
-    panel.setAttribute("aria-hidden", "false");
     document.getElementById("aboutBody").scrollTop = 0;
     document.querySelectorAll('.rail-btn[data-action="about"]').forEach((b) => b.classList.add("active"));
-    trapOverlayOpen(panel);
+    modalController.open("about", document.activeElement);
   }
   function closeAbout() {
     if (state.overlay.kind !== "about") return;
     dispatch({ type: CommandType.CLOSE_OVERLAY });
-    const panel = document.getElementById("aboutPanel");
-    panel.classList.remove("open", "from-threshold");
-    panel.setAttribute("inert", "");
-    panel.setAttribute("aria-hidden", "true");
+    document.getElementById("aboutPanel").classList.remove("from-threshold");
     document.querySelectorAll('.rail-btn[data-action="about"]').forEach((b) => b.classList.remove("active"));
-    trapOverlayClose();
+    modalController.close();
   }
   document.getElementById("aboutClose").onclick = closeAbout;
   document.querySelectorAll("[data-about-section]").forEach((b) => b.onclick = () => jumpAboutSection(b.dataset.aboutSection));

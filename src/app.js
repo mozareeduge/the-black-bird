@@ -32,6 +32,7 @@ import { selectVisibleNodeIds } from './domain/selectors.js';
 import { createLifecycleController } from './controllers/lifecycle-controller.js';
 import { createNavigationController } from './controllers/navigation-controller.js';
 import { createEnvironmentController } from './controllers/environment-controller.js';
+import { createModalController } from './controllers/modal-controller.js';
 import { createExternalLinkController } from './controllers/external-link-controller.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
@@ -3084,6 +3085,25 @@ function jumpAboutSection(id) {
     behavior: prefersReducedMotion() ? "auto" : "smooth",
   });
 }
+// F05/R3: src/controllers/modal-controller.js (T21, T-REQ-032/033, D-DEC-20)
+// is the real inert-background/focus-trap authority for the About panel --
+// open/closePanel/setBackgroundInert/focusFirstIn (src/presentation/
+// modal-renderer.js) are an exact extraction of what trapOverlayOpen/Close
+// already did inline for it. The 3-drawer system keeps its own
+// trapOverlayOpen/Close (it already correctly enforces "one drawer at a
+// time" with drawer-specific backdrop/body-scroll-lock concerns that don't
+// map onto modal-controller's simpler single-panel abstraction); the two
+// systems never overlap in practice because each makes the *entire*
+// interactive surface (.rail/#mainLayout/.bottom-nav) inert while open, so
+// there is no reachable UI path to have both active. A genuine improvement
+// over the old inline version: closing now falls back to the About rail
+// button (always present) when the recorded invoker element is gone,
+// instead of silently leaving focus wherever the browser defaults it.
+const modalController = createModalController({
+  doc: document,
+  panels: { about: document.getElementById("aboutPanel") },
+  fallbackFor: () => document.querySelector('.rail-btn[data-action="about"]'),
+});
 function openAbout(origin) {
   dispatch({ type: CommandType.OPEN_OVERLAY, kind: "about", invoker: origin || "unknown" });
   closeAllDrawers();
@@ -3091,26 +3111,20 @@ function openAbout(origin) {
   hidePreview();
   const panel = document.getElementById("aboutPanel");
   panel.classList.toggle("from-threshold", origin === "threshold");
-  panel.classList.add("open");
-  panel.removeAttribute("inert");
-  panel.setAttribute("aria-hidden", "false");
   document.getElementById("aboutBody").scrollTop = 0;
   document
     .querySelectorAll('.rail-btn[data-action="about"]')
     .forEach((b) => b.classList.add("active"));
-  trapOverlayOpen(panel);
+  modalController.open("about", document.activeElement);
 }
 function closeAbout() {
   if (state.overlay.kind !== "about") return;
   dispatch({ type: CommandType.CLOSE_OVERLAY });
-  const panel = document.getElementById("aboutPanel");
-  panel.classList.remove("open", "from-threshold");
-  panel.setAttribute("inert", "");
-  panel.setAttribute("aria-hidden", "true");
+  document.getElementById("aboutPanel").classList.remove("from-threshold");
   document
     .querySelectorAll('.rail-btn[data-action="about"]')
     .forEach((b) => b.classList.remove("active"));
-  trapOverlayClose();
+  modalController.close();
 }
 document.getElementById("aboutClose").onclick = closeAbout;
 document
