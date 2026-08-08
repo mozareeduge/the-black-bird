@@ -1,4 +1,12 @@
 name: Verify
+# F10/R7: on pull_request, actions/checkout@v4's default ref is GitHub's
+# synthetic PR-merge commit (the head merged onto the current base), not the
+# literal branch-head SHA -- a legitimate, distinct check ("does this branch
+# still merge and pass on top of main's latest"), intentionally kept as
+# default-ref here. It is never a substitute for exact-head-verify.yml's
+# explicit github.event.pull_request.head.sha checkout, which is what
+# final-closure-contract.json's evidence_truth invariant actually requires
+# for candidate-bound proof.
 on:
   pull_request:
   push:

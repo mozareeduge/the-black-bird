@@ -65,10 +65,44 @@ independently of the still-live application:
   (distinct from `verify.yml`'s build/test check and
   `black-bird-validation.yml`'s full-suite check) that regenerates
   candidate-bound evidence fresh on GitHub's own runners
-  (`npm run evidence:generate`) and gates its structural integrity
-  (`scripts/ci-evidence-gate.mjs`: hash/dimension/duration/duplicate-bytes
-  checks, human-review left pending) on every push/PR, uploading
-  `candidate-evidence/**` as a build artifact.
+  (`npm run evidence:generate`), from the exact PR head SHA (checkout `ref`
+  pinned explicitly, F10/R7 — see below), and gates its structural
+  integrity (`scripts/ci-evidence-gate.mjs`: hash/dimension/duration/
+  duplicate-bytes/completeness checks, human-review left pending) on every
+  push/PR, uploading `candidate-evidence/**` as a build artifact.
+- **CI: three distinct verification passes (F10/R7).** GitHub's default
+  `pull_request` checkout is a synthetic merge commit (the PR head merged
+  onto the current base), not the literal branch-head SHA -- a legitimate,
+  separate question ("does this still merge and pass on top of main"), kept
+  intentionally in `verify.yml` and `black-bird-validation.yml`. It is never
+  a substitute for proving the exact candidate SHA is green
+  (`final-closure-contract.json`'s evidence_truth invariant: "Synthetic
+  PR-merge verification is recorded separately and never substituted for
+  the candidate SHA"). `.github/workflows/exact-head-verify.yml` is the
+  dedicated exact-SHA check: it pins `ref:
+  github.event.pull_request.head.sha` explicitly and runs the full local
+  suite against that literal commit. `.github/workflows/
+  cross-browser-matrix.yml` installs and runs Chromium, Firefox, and
+  WebKit (`final-closure-contract.json`'s `browser_matrix`) against the
+  same exact-head SHA -- closing the gap this session's own sandboxed
+  environment discloses it cannot close locally (Firefox/WebKit binaries
+  unavailable to fetch).
+- **Evidence identity: one committed, declarative source of truth
+  (F09/R7).** `tests/contracts/evidence-plan.json` names all 44 primary
+  artifacts `final-closure-contract.json`'s `required_evidence_ids`/
+  `required_primary_entry_count` declare (30 individually-named static
+  captures, 7 motion recordings, 7 machine reports), replacing an untracked
+  `.bb-authority/contracts/evidence-plan.json` overlay that `scripts/
+  generate-evidence.mjs` used to read when present, falling back to a
+  separately hand-maintained, easy-to-drift duplicate list when absent (the
+  normal case in a fresh checkout). `scripts/generate-evidence.mjs`'s
+  `manifest.json` now lists all 44 as primary, gate-required `entries[]`;
+  the 3 grouped contact-sheet composites move to `supplementary_evidence[]`
+  (`final-closure-contract.json` itself: "Contact sheets are supplementary
+  review aids only" -- they had it backwards). `scripts/ci-evidence-gate
+  .mjs` now asserts `entries[]` is exactly the plan's 44 ids, no fewer and
+  no more, in addition to its existing per-entry hash/dimension/duration/
+  duplicate-bytes checks.
 
 ## Legacy released-behavior harness
 
@@ -259,6 +293,32 @@ commit:
   chrome clipped out of frame. `tests/e2e/responsive-visual-closure.spec.js`
   makes all of this permanent, durable coverage against `index.html` itself
   rather than an informal one-time check.
+- **Evidence and CI truth (F09/F10, complete):** `scripts/generate-evidence
+  .mjs` and `scripts/ci-evidence-gate.mjs` now share one committed,
+  declarative source for evidence identity (`tests/contracts/evidence-plan
+  .json`) instead of an untracked overlay plus a hand-maintained fallback
+  duplicate, and the manifest's gate-required `entries[]` is the 44
+  individually-named primary artifacts the closure contract actually
+  declares, not the 3 grouped contact sheets it used to be (R7) -- see the
+  `test:a11y`-adjacent bullets above for the full mechanism. Making every
+  artifact individually gate-checked exposed and fixed five real, previously
+  latent bugs in the capture functions themselves: `whole-field-*` called a
+  nonexistent `window.__bbDesign.returnToField` (the real method lives on
+  `window.__bbTest`) and silently landed on whatever node gotoField's own
+  auto-focus left active; `route-long` pre-checked a `data-bb-test-id`
+  attribute before any `clickNode()` call had tagged it, so every iteration
+  skipped and it committed nothing; `route-cleared-trace-retained` and
+  `trace-cleared-route-retained` were wired to the exact same capture
+  function, guaranteeing byte-identical images for what the evidence plan
+  names as opposite states; `reduced-motion` duplicated `focus-ordinary
+  -1280`'s exact target state (every capture already runs under
+  `gotoField(..., {reduced:true})`, so a second capture of the identical
+  node/viewport is trivially identical, not evidence of anything
+  reduced-motion-specific); and a fixed 320x480 "undersized screenshot"
+  floor in the gate rejected the legitimately short/landscape captures
+  the plan itself requires (`text-zoom-200` at 640x400,
+  `landscape-mobile` at 844x390). Also separates CI into three distinct
+  passes (F10) -- see the CI bullet above.
 
 ## Known limits
 
@@ -278,6 +338,13 @@ commit:
   sandboxed session run so far, for the environment reasons described
   above; the same spec runs unmodified wherever those binaries are
   present.
+- **`ffprobe`/`ffmpeg`** is not installed in this sandboxed session and
+  cannot be fetched here (package-manager mirror access is restricted),
+  so `scripts/ci-evidence-gate.mjs`'s video-duration probe for the 7
+  motion recordings could not be locally verified end-to-end -- every
+  other check on those entries (hash, candidate SHA, duplicate bytes,
+  presence) passed. `.github/workflows/final-candidate-gate.yml`
+  installs `ffmpeg` explicitly (F10/R7) so this does not carry into CI.
 - **This session's own direct GitHub API / `gh` CLI access is blocked**
   at the session level (confirmed by installing `gh` and reproducing an
   explicit 403), independent of anything in this repository; see

@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0.0",
+  "source": "tests/contracts/final-closure-contract.json's required_evidence_ids + required_primary_entry_count (F09/R7)",
+  "notes": "Canonical, committed, single source of truth for candidate-bound evidence identity, used by both scripts/generate-evidence.mjs (to build manifest.json's required entries[]) and scripts/ci-evidence-gate.mjs (to verify entries[] is exactly this set, no more, no fewer). Previously this list existed only in an untracked .bb-authority/contracts/evidence-plan.json overlay, with a hardcoded, independently-maintained fallback duplicate inside generate-evidence.mjs for CI checkouts where the overlay is absent -- two copies of the same list, one of them invisible to review. This file replaces both: it is always present, in both local and CI checkouts, and is the only copy.",
+  "required_primary_entry_count": 44,
+  "primary_artifacts": {
+    "static_application_captures": [
+      { "id": "ARTISTIC-CORE/threshold", "artifact_class": "application-capture" },
+      { "id": "ARTISTIC-CORE/whole-field-1440", "artifact_class": "application-capture" },
+      { "id": "ARTISTIC-CORE/whole-field-1280", "artifact_class": "application-capture" },
+      { "id": "ARTISTIC-CORE/focus-ordinary-1280", "artifact_class": "application-capture" },
+      { "id": "ARTISTIC-CORE/black-bird-aperture", "artifact_class": "application-capture" },
+      { "id": "ARTISTIC-CORE/relo-clearing", "artifact_class": "application-capture" },
+      { "id": "ARTISTIC-CORE/route-wear-afterglow", "artifact_class": "application-capture" },
+      { "id": "ARTISTIC-CORE/reader-field-composition", "artifact_class": "application-capture" },
+      { "id": "ARTISTIC-CORE/mobile-field-390", "artifact_class": "application-capture" },
+      { "id": "ARTISTIC-CORE/mobile-read-390", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/projected-inspection", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/solo-object", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/solo-relo", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/hidden-anchor", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/all-hidden-recovery", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/index-no-results", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/route-long", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/route-cleared-trace-retained", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/trace-cleared-route-retained", "artifact_class": "application-capture" },
+      { "id": "STATE-AND-RECOVERY/about-return", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/compact-1024", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/mobile-430", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/narrow-320", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/landscape-mobile", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/text-zoom-200", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/forced-colors", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/reduced-motion", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/keyboard-edge-focus", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/tooltip-edge", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/modal-focus", "artifact_class": "application-capture" }
+    ],
+    "motion_recordings": [
+      { "id": "motion/entry-and-interruption", "artifact_class": "motion" },
+      { "id": "motion/rapid-latest-action", "artifact_class": "motion" },
+      { "id": "motion/preview-and-projected-inspection", "artifact_class": "motion" },
+      { "id": "motion/relation-and-solo", "artifact_class": "motion" },
+      { "id": "motion/temporal-truth-and-clears", "artifact_class": "motion" },
+      { "id": "motion/mobile-complete-path", "artifact_class": "motion" },
+      { "id": "motion/reduced-motion-parity", "artifact_class": "motion" }
+    ],
+    "machine_reports": [
+      { "id": "machine/state.json", "artifact_class": "derived-report" },
+      { "id": "machine/event.json", "artifact_class": "derived-report" },
+      { "id": "machine/geometry.json", "artifact_class": "derived-report" },
+      { "id": "machine/design.json", "artifact_class": "derived-report" },
+      { "id": "machine/accessibility.json", "artifact_class": "derived-report" },
+      { "id": "machine/coverage-report.json", "artifact_class": "derived-report" },
+      { "id": "machine/build-manifest.json", "artifact_class": "derived-report" }
+    ]
+  },
+  "supplementary_contact_sheets": [
+    "ARTISTIC-CORE",
+    "STATE-AND-RECOVERY",
+    "RESPONSIVE-ACCESS"
+  ],
+  "human_review_dimensions": [
+    "field-compositional-authority",
+    "field-reader-unity",
+    "morphology-legibility",
+    "black-bird-aperture",
+    "attention-depth",
+    "relo-clearing-quality",
+    "temporal-material-distinction",
+    "mobile-completeness",
+    "motion-craft",
+    "apparatus-recession"
+  ]
+}

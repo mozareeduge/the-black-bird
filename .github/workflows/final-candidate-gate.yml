@@ -1,4 +1,10 @@
 name: Final Candidate Gate
+# F09/F10/R7: candidate-bound evidence must come from one exact frozen
+# branch-head SHA (final-closure-contract.json's evidence_truth invariant),
+# not GitHub's default pull_request synthetic-merge checkout -- ref is
+# pinned explicitly rather than left to checkout@v4's default so this is
+# true by construction, not by accident of what the default happened to
+# resolve to.
 on:
   pull_request:
   push:
@@ -10,17 +16,24 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with: {node-version: 22, cache: npm}
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # scripts/ci-evidence-gate.mjs probes every motion recording's
+      # duration with ffprobe; installed explicitly rather than assumed
+      # present on the runner image, so a missing/changed default doesn't
+      # silently turn every motion entry into an "unprobeable video" failure.
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: npm run build
       - run: npm run evidence:generate
       - run: node scripts/ci-evidence-gate.mjs
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: black-bird-final-candidate-evidence-${{ github.sha }}
+          name: black-bird-final-candidate-evidence-${{ github.event.pull_request.head.sha || github.sha }}
           path: candidate-evidence/
           if-no-files-found: error
           retention-days: 14

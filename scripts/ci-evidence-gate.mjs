@@ -6,6 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const EVIDENCE = path.join(ROOT, 'candidate-evidence');
+const EVIDENCE_PLAN = JSON.parse(readFileSync(path.join(ROOT, 'tests', 'contracts', 'evidence-plan.json'), 'utf8'));
+
+function requiredIds(plan) {
+  const { static_application_captures, motion_recordings, machine_reports } = plan.primary_artifacts;
+  return new Set([...static_application_captures, ...motion_recordings, ...machine_reports].map((e) => e.id));
+}
 
 function sha256(filePath) {
   return crypto.createHash('sha256').update(readFileSync(filePath)).digest('hex');
@@ -58,6 +64,22 @@ function main() {
   if (manifest.candidate_sha !== head) errors.push('evidence manifest SHA does not equal candidate HEAD');
 
   const entries = manifest.entries || [];
+
+  // F09/R7: entries[] must be exactly the 44 declarative primary artifacts
+  // named in tests/contracts/evidence-plan.json (which mirrors
+  // final-closure-contract.json's required_evidence_ids/
+  // required_primary_entry_count) -- no fewer (a missing artifact) and no
+  // more (an undeclared id smuggled into the gate-required set).
+  const required = requiredIds(EVIDENCE_PLAN);
+  const present = new Set(entries.map((e) => String(e.id)));
+  const missing = [...required].filter((id) => !present.has(id));
+  const unexpected = [...present].filter((id) => !required.has(id));
+  if (missing.length) errors.push('missing required evidence ids: ' + missing.join(', '));
+  if (unexpected.length) errors.push('undeclared evidence ids in entries[]: ' + unexpected.join(', '));
+  if (entries.length !== EVIDENCE_PLAN.required_primary_entry_count) {
+    errors.push(`entries[] has ${entries.length} items, required_primary_entry_count is ${EVIDENCE_PLAN.required_primary_entry_count}`);
+  }
+
   const seenIds = new Set();
   const seenImageBytes = new Set();
   const seenVideoBytes = new Set();
@@ -82,7 +104,15 @@ function main() {
       if (!dims) { errors.push('invalid image stream: ' + eid); continue; }
       const expected = e.pixel_dimensions || dims;
       if (dims[0] !== expected[0] || dims[1] !== expected[1]) errors.push('image dimensions metadata mismatch: ' + eid);
-      if (dims[0] < 320 || dims[1] < 480) errors.push('undersized screenshot dimensions: ' + eid);
+      // F09/R7: a fixed portrait-shaped floor (previously 320x480) rejects
+      // legitimate landscape/short captures the evidence plan actually
+      // requires -- RESPONSIVE-ACCESS/landscape-mobile is captured at
+      // 844x390 and RESPONSIVE-ACCESS/text-zoom-200 at 640x400, both real,
+      // intentional viewport sizes, both under a 480px height floor. A
+      // symmetric, lower per-axis floor still catches genuinely broken/
+      // degenerate captures (near-zero dimensions) without assuming every
+      // required screenshot is tall.
+      if (dims[0] < 200 || dims[1] < 200) errors.push('undersized screenshot dimensions: ' + eid);
     } else if (klass === 'motion' || klass === 'video') {
       if (seenVideoBytes.has(actual)) errors.push('duplicate video bytes: ' + actual);
       seenVideoBytes.add(actual);

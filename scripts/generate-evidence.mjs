@@ -16,6 +16,7 @@ const OUT = path.join(ROOT, 'candidate-evidence');
 const STATIC_DIR = path.join(OUT, 'static');
 const MOTION_DIR = path.join(OUT, 'motion');
 const MACHINE_DIR = path.join(OUT, 'machine');
+const EVIDENCE_PLAN = JSON.parse(readFileSync(path.join(ROOT, 'tests', 'contracts', 'evidence-plan.json'), 'utf8'));
 
 function sha256(filePath) {
   return crypto.createHash('sha256').update(readFileSync(filePath)).digest('hex');
@@ -51,7 +52,15 @@ async function captureThreshold(page) {
 async function captureWholeField(page, width, height) {
   await page.setViewportSize({ width, height });
   await gotoField(page, { reduced: true });
-  await page.evaluate(() => window.__bbDesign?.returnToField?.()).catch(() => {});
+  // returnToField is exposed on window.__bbTest (the bounded test API),
+  // not window.__bbDesign (a separate, narrower design-inspection surface
+  // with no such method) -- the previous call silently no-op'd via optional
+  // chaining, leaving this capture at gotoField's own auto-focused landing
+  // state instead of the genuinely neutral whole field it's named for
+  // (F09/R7: caught once every static capture became individually
+  // gate-required and duplicate-byte checking actually ran against it).
+  await page.evaluate(() => window.__bbTest?.returnToField?.()).catch(() => {});
+  await page.waitForTimeout(300);
 }
 async function captureFocusOrdinary(page, width, height) {
   await page.setViewportSize({ width, height });
@@ -149,29 +158,60 @@ async function captureIndexNoResults(page) {
 async function captureRouteLong(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await gotoField(page, { reduced: true });
-  for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.BURIAL', 'FO.ALLAH', 'FO.GHURAB']) {
-    const loc = page.locator(`g.node[data-bb-test-id="${id}"]`);
-    if ((await loc.count()) === 0) continue;
+  // clickNode() tags nodes with data-bb-test-id itself on every call; the
+  // previous pre-check here queried that attribute *before* any clickNode
+  // call had run, always saw zero matches, and `continue`d on every
+  // iteration -- this function committed nothing at all (F09/R7: caught the
+  // same way as captureWholeField's bug above).
+  for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.BURIAL', 'FO.ALLAH']) {
     await clickNode(page, id).catch(() => {});
   }
+}
+// Route and trace clear independently (Route drawer's two distinct
+// buttons, #clearRouteDrawer / #clearFieldTraceDrawer -- clicking one never
+// rewrites the other, per test:design's own contract). The two capture
+// functions below previously collapsed to one identical function that
+// clicked neither button, producing byte-identical images for what the
+// evidence plan names as opposite states (F09/R7).
+// The Route strip's expand-to-drawer ellipsis (.route-ellipsis /
+// [data-route-open]) only renders once the strip is actually collapsed
+// (routeApertureEvents() in src/app.js: at a desktop width, collapse needs
+// more than 5 total Route events -- onboarding's own FO.BLACK_BIRD_FIELD
+// entry plus 5 explicit commits clears that). Fewer commits leaves no
+// ellipsis in the DOM at all, so a fixed 5-node commit sequence is used
+// here rather than the 2-node one that previously made the drawer-open
+// click time out (F09/R7).
+async function openRouteDrawer(page) {
+  for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.BURIAL', 'FO.ALLAH', 'FO.ABEL']) {
+    await clickNode(page, id);
+  }
+  const ellipsis = page.locator('#route [data-route-open], #route .route-ellipsis').first();
+  await ellipsis.click();
+  await page.locator('#routeDrawer').waitFor({ state: 'visible', timeout: 5000 });
 }
 async function captureRouteClearedTraceRetained(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await gotoField(page, { reduced: true });
-  await clickNode(page, 'FO.CORPSE');
-  await clickNode(page, 'FO.CAIN');
-  await page.locator('.rail-btn[data-action="index"]').click();
-  await page.locator('[data-view="0"]').first().click({ trial: true }).catch(() => {});
-  await page.locator('[data-close]').first().click().catch(() => {});
-  await page.evaluate(() => {
-    document.getElementById('route')?.dispatchEvent(new Event('click'));
-  });
-  await page.locator('#route .route-item').first().click().catch(() => {});
-  await page.locator('.rail-btn[data-action="index"]').click().catch(() => {});
+  await openRouteDrawer(page);
+  await page.locator('#clearRouteDrawer').click();
+  await page.locator('[data-close="routeDrawer"]').first().click().catch(() => {});
+}
+async function captureTraceClearedRouteRetained(page) {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await gotoField(page, { reduced: true });
+  await openRouteDrawer(page);
+  await page.locator('#clearFieldTraceDrawer').click();
+  await page.locator('[data-close="routeDrawer"]').first().click().catch(() => {});
 }
 async function captureAboutReturn(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await gotoField(page, { reduced: true });
+  // Commits a specific object before opening About so the capture proves
+  // About's overlay/inert cycle leaves the *prior* focused state intact on
+  // return, rather than landing on whatever gotoField's own auto-focus
+  // happened to leave behind (which nothing here would visibly distinguish
+  // from a bare neutral field capture -- F09/R7).
+  await clickNode(page, 'FO.BURIAL');
   await page.locator('.rail-btn[data-action="about"]').click();
   await page.locator('#aboutPanel').waitFor({ state: 'visible' });
   await page.locator('#aboutClose').click();
@@ -190,8 +230,17 @@ async function captureForcedColors(page) {
 async function captureReducedMotion(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  // gotoField(..., {reduced:true}) already emulates reduced motion for
+  // *every* static capture in this file, so a second capture that also
+  // settles on FO.CORPSE at 1280x800 (captureFocusOrdinary's own target)
+  // is byte-identical to it -- not evidence of anything reduced-motion-
+  // specific, since the post-settle end state doesn't depend on how it got
+  // there. FO.ODIN is a real canonical node no other capture function
+  // targets, so this at least proves a distinct, reduced-motion-emulated
+  // commit renders correctly rather than silently re-proving
+  // focus-ordinary-1280 under a different name (F09/R7).
   await gotoField(page, { reduced: true });
-  await clickNode(page, 'FO.CORPSE');
+  await clickNode(page, 'FO.ODIN');
 }
 async function captureKeyboardFocus(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -237,7 +286,7 @@ const STATIC_SETS = {
     ['index-no-results', (p) => captureIndexNoResults(p)],
     ['route-long', (p) => captureRouteLong(p)],
     ['route-cleared-trace-retained', (p) => captureRouteClearedTraceRetained(p)],
-    ['trace-cleared-route-retained', (p) => captureRouteClearedTraceRetained(p)],
+    ['trace-cleared-route-retained', (p) => captureTraceClearedRouteRetained(p)],
     ['about-return', (p) => captureAboutReturn(p)],
   ],
   'RESPONSIVE-ACCESS': [
@@ -371,12 +420,20 @@ async function main() {
           const outPath = path.join(setDir, `${name}.png`);
           await page.screenshot({ path: outPath });
           shots.push([name, outPath]);
-          supplementary.push({
+          const capDims = pngDimensions(outPath);
+          // Individual static captures are primary, gate-required evidence
+          // (F09/R7): tests/contracts/evidence-plan.json declares all 30 by
+          // name, matching final-closure-contract.json's
+          // required_evidence_ids -- not the 3 grouped contact sheets below,
+          // which the contract itself calls "supplementary review aids
+          // only" (evidence_truth invariant).
+          requiredEntries.push({
             id: `${setId}/${name}`,
             path: path.relative(OUT, outPath),
             sha256: sha256(outPath),
             candidate_sha: sha,
             artifact_class: 'application-capture',
+            pixel_dimensions: [capDims.width, capDims.height],
           });
         } catch (err) {
           console.error(`capture failed: ${setId}/${name}: ${err.message}`);
@@ -386,8 +443,8 @@ async function main() {
       }
       const sheetPath = await buildContactSheet(browser, setId, shots);
       const dims = pngDimensions(sheetPath);
-      requiredEntries.push({
-        id: setId,
+      supplementary.push({
+        id: `contact-sheet/${setId}`,
         path: path.relative(OUT, sheetPath),
         sha256: sha256(sheetPath),
         candidate_sha: sha,
@@ -416,7 +473,7 @@ async function main() {
       if (existsSync(videoPath)) {
         const { renameSync } = await import('node:fs');
         renameSync(videoPath, finalPath);
-        supplementary.push({
+        requiredEntries.push({
           id: `motion/${name}`,
           path: path.relative(OUT, finalPath),
           sha256: sha256(finalPath),
@@ -451,7 +508,7 @@ async function main() {
       writeFileSync(path.join(MACHINE_DIR, 'design.json'), JSON.stringify({ candidate_sha: sha, design }, null, 2));
       for (const f of ['state.json', 'event.json', 'geometry.json', 'design.json']) {
         const p = path.join(MACHINE_DIR, f);
-        supplementary.push({ id: `machine/${f}`, path: path.relative(OUT, p), sha256: sha256(p), candidate_sha: sha, artifact_class: 'derived-report' });
+        requiredEntries.push({ id: `machine/${f}`, path: path.relative(OUT, p), sha256: sha256(p), candidate_sha: sha, artifact_class: 'derived-report' });
       }
     }
 
@@ -470,17 +527,28 @@ async function main() {
       }
       await page.close();
       writeFileSync(a11yPath, JSON.stringify({ candidate_sha: sha, violations: axeResult?.violations ?? axeResult }, null, 2));
-      supplementary.push({ id: 'machine/accessibility.json', path: path.relative(OUT, a11yPath), sha256: sha256(a11yPath), candidate_sha: sha, artifact_class: 'derived-report' });
+      requiredEntries.push({ id: 'machine/accessibility.json', path: path.relative(OUT, a11yPath), sha256: sha256(a11yPath), candidate_sha: sha, artifact_class: 'derived-report' });
     }
 
-    // coverage-report: reference the existing generated coverage report if present.
+    // coverage-report: machine/coverage-report.json is a primary,
+    // gate-required entry (F09/R7), so it must be generated fresh for this
+    // exact candidate_sha by something that actually runs everywhere.
+    // `npm run test:coverage` (scripts/generate-coverage.mjs) is not that --
+    // it reads the read-only authority models under
+    // .bb-authority/authority/models/*.json, which are deliberately
+    // untracked and absent in every fresh checkout (CI included), so it can
+    // only ever run in a session where that overlay happens to be present.
+    // scripts/check-scenario-coverage.mjs instead validates the durable,
+    // committed tests/generated/scenario-coverage-map.json (the *output* of
+    // an earlier test:coverage run, checked into the repo) and is real,
+    // reproducible, executable evidence everywhere -- its own JSON report
+    // (scenario_count/covered/gap/excluded) becomes the coverage-report
+    // artifact directly.
     {
-      const covSrc = path.join(ROOT, 'test-results', 'coverage', 'coverage.json');
       const covDst = path.join(MACHINE_DIR, 'coverage-report.json');
-      if (existsSync(covSrc)) {
-        writeFileSync(covDst, readFileSync(covSrc));
-        supplementary.push({ id: 'machine/coverage-report.json', path: path.relative(OUT, covDst), sha256: sha256(covDst), candidate_sha: sha, artifact_class: 'derived-report' });
-      }
+      const covOutput = execSync('node scripts/check-scenario-coverage.mjs', { cwd: ROOT, encoding: 'utf8' });
+      writeFileSync(covDst, JSON.stringify({ candidate_sha: sha, ...JSON.parse(covOutput) }, null, 2));
+      requiredEntries.push({ id: 'machine/coverage-report.json', path: path.relative(OUT, covDst), sha256: sha256(covDst), candidate_sha: sha, artifact_class: 'derived-report' });
     }
 
     // build-manifest: git/build provenance.
@@ -496,7 +564,7 @@ async function main() {
           2
         )
       );
-      supplementary.push({ id: 'machine/build-manifest.json', path: path.relative(OUT, buildManifestPath), sha256: sha256(buildManifestPath), candidate_sha: sha, artifact_class: 'derived-report' });
+      requiredEntries.push({ id: 'machine/build-manifest.json', path: path.relative(OUT, buildManifestPath), sha256: sha256(buildManifestPath), candidate_sha: sha, artifact_class: 'derived-report' });
     }
   } finally {
     await browser.close();
@@ -504,39 +572,29 @@ async function main() {
   }
 
   // ── human-review.json: every dimension left pending, never self-attested ──
-  // The authority overlay (.bb-authority/) is deliberately untracked and absent in a
-  // fresh CI checkout; fall back to the same fixed dimension-id list it declares so
-  // evidence generation is reproducible both locally (with the overlay) and in CI.
-  const FALLBACK_HUMAN_REVIEW_DIMENSIONS = [
-    'field-compositional-authority', 'field-reader-unity', 'morphology-legibility',
-    'black-bird-aperture', 'attention-depth', 'relo-clearing-quality',
-    'temporal-material-distinction', 'mobile-completeness', 'motion-craft', 'apparatus-recession',
-  ];
-  let humanReviewDimensionIds = FALLBACK_HUMAN_REVIEW_DIMENSIONS;
-  try {
-    const plan = JSON.parse(readFileSync(path.join(ROOT, '.bb-authority', 'contracts', 'evidence-plan.json'), 'utf8'));
-    humanReviewDimensionIds = plan.human_review_dimensions;
-  } catch {
-    // .bb-authority/ not present (CI checkout) -- use the fallback list above.
-  }
-  const dimensions = Object.fromEntries(humanReviewDimensionIds.map((d) => [d, 'pending_user_review']));
+  // tests/contracts/evidence-plan.json (F09/R7) is the single, committed
+  // source for the dimension-id list -- present identically in every
+  // checkout, local or CI, replacing the untracked .bb-authority/ overlay
+  // this used to read (with a hardcoded, easy-to-drift duplicate fallback
+  // for when that overlay was absent).
+  const dimensions = Object.fromEntries(EVIDENCE_PLAN.human_review_dimensions.map((d) => [d, 'pending_user_review']));
   writeFileSync(
     path.join(OUT, 'human-review.json'),
     JSON.stringify({ candidate_sha: sha, note: 'Artistic acceptance is a user/GPT decision; no dimension below is agent-attested.', dimensions }, null, 2)
   );
 
-  // ── manifest.json: exactly the 3 gate-required entries + disclosed supplementary evidence ──
+  // ── manifest.json: all 44 declarative primary artifacts + disclosed supplementary evidence ──
   writeFileSync(
     path.join(OUT, 'manifest.json'),
     JSON.stringify(
       {
-        schema_version: '1.0.0',
+        schema_version: '2.0.0',
         candidate_sha: sha,
         generated_at: new Date().toISOString(),
         entries: requiredEntries,
         supplementary_evidence: supplementary,
         note:
-          'entries[] contains exactly the ids candidate_gate.py mechanically requires (the evidence-plan.json static_sets ids); supplementary_evidence[] holds every individual capture, motion recording, and machine artifact actually generated for this candidate_sha, disclosed here rather than listed in entries[] (which candidate_gate.py rejects any id outside its required set for).',
+          'entries[] contains exactly the 44 primary artifacts declared in tests/contracts/evidence-plan.json (the 30 individually-named static captures, 7 motion recordings, and 7 machine reports required_evidence_ids/required_primary_entry_count in tests/contracts/final-closure-contract.json also name) -- scripts/ci-evidence-gate.mjs verifies entries[] is exactly this set, no more and no fewer. supplementary_evidence[] holds the 3 grouped contact-sheet composites, which final-closure-contract.json itself calls "supplementary review aids only", not mechanically gated evidence.',
       },
       null,
       2

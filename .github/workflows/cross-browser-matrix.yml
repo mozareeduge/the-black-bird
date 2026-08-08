@@ -1,0 +1,39 @@
+name: Cross-Browser Matrix
+# F10/R7: install and run the full 3-browser matrix
+# (final-closure-contract.json's browser_matrix: chromium/firefox/webkit) in
+# CI, against the exact PR head SHA (never the synthetic merge commit --
+# see exact-head-verify.yml). Local sandboxed sessions are disclosed as
+# unable to fetch Firefox/WebKit binaries (TESTING.md); this workflow is
+# where that gap actually closes, on GitHub's own runners.
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions: {contents: read}
+jobs:
+  cross-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run build
+      - run: npx playwright test tests/cross-browser --project=${{ matrix.browser }}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: black-bird-cross-browser-${{ matrix.browser }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: error
+          retention-days: 14

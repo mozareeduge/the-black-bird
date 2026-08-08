@@ -1,4 +1,10 @@
 name: Black Bird Candidate Validation
+# F10/R7: on pull_request, this intentionally runs against GitHub's default
+# synthetic-merge checkout (see verify.yml's comment for why that's kept, not
+# fixed) -- the legacy released-behavior suite (test:full) passing on the
+# hypothetical merge result. exact-head-verify.yml and final-candidate-gate
+# .yml are the exact-branch-head checks; this one is not a substitute for
+# either.
 on:
   pull_request:
   push:
