@@ -355,15 +355,27 @@ commit:
 
 ## Candidate-bound review
 
-Real, candidate-bound evidence (per-scenario screenshots composited into
-contact sheets, 8–20s motion recordings, state/event/geometry/design/
-accessibility/coverage-report/build-manifest machine artifacts) is
-generated fresh from the exact frozen candidate SHA by
-`npm run evidence:generate`, gated locally by
-`.bb-authority/scripts/candidate_gate.py` and in CI by the dedicated
-`Final Candidate Gate` workflow, and delivered as a ZIP alongside the PR
-(gitignored, not committed to the tree). Zero NaN/Infinity SVG geometry
-has been observed across any capture. `candidate-evidence/human-review.json`
-leaves all 10 review dimensions `pending_user_review` — no agent
-self-attests artistic acceptance. This candidate does not self-attest
-`SUBJECTIVE_ACCEPTED` or `RELEASE_AUTHORIZED`, and the PR remains a draft.
+Real, candidate-bound evidence (44 individually-named primary artifacts --
+30 static captures, 7 motion recordings, 7 machine reports, per
+`tests/contracts/evidence-plan.json` -- plus 3 supplementary contact-sheet
+composites) is generated fresh from the exact frozen candidate SHA by
+`npm run evidence:generate`, gated both locally and in CI by
+`scripts/ci-evidence-gate.mjs` (F09/R7: no longer dependent on the
+untracked `.bb-authority/` overlay), and uploaded as a CI build artifact
+(`candidate-evidence/` itself is gitignored, not committed to the tree).
+Zero NaN/Infinity SVG geometry has been observed across any capture.
+`candidate-evidence/human-review.json` leaves all 10 review dimensions
+`pending_user_review` — no agent self-attests artistic acceptance. This
+candidate does not self-attest `SUBJECTIVE_ACCEPTED` or
+`RELEASE_AUTHORIZED`, and the PR remains a draft.
+
+**Candidate freeze (R8/F11-F12):** `candidate_sha = 3391ab461d7b3b70335039e3a4417348f89421e5`.
+Two clean, consecutive `npm run verify:closure:local` passes with no
+interim changes (16/17 checks, 1 non-blocking skip each time); exact-SHA
+CI green across all 7 checks (`Verify`, `Black Bird Candidate Validation`,
+`Exact-Head Verify`, `Cross-Browser Matrix` ×3, `Final Candidate Gate`);
+candidate-bound evidence independently regenerated and gated locally
+(44/44 required entries, zero duplicate bytes) after this freeze point.
+`candidate-review-packet.json` (repo root) is the machine-readable record
+of this verification for the reviewer -- real command/CI output, not a
+narrated summary.

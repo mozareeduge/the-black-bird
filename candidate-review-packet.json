@@ -1,0 +1,192 @@
+{
+  "schema_version": "1.0.0",
+  "terminal_state": "CANDIDATE_READY_FOR_ARTISTIC_REVIEW",
+  "candidate_sha": "3391ab461d7b3b70335039e3a4417348f89421e5",
+  "branch": "claude/black-bird-system-recomposition-9hpoia",
+  "pull_request": 9,
+  "base_branch": "main",
+  "base_sha": "5972b2b2e4a70b2b2f457b6345f84894af95ef2a",
+  "generated_at": "2026-08-08T02:38:46.181Z",
+  "verification": {
+    "verify_closure_local": {
+      "passes_run": 2,
+      "consecutive_clean": true,
+      "no_interim_changes": true,
+      "overall_conclusion": "success",
+      "checks_passed": 16,
+      "checks_total": 17,
+      "checks_skipped": [
+        "cross_browser_smoke"
+      ],
+      "skip_reason": "browser binaries (Firefox/WebKit) unavailable in this sandboxed session; required and independently verified green in the Cross-Browser Matrix CI workflow instead",
+      "checks": [
+        {
+          "id": "production_build",
+          "label": "Deterministic production build + esbuild metafile",
+          "conclusion": "success"
+        },
+        {
+          "id": "build_verify",
+          "label": "Deterministic build verification",
+          "conclusion": "success"
+        },
+        {
+          "id": "canonical_integrity",
+          "label": "Canonical data integrity (50 nodes, six types, fixed hash)",
+          "conclusion": "success"
+        },
+        {
+          "id": "source_policy",
+          "label": "Source-policy scan (section 5 prohibited patterns)",
+          "conclusion": "success"
+        },
+        {
+          "id": "no_legacy_control_plane",
+          "label": "No tracked repository-resident Claude control-plane residue",
+          "conclusion": "success"
+        },
+        {
+          "id": "contract_coherence",
+          "label": "Canonical types + Route contract fields agree across contracts (R0)",
+          "conclusion": "success"
+        },
+        {
+          "id": "production_ownership",
+          "label": "Transitive production ownership: reachable, non-zero bundle bytes, allowed importers (R0/R2)",
+          "conclusion": "success"
+        },
+        {
+          "id": "semantic_duplication",
+          "label": "No parallel legacy semantic store or duplicate authority in src/app.js (R1)",
+          "conclusion": "success"
+        },
+        {
+          "id": "unit_tests",
+          "label": "Unit tests (node:test cases)",
+          "conclusion": "success"
+        },
+        {
+          "id": "traceability",
+          "label": "Requirement traceability contract",
+          "conclusion": "success"
+        },
+        {
+          "id": "scenario_coverage",
+          "label": "115/115 declared scenario coverage, zero gap/excluded (F06)",
+          "conclusion": "success"
+        },
+        {
+          "id": "generated_combinations",
+          "label": "Generated pairwise/critical-triple coverage (Chromium)",
+          "conclusion": "success"
+        },
+        {
+          "id": "chromium_e2e",
+          "label": "Chromium E2E (tests/e2e)",
+          "conclusion": "success"
+        },
+        {
+          "id": "chromium_legacy_suite",
+          "label": "Chromium legacy Playwright suites (baseline/route-solo/world-camera/mobile/design/visual)",
+          "conclusion": "success"
+        },
+        {
+          "id": "accessibility",
+          "label": "Accessibility: axe-core zero serious/critical, zero exclusions",
+          "conclusion": "success"
+        },
+        {
+          "id": "documentation_truth",
+          "label": "Documentation truth contract",
+          "conclusion": "success"
+        },
+        {
+          "id": "cross_browser_smoke",
+          "label": "Firefox/WebKit smoke (tests/cross-browser)",
+          "conclusion": "skipped"
+        }
+      ]
+    },
+    "exact_sha_ci": {
+      "checked_at": "2026-08-08T02:22:03Z",
+      "source": "GitHub Actions check runs for the exact candidate_sha via pull_request_read.get_check_runs",
+      "all_green": true,
+      "workflows": [
+        {
+          "name": "Verify",
+          "job": "build-and-test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Black Bird Candidate Validation",
+          "job": "validate",
+          "conclusion": "success"
+        },
+        {
+          "name": "Exact-Head Verify",
+          "job": "exact-head-verify",
+          "conclusion": "success"
+        },
+        {
+          "name": "Cross-Browser Matrix",
+          "job": "cross-browser (chromium)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Cross-Browser Matrix",
+          "job": "cross-browser (firefox)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Cross-Browser Matrix",
+          "job": "cross-browser (webkit)",
+          "conclusion": "success"
+        },
+        {
+          "name": "Final Candidate Gate",
+          "job": "final-candidate-evidence",
+          "conclusion": "success"
+        }
+      ]
+    },
+    "evidence": {
+      "manifest_schema_version": "2.0.0",
+      "manifest_candidate_sha": "3391ab461d7b3b70335039e3a4417348f89421e5",
+      "manifest_candidate_sha_matches_frozen_sha": true,
+      "required_entries": 44,
+      "required_entries_expected": 44,
+      "supplementary_entries": 3,
+      "duplicate_screenshot_bytes_found": 0,
+      "local_gate_result": "valid:false locally, but only on the 7 disclosed unprobeable-video (missing ffprobe) findings -- every hash/candidate-SHA/dimension/duplicate-bytes/completeness check passed",
+      "ci_gate_result": "valid:true (ffmpeg installed explicitly in .github/workflows/final-candidate-gate.yml, closing the local gap)",
+      "human_review_dimensions_pending": [
+        "field-compositional-authority",
+        "field-reader-unity",
+        "morphology-legibility",
+        "black-bird-aperture",
+        "attention-depth",
+        "relo-clearing-quality",
+        "temporal-material-distinction",
+        "mobile-completeness",
+        "motion-craft",
+        "apparatus-recession"
+      ],
+      "human_review_all_pending": true
+    }
+  },
+  "known_disclosed_limitations": [
+    "Label placement: bounded residual overlap (observed 1-2) in the densest desktop RelO cluster (1280x800) -- src/layout/label-solver.js is real cost-minimizing selection across all 8 candidates, not a full zero-overlap-everywhere guarantee. Bounded and asserted by tests/black-bird-world-camera.spec.js.",
+    "This sandboxed session cannot fetch Firefox/WebKit browser binaries or install ffmpeg locally (package-mirror access is restricted). Both gaps are independently closed and verified green in CI (see verification.exact_sha_ci and verification.evidence.ci_gate_result above), not left as unverified code.",
+    "This session's own direct GitHub API / gh CLI access is blocked at the session level; all CI status above was verified through the GitHub MCP tools this session does have working access through."
+  ],
+  "self_attestation": {
+    "subjective_accepted": false,
+    "release_authorized": false,
+    "note": "Artistic acceptance is the user's decision; no dimension above is agent-attested, and this packet does not claim any."
+  },
+  "pr_state": {
+    "draft": true,
+    "merged": false,
+    "mergeable_state": "clean"
+  }
+}

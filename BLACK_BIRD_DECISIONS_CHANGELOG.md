@@ -2,6 +2,78 @@
 
 This file is the canonical project log. Keep it in the repository root. Update it after every Claude Code round.
 
+## 2026-08-08 — Head-driver correction (v4), R6–R8: responsive closure, evidence/CI truth, candidate freeze — CANDIDATE_READY_FOR_ARTISTIC_REVIEW
+
+Branch: `claude/black-bird-system-recomposition-9hpoia`
+PR: #9 (draft)
+Base: `main@5972b2b2e4a70b2b2f457b6345f84894af95ef2a`
+
+Continues the round below (R0–R5) through the correction's remaining ledger
+items, R6–R8, reaching the terminal state.
+
+- **R6 — F08 responsive/visual closure.** The correction named two defects
+  to reproduce and repair: a 1024x640 "overlay leak" and mobile
+  dense-cluster node-label collisions. Neither reproduced against the
+  fully-wired production path (an initial 1024x640 reproduction attempt
+  had measured a drawer's bounding box mid-transition, not after it
+  settled — the artifact was in the test, not the app; and node-label
+  overlap is 0 across all three dense RelO clusters at both mobile
+  viewports tested, apparently already resolved by the R2–R4 label-solver/
+  authored-world work). 320px reflow, a 200%-zoom-equivalent viewport,
+  landscape mobile, and forced-colors mode were also verified clean.
+  `tests/e2e/responsive-visual-closure.spec.js` (11 tests) makes this
+  durable, live-page coverage rather than a one-time manual finding.
+- **R7 — F09/F10 evidence and CI truth.** `tests/contracts/evidence-plan
+  .json` is now the single, committed, declarative source for all 44
+  primary candidate-bound artifacts (replacing an untracked
+  `.bb-authority/` overlay plus a hand-maintained fallback duplicate).
+  `scripts/generate-evidence.mjs`'s manifest now lists all 44 as
+  gate-required `entries[]` — previously only 3 grouped contact sheets
+  were required, with all 44 individual artifacts silently
+  never-mechanically-checked as "supplementary", backwards from the
+  closure contract's own "contact sheets are supplementary review aids
+  only" rule. Making every artifact individually gate-checked for the
+  first time exposed and fixed five real, latent bugs in the capture
+  functions (a call to a nonexistent `window.__bbDesign.returnToField`,
+  a dead node-existence pre-check that made `route-long` commit nothing,
+  two evidence ids wired to the identical capture function, a
+  `reduced-motion` capture indistinguishable from `focus-ordinary`, and a
+  portrait-only "undersized screenshot" floor that rejected legitimate
+  landscape/short captures the plan itself requires) — plus a sixth,
+  caught and fixed by a concurrent PR-activity response after this round's
+  own push exposed it in CI (`temporal-truth-and-clears`'s motion
+  recording landing under the 8s floor because it never committed enough
+  Route events to make the drawer's ellipsis appear at all; see commit
+  `3391ab4`). Also separated CI into three distinct passes:
+  `exact-head-verify.yml` and `cross-browser-matrix.yml` (new) explicitly
+  pin `github.event.pull_request.head.sha` and prove the literal branch
+  head — not GitHub's default synthetic-merge checkout — is green,
+  including the full chromium/firefox/webkit matrix; `final-candidate-gate
+  .yml` now pins the same exact SHA for evidence generation.
+- **R8 — F11/F12 final repair loop and candidate freeze.** Two clean,
+  consecutive `verify:closure:local` passes with no interim changes
+  (16/17, 1 non-blocking skip each time — Firefox/WebKit binaries
+  unavailable in this sandboxed session, independently proven green in
+  the Cross-Browser Matrix workflow instead). Exact-SHA CI verified green
+  via the GitHub MCP tools (7/7 checks: `Verify`, `Black Bird Candidate
+  Validation`, `Exact-Head Verify`, `Cross-Browser Matrix` ×3, `Final
+  Candidate Gate`) at the frozen candidate SHA. Candidate-bound evidence
+  independently regenerated and gated locally (44/44 required entries,
+  zero duplicate screenshot bytes, all hash/dimension/completeness checks
+  passing; only the disclosed local `ffprobe`-missing gap remains, closed
+  in CI by an explicit `ffmpeg` install). `candidate-review-packet.json`
+  (repo root) assembles this verification record — real command output
+  and real CI check-run data, not narrated claims — for the human
+  reviewer. `TESTING.md`, this changelog, and the PR body are updated to
+  final verified facts: no open defect, disclosed limitation, or
+  remaining-scope claim in any of them predates this round's own
+  verification of it.
+
+Terminal state reached: **`CANDIDATE_READY_FOR_ARTISTIC_REVIEW`.** PR #9
+remains a draft, unmerged, undeployed. `candidate-evidence/human-review
+.json` leaves all 10 review dimensions `pending_user_review` — no
+self-attestation of artistic acceptance.
+
 ## 2026-08-08 — Head-driver correction (v4), R0–R5: full architecture swap-in, 115/115 coverage re-proven, zero-exclusion accessibility
 
 Branch: `claude/black-bird-system-recomposition-9hpoia`
