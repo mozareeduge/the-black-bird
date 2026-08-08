@@ -180,4 +180,27 @@ test.describe('Reader subject view models and renderer (T18)', () => {
       );
     }
   });
+
+  test('a NameO Reader panel preserves source-script (Arabic) rendering: the wrapped run keeps its literal script, lang="ar" and dir="rtl", inside otherwise-LTR gloss/source-layer prose (baseline-preservation P2)', async ({
+    page,
+  }) => {
+    const { DATA, ctx, buildObjectViewModel } = await loadModels();
+    const nameoId = 'NameO.AR.GHURAB';
+    const vm = buildObjectViewModel(nameoId, ctx);
+    expect(vm.gloss).toContain('غراب');
+
+    await gotoField(page, { reduced: true });
+    await clickNode(page, nameoId);
+    const arabicRuns = await page.locator('#reader .bb-arabic').all();
+    expect(arabicRuns.length, 'expected at least one Arabic-script span in the NameO Reader panel').toBeGreaterThan(0);
+    for (const run of arabicRuns) {
+      expect(await run.getAttribute('lang')).toBe('ar');
+      expect(await run.getAttribute('dir')).toBe('rtl');
+    }
+    const runTexts = await Promise.all(arabicRuns.map((r) => r.textContent()));
+    expect(runTexts.join('')).toContain('غراب');
+    const rendered = await page.evaluate(() => document.getElementById('reader')?.textContent || '');
+    expect(rendered).toContain(DATA.nameos[nameoId].sourceLayer);
+    expect(rendered).toContain(DATA.nameos[nameoId].gloss.replace(/\n/g, ''));
+  });
 });
