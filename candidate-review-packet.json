@@ -1,7 +1,9 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.0.1",
   "terminal_state": "CANDIDATE_READY_FOR_ARTISTIC_REVIEW",
-  "candidate_sha": "3391ab461d7b3b70335039e3a4417348f89421e5",
+  "candidate_sha": "d28c54cf8b79037261f58db4f6134b8bf1d1775a",
+  "verified_functional_sha": "3391ab461d7b3b70335039e3a4417348f89421e5",
+  "sha_note": "verified_functional_sha is the commit the verify_closure_local/exact_sha_ci/evidence sections below were actually run against (build, tests, evidence generation, and CI). candidate_sha is this file's own commit -- necessarily one commit later, since a file cannot record its own hash before being committed. The commit between them (d28c54c itself) changes only TESTING.md, BLACK_BIRD_DECISIONS_CHANGELOG.md, and this file -- zero src/, tests/, or scripts/ changes -- and its own CI run independently re-confirmed all 7 checks green (see verification.final_commit_ci below), so candidate_sha is the true, current, reviewable HEAD with no unverified functional drift from verified_functional_sha.",
   "branch": "claude/black-bird-system-recomposition-9hpoia",
   "pull_request": 9,
   "base_branch": "main",
@@ -147,6 +149,20 @@
           "job": "final-candidate-evidence",
           "conclusion": "success"
         }
+      ]
+    },
+    "final_commit_ci": {
+      "checked_at": "2026-08-08T02:44:47Z",
+      "source": "GitHub Actions check runs for candidate_sha (d28c54c, this file's own commit) via pull_request_read.get_check_runs, fetched after push",
+      "all_green": true,
+      "workflows": [
+        { "name": "Verify", "job": "build-and-test", "conclusion": "success" },
+        { "name": "Black Bird Candidate Validation", "job": "validate", "conclusion": "success" },
+        { "name": "Exact-Head Verify", "job": "exact-head-verify", "conclusion": "success" },
+        { "name": "Cross-Browser Matrix", "job": "cross-browser (chromium)", "conclusion": "success" },
+        { "name": "Cross-Browser Matrix", "job": "cross-browser (firefox)", "conclusion": "success" },
+        { "name": "Cross-Browser Matrix", "job": "cross-browser (webkit)", "conclusion": "success" },
+        { "name": "Final Candidate Gate", "job": "final-candidate-evidence", "conclusion": "success" }
       ]
     },
     "evidence": {

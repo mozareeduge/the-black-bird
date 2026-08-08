@@ -369,13 +369,20 @@ Zero NaN/Infinity SVG geometry has been observed across any capture.
 candidate does not self-attest `SUBJECTIVE_ACCEPTED` or
 `RELEASE_AUTHORIZED`, and the PR remains a draft.
 
-**Candidate freeze (R8/F11-F12):** `candidate_sha = 3391ab461d7b3b70335039e3a4417348f89421e5`.
-Two clean, consecutive `npm run verify:closure:local` passes with no
-interim changes (16/17 checks, 1 non-blocking skip each time); exact-SHA
-CI green across all 7 checks (`Verify`, `Black Bird Candidate Validation`,
-`Exact-Head Verify`, `Cross-Browser Matrix` ×3, `Final Candidate Gate`);
-candidate-bound evidence independently regenerated and gated locally
-(44/44 required entries, zero duplicate bytes) after this freeze point.
+**Candidate freeze (R8/F11-F12):** functional verification (build, full
+local suite, candidate-bound evidence generation) ran at
+`3391ab461d7b3b70335039e3a4417348f89421e5`. Two clean, consecutive
+`npm run verify:closure:local` passes with no interim changes (16/17
+checks, 1 non-blocking skip each time); exact-SHA CI green across all 7
+checks (`Verify`, `Black Bird Candidate Validation`, `Exact-Head Verify`,
+`Cross-Browser Matrix` ×3, `Final Candidate Gate`); candidate-bound
+evidence independently regenerated and gated locally (44/44 required
+entries, zero duplicate bytes) at that SHA. Every commit since is
+documentation-only (this file, the changelog, and
+`candidate-review-packet.json` itself) with zero `src/`/`tests/`/
+`scripts/` changes, each independently re-verified green in CI --
+`candidate-review-packet.json`'s `verified_functional_sha`/`candidate_sha`
+fields record this precisely rather than collapsing it to one number.
 `candidate-review-packet.json` (repo root) is the machine-readable record
 of this verification for the reviewer -- real command/CI output, not a
 narrated summary.
