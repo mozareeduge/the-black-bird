@@ -33,6 +33,7 @@ import { createLifecycleController } from './controllers/lifecycle-controller.js
 import { createNavigationController } from './controllers/navigation-controller.js';
 import { createEnvironmentController } from './controllers/environment-controller.js';
 import { createModalController } from './controllers/modal-controller.js';
+import { createKeyboardController } from './controllers/keyboard-controller.js';
 import { createExternalLinkController } from './controllers/external-link-controller.js';
 
 // ── Bootstrap validation (T04, T-REQ-003) ───────────────────────────────────
@@ -1062,36 +1063,6 @@ nodeSel
     }
     if (isMobile()) return selectInField(resolved.id, { source: "graph-mobile" });
     focusObject(resolved.id, { source: "graph" });
-  })
-  .on("keydown", (ev, d) => {
-    // Keyboard activation always selects the keyboard-focused node directly
-    // (4.3) — pointer resolution does not apply here.
-    if (ev.key === "Enter" || ev.key === " ") {
-      ev.preventDefault();
-      focusObject(d.id, { source: "keyboard" });
-      return;
-    }
-    if (ev.key === "Escape") {
-      clearTouch();
-      closeSheet();
-      document.querySelector('[data-action="field"]')?.focus();
-      return;
-    }
-    const dirMap = {
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1],
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-    };
-    const dir = dirMap[ev.key];
-    if (!dir) return;
-    ev.preventDefault();
-    focusManager.moveDirection(dir[0], dir[1], (from, dx, dy) => nearestNodeInDirection(from, dx, dy)?.id ?? null);
-    const next = focusManager.getRovingTarget();
-    if (next) {
-      updateRovingTabindex(next);
-      focusNodeElement(next);
-    }
   });
 updateRovingTabindex(null);
 
@@ -2671,14 +2642,64 @@ backdrop.addEventListener("click", closeAllDrawers);
 document
   .querySelectorAll("[data-close]")
   .forEach((b) => (b.onclick = () => closeDrawer(b.dataset.close)));
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    closeAbout();
-    closeAllDrawers();
-    closeSheet();
-    clearTouch();
-  }
+// F05/R3: src/controllers/keyboard-controller.js (T22, T-REQ-035/036) is the
+// real keyboard authority -- Enter/Space commits the roving-focus target
+// directly (pointer resolution never applies to keyboard activation, 4.3);
+// arrow keys move it via focus-manager.js's deterministic direction
+// resolver; Escape tries each dismiss handler in order and stops at the
+// first one that actually dismissed something (T-REQ-035), rather than the
+// old document-level handler's "close About/drawers/sheet/preview
+// unconditionally on every Escape" -- confirmed correct by
+// tests/e2e/tooltip-keyboard-status.spec.js's "Escape dismisses the
+// tooltip first, the modal only on a second press" case. The final
+// dismissNodeFocus handler preserves the old per-node handler's "Escape
+// while a node has keyboard focus backs out to the Field rail control"
+// behavior, now only reached when nothing else needed dismissing.
+function dismissTooltip() {
+  if (!uiRuntime.touchedId) return false;
+  clearTouch();
+  return true;
+}
+function dismissSheet() {
+  if (!uiRuntime.showSheet) return false;
+  closeSheet();
+  return true;
+}
+function dismissDrawers() {
+  if (!document.querySelector(".drawer.open")) return false;
+  closeAllDrawers();
+  return true;
+}
+function dismissAbout() {
+  if (state.overlay.kind !== "about") return false;
+  closeAbout();
+  return true;
+}
+function dismissNodeFocus() {
+  if (!document.activeElement?.classList?.contains("node")) return false;
+  document.querySelector('[data-action="field"]')?.focus();
+  return true;
+}
+const keyboardController = createKeyboardController({
+  surface: document,
+  focusManager,
+  onCommitRoving: (id) => focusObject(id, { source: "keyboard" }),
+  onDirectional: (dx, dy) => {
+    focusManager.moveDirection(dx, dy, (from, x, y) => nearestNodeInDirection(from, x, y)?.id ?? null);
+    const next = focusManager.getRovingTarget();
+    if (next) {
+      updateRovingTabindex(next);
+      focusNodeElement(next);
+    }
+  },
+  dismissHandlers: [dismissTooltip, dismissSheet, dismissDrawers, dismissAbout, dismissNodeFocus],
+  // Enter/Space/arrow-key roving activation stays scoped to an actually
+  // node-focused target, exactly like the old per-node handler -- without
+  // this, a `surface` of `document` would hijack arrow-key cursor movement
+  // and Enter inside the Index search input or any other focused control.
+  shouldHandleDirectional: (e) => !!e.target?.classList?.contains("node"),
 });
+keyboardController.start();
 
 // ── Field view controls ─────────────────────────────────────────────────────
 // app.js's local view-option keys ("projected") vs. the canonical command

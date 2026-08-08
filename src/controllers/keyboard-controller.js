@@ -6,6 +6,11 @@
 // then transient preview -- algorithm-contracts.json#modals.escape) and
 // stops at the first one that actually dismissed something, so a single
 // Escape press never ambiguously closes two things at once (T-REQ-035).
+// `shouldHandleDirectional` is optional and gates Enter/Space/arrow-key
+// activation only -- Escape is never gated by it, so a `surface` of
+// `document` still dismisses from anywhere, but a `surface` that broadly
+// reaches text inputs/buttons doesn't hijack their own Enter/arrow-key
+// behavior.
 const DIRECTIONS = {
   ArrowUp: [0, -1],
   ArrowDown: [0, 1],
@@ -13,7 +18,14 @@ const DIRECTIONS = {
   ArrowRight: [1, 0],
 };
 
-export function createKeyboardController({ surface, focusManager, onCommitRoving, onDirectional, dismissHandlers = [] }) {
+export function createKeyboardController({
+  surface,
+  focusManager,
+  onCommitRoving,
+  onDirectional,
+  dismissHandlers = [],
+  shouldHandleDirectional,
+}) {
   function onEscape() {
     for (const handler of dismissHandlers) {
       if (handler()) return true;
@@ -22,11 +34,21 @@ export function createKeyboardController({ surface, focusManager, onCommitRoving
   }
 
   function onKeydown(e) {
+    // Escape always runs, everywhere `surface` reaches (D-DEC-20's "escape
+    // works from anywhere") -- only Enter/Space/arrow-key roving activation
+    // is scoped to the caller's shouldHandleDirectional, so a `surface` of
+    // `document` never hijacks arrow-key text-cursor movement or Enter
+    // inside an unrelated focused input/button.
     if (e.key === 'Escape') {
       onEscape();
       return;
     }
+    if (shouldHandleDirectional && !shouldHandleDirectional(e)) return;
     if (e.key === 'Enter' || e.key === ' ') {
+      // Space's default browser behavior is page-scroll; the focused node is
+      // an SVG <g role="button">, which carries no native activation of its
+      // own, so nothing else would suppress that scroll.
+      e.preventDefault?.();
       const id = focusManager.getRovingTarget();
       if (id != null) onCommitRoving(id);
       return;

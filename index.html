@@ -2831,6 +2831,54 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     return { open, close, activeKind };
   }
 
+  // src/controllers/keyboard-controller.js
+  var DIRECTIONS = {
+    ArrowUp: [0, -1],
+    ArrowDown: [0, 1],
+    ArrowLeft: [-1, 0],
+    ArrowRight: [1, 0]
+  };
+  function createKeyboardController({
+    surface,
+    focusManager: focusManager2,
+    onCommitRoving,
+    onDirectional,
+    dismissHandlers = [],
+    shouldHandleDirectional
+  }) {
+    function onEscape() {
+      for (const handler of dismissHandlers) {
+        if (handler()) return true;
+      }
+      return false;
+    }
+    function onKeydown(e) {
+      if (e.key === "Escape") {
+        onEscape();
+        return;
+      }
+      if (shouldHandleDirectional && !shouldHandleDirectional(e)) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault?.();
+        const id = focusManager2.getRovingTarget();
+        if (id != null) onCommitRoving(id);
+        return;
+      }
+      const dir = DIRECTIONS[e.key];
+      if (dir) {
+        e.preventDefault?.();
+        onDirectional(dir[0], dir[1]);
+      }
+    }
+    function start() {
+      surface.addEventListener("keydown", onKeydown);
+    }
+    function stop() {
+      surface.removeEventListener("keydown", onKeydown);
+    }
+    return { start, stop, onEscape };
+  }
+
   // src/controllers/external-link-controller.js
   function createExternalLinkController({ win, doc, container }) {
     function clear() {
@@ -3555,33 +3603,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     if (isMobile()) return selectInField(resolved.id, { source: "graph-mobile" });
     focusObject(resolved.id, { source: "graph" });
-  }).on("keydown", (ev, d) => {
-    if (ev.key === "Enter" || ev.key === " ") {
-      ev.preventDefault();
-      focusObject(d.id, { source: "keyboard" });
-      return;
-    }
-    if (ev.key === "Escape") {
-      clearTouch();
-      closeSheet();
-      document.querySelector('[data-action="field"]')?.focus();
-      return;
-    }
-    const dirMap = {
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1],
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0]
-    };
-    const dir = dirMap[ev.key];
-    if (!dir) return;
-    ev.preventDefault();
-    focusManager.moveDirection(dir[0], dir[1], (from, dx, dy) => nearestNodeInDirection(from, dx, dy)?.id ?? null);
-    const next = focusManager.getRovingTarget();
-    if (next) {
-      updateRovingTabindex(next);
-      focusNodeElement(next);
-    }
   });
   updateRovingTabindex(null);
   projSel.on("mouseenter", (ev, d) => {
@@ -4733,14 +4754,51 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   backdrop.addEventListener("click", closeAllDrawers);
   document.querySelectorAll("[data-close]").forEach((b) => b.onclick = () => closeDrawer(b.dataset.close));
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      closeAbout();
-      closeAllDrawers();
-      closeSheet();
-      clearTouch();
-    }
+  function dismissTooltip() {
+    if (!uiRuntime.touchedId) return false;
+    clearTouch();
+    return true;
+  }
+  function dismissSheet() {
+    if (!uiRuntime.showSheet) return false;
+    closeSheet();
+    return true;
+  }
+  function dismissDrawers() {
+    if (!document.querySelector(".drawer.open")) return false;
+    closeAllDrawers();
+    return true;
+  }
+  function dismissAbout() {
+    if (state.overlay.kind !== "about") return false;
+    closeAbout();
+    return true;
+  }
+  function dismissNodeFocus() {
+    if (!document.activeElement?.classList?.contains("node")) return false;
+    document.querySelector('[data-action="field"]')?.focus();
+    return true;
+  }
+  var keyboardController = createKeyboardController({
+    surface: document,
+    focusManager,
+    onCommitRoving: (id) => focusObject(id, { source: "keyboard" }),
+    onDirectional: (dx, dy) => {
+      focusManager.moveDirection(dx, dy, (from, x, y) => nearestNodeInDirection(from, x, y)?.id ?? null);
+      const next = focusManager.getRovingTarget();
+      if (next) {
+        updateRovingTabindex(next);
+        focusNodeElement(next);
+      }
+    },
+    dismissHandlers: [dismissTooltip, dismissSheet, dismissDrawers, dismissAbout, dismissNodeFocus],
+    // Enter/Space/arrow-key roving activation stays scoped to an actually
+    // node-focused target, exactly like the old per-node handler -- without
+    // this, a `surface` of `document` would hijack arrow-key cursor movement
+    // and Enter inside the Index search input or any other focused control.
+    shouldHandleDirectional: (e) => !!e.target?.classList?.contains("node")
   });
+  keyboardController.start();
   var VIEW_OPTION_CANONICAL_KEY = { projected: "projectedEdges" };
   var viewRenderer = createViewRenderer({
     typeContainer: document.getElementById("typeToggles"),
