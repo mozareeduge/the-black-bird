@@ -3,7 +3,7 @@
 // { x, y, k } transform. Constants from
 // .bb-authority/contracts/algorithm-contracts.json#camera and visual-tokens.json#occupancy.
 
-const SCALE_MIN = 0.55;
+const SCALE_MIN = 0.2;
 const SCALE_MAX = 2.4;
 const NEUTRAL_OCCUPANCY = 0.8;
 const FOCUS_OCCUPANCY = 0.7;

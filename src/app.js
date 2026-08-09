@@ -613,7 +613,7 @@ const afterglowLayer = root
 
 const zoom = d3
   .zoom()
-  .scaleExtent([0.55, 2.4])
+  .scaleExtent([0.2, 2.4])
   .on("zoom", (ev) => {
     uiRuntime.transform = ev.transform;
     root.attr("transform", ev.transform);

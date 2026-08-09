@@ -104,24 +104,90 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
     });
   }
 
-  test('neutral whole-field occupancy is within 0.72-0.88 of the limiting safe dimension at 1440x960', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 960 });
-    await gotoField(page);
-    await page.evaluate(() => window.__bbTest.returnToField({ source: 'test' }));
-    await page.waitForTimeout(1000);
-    const ratio = await page.evaluate(() => {
-      const safe = window.__bbTest.computeFieldSafeRect();
-      const visible = window.__bbTest.simNodes.filter((d) => window.__bbTest.nodeVisible(d.id));
-      const envelope = window.__bbTest.getNodeBounds(visible, window.__bbTest.isMobile() ? 30 : 40);
-      const t = window.__bbTest.getUiRuntime().transform;
-      const rx = (envelope.width * t.k) / safe.width;
-      const ry = (envelope.height * t.k) / safe.height;
-      return Math.max(rx, ry);
+  // Sealed exact bands (ACCEPTANCE_CONTRACT.json / BLACK_BIRD_HEAD_EXECUTOR_
+  // SYSTEM_v6): neutral primary-axis occupancy [0.72,0.88], secondary-axis
+  // occupancy >=0.52, envelope center within 6% of safe-rect width/height
+  // from safe center. Desktop (three viewports below) genuinely meets all
+  // three now -- fixed by two real bugs, not by loosening these numbers:
+  // (1) `.main` (the grid item hosting map-wrap/panel) had no `min-height:0`
+  // to mirror its existing `min-width:0`, so its grid row's automatic
+  // minimum size was content-based instead of clamped to the container,
+  // inflating `mapWrap.clientHeight`/`computeFieldSafeRect().height` well
+  // past the real viewport (measured 1360px tall in a 960px-tall window at
+  // 1440x960) -- every downstream occupancy number was computed against a
+  // wrong, oversized safe rect. (2) `SCALE_MIN` (src/layout/camera.js) was
+  // 0.55, above the scale genuinely required to fit the world envelope at
+  // 1024x640 (~0.47) -- clamped there, primary occupancy overflowed the
+  // 0.88 ceiling. Lowered to 0.2 (also mirrored in the d3.zoom
+  // `scaleExtent` lower bound and tests/contracts/algorithm-contracts.json,
+  // so the fit result is never re-clamped and the contract fixture stays
+  // truthful).
+  //
+  // Mobile (430x932/390x844/320x640/844x390) is NOT included here: fixing
+  // the same way brings primary into band but drives secondary further out
+  // (measured ~0.28-0.37 against the 0.52 floor) -- the world envelope's
+  // fixed aspect ratio (~1.4:1, H-VIS-002 locks node topology) and a
+  // portrait/extreme-landscape safe rect's aspect ratio are far enough
+  // apart that no single uniform scale k can satisfy both axis bands
+  // simultaneously (their fixed ratio, independent of k, exceeds what the
+  // two bands can jointly tolerate). Real fix needs a different mechanism
+  // (not yet designed) — an isotropic single-k fit structurally cannot
+  // close this for the narrowest viewports. Tracked in
+  // .blackbird-v6/PROGRESS.md, not silently left uncovered.
+  for (const vp of [
+    { width: 1440, height: 960 },
+    { width: 1280, height: 800 },
+    { width: 1024, height: 640 },
+  ]) {
+    test(`neutral whole-field occupancy meets the sealed primary/secondary/center bands at ${vp.width}x${vp.height}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(vp);
+      await gotoField(page);
+      await page.evaluate(() => window.__bbTest.returnToField({ source: 'test' }));
+      await page.waitForTimeout(1000);
+      const m = await page.evaluate(() => {
+        const safe = window.__bbTest.computeFieldSafeRect();
+        const visible = window.__bbTest.simNodes.filter((d) => window.__bbTest.nodeVisible(d.id));
+        const envelope = window.__bbTest.getNodeBounds(visible, window.__bbTest.isMobile() ? 30 : 40);
+        const t = window.__bbTest.getUiRuntime().transform;
+        const rx = (envelope.width * t.k) / safe.width;
+        const ry = (envelope.height * t.k) / safe.height;
+        const envCx = t.x + envelope.cx * t.k;
+        const envCy = t.y + envelope.cy * t.k;
+        const safeCx = (safe.left + safe.right) / 2;
+        const safeCy = (safe.top + safe.bottom) / 2;
+        return {
+          primary: Math.max(rx, ry),
+          secondary: Math.min(rx, ry),
+          offX: Math.abs(envCx - safeCx) / safe.width,
+          offY: Math.abs(envCy - safeCy) / safe.height,
+        };
+      });
+      expect(m.primary).toBeGreaterThanOrEqual(0.72);
+      expect(m.primary).toBeLessThanOrEqual(0.88);
+      expect(m.secondary).toBeGreaterThanOrEqual(0.52);
+      expect(m.offX).toBeLessThanOrEqual(0.06);
+      expect(m.offY).toBeLessThanOrEqual(0.06);
     });
-    expect(ratio).toBeGreaterThanOrEqual(0.6);
-    expect(ratio).toBeLessThanOrEqual(0.95);
-  });
+  }
 
+  // Not yet tightened to the sealed [0.58,0.82] band. Investigating this
+  // (2026-08-09) found `clickNode(page, 'FO.CORPSE')` here exercises
+  // computeFocusCamera's *later*-focus path (gotoField's own onboarding
+  // wait condition already lands on a first focus before this click), which
+  // preserves the current transform or does a minimal pan rather than a
+  // fresh occupancy-targeted refit unless >20% of the focus envelope's
+  // projected area is outside the safe rect. Measured on the *live app*
+  // with this exact click pattern, occupancy comes out far below target
+  // (~0.20, not just outside the band) -- plausibly the real mechanism
+  // behind the audit's "ordinary focus... weak, knotted" finding, not a
+  // one-off measurement artifact. This is a bigger, separate question
+  // (should more later-focus transitions actually refit? is the >20%
+  // threshold right?) than the neutral-fit bugs above, and isn't fixed yet.
+  // Left at its current (already non-sealed) band rather than tightened to
+  // a number not yet verified true, or loosened further to hide it -- see
+  // .blackbird-v6/PROGRESS.md.
   test('focused occupancy is within a reasonable band of the limiting safe dimension at 1280x800', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoField(page);

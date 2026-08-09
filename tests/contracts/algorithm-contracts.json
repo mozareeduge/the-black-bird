@@ -21,7 +21,7 @@
     "transition": "interpolate current rendered position to pure target under active txId; abort returns no semantic mutation."
   },
   "camera": {
-    "scaleMin": 0.55,
+    "scaleMin": 0.2,
     "scaleMax": 2.4,
     "safeRect": "pane bounds minus title/navigation/Reader/modal-safe margins and safe-area insets",
     "neutral": "fit all visible authored homes to target occupancy 0.80",

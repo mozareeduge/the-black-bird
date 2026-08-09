@@ -287,7 +287,7 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
 
     const after = await appState(page);
     expect(after.transform.k, 'the pinch gesture must change the camera scale').not.toBe(before.transform.k);
-    expect(after.transform.k).toBeGreaterThanOrEqual(0.55); // scaleMin (algorithm-contracts.json)
+    expect(after.transform.k).toBeGreaterThanOrEqual(0.2); // scaleMin (algorithm-contracts.json)
     expect(after.transform.k).toBeLessThanOrEqual(2.4); // scaleMax
     expect(after.activeId).toBe(before.activeId);
     expect(await page.locator('.bb-unavailable').count()).toBe(0);

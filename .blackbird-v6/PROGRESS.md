@@ -85,26 +85,71 @@ yet independently verified · — not yet reached.
 
 ### E2 — Field visual/material reconstruction — IN PROGRESS
 
-- 🔎 **Occupancy test thresholds weakened vs. sealed contract.**
-  `tests/black-bird-world-camera.spec.js` asserts neutral `[0.6, 0.95]` /
-  focused `[0.4, 0.95]` where `ACCEPTANCE_CONTRACT.json` requires
-  `[0.72, 0.88]` / `[0.58, 0.82]`. Densest-RelO label-overlap test allows
-  ≤2 overlaps where the contract requires 0. No test exists yet for
-  secondary-axis occupancy, center-offset, or margin-ratio (all new in v6).
-  Only 1 of the 7 sealed viewports is covered per metric.
-- 🔎 **Secondary-axis occupancy genuinely fails**, confirmed by direct
-  measurement (same methodology as the existing test) at all 3 desktop
-  viewports: 1440×960 → 0.38, 1280×800 → 0.32, 1024×640 → 0.26, all against
-  a 0.52 floor. The field really is wide-and-flat. 1024×640 primary-axis
-  (0.93) also exceeds the 0.88 ceiling.
-- ❓ **Mobile occupancy** — my ad hoc measurement at the four mobile/landscape
-  sealed viewports showed ratios >1.0 (envelope larger than safe rect),
-  which would mean severe overflow, but I used a generic measurement script,
-  not the mobile chambers' actual activation path
-  (`tests/black-bird-mobile.spec.js`, `tests/e2e/mobile-chambers.spec.js`
-  have the validated methodology). **Must re-measure with the correct
-  methodology before treating this as real** — don't fix against unverified
-  numbers.
+- ✅ **Desktop neutral occupancy (primary, secondary, center-offset) — fully
+  fixed and verified at all 3 desktop viewports (1440×960, 1280×800,
+  1024×640).** Root causes were two real bugs, not a design problem:
+  1. `.main` (the grid item hosting `.map-wrap`/`.panel`) had `min-width:0`
+     but no `min-height:0`. Its grid row's automatic minimum size was
+     content-based instead of clamped to the container, so
+     `mapWrap.clientHeight` (and therefore `computeFieldSafeRect().height`)
+     was inflated far past the real viewport — measured 1360px tall in a
+     960px-tall window at 1440×960. Every occupancy number downstream of
+     that was computed against a wrong, oversized safe rect. Fixed:
+     `src/index.template.html` `.main` now has `min-height:0` too.
+  2. `SCALE_MIN` in `src/layout/camera.js` was `0.55`, above the scale
+     genuinely required to fit the world envelope at 1024×640 (~0.47) —
+     clamped there, so primary occupancy overflowed the 0.88 ceiling.
+     Lowered to `0.2`. Mirrored in the d3.zoom `scaleExtent` lower bound
+     (`src/app.js`) so a subsequent interactive zoom-out gesture can't snap
+     the already-below-0.55 camera back up, and in
+     `tests/contracts/algorithm-contracts.json`'s `camera.scaleMin` so the
+     committed contract fixture and the real constant stay in sync (a unit
+     test reads the fixture as ground truth, not a re-typed literal).
+  `tests/black-bird-world-camera.spec.js`'s neutral-occupancy test now
+  asserts the exact sealed bands (was `[0.6,0.95]`) across all 3 desktop
+  viewports, plus new secondary-axis and center-offset assertions (neither
+  existed before). Full local suite re-verified clean after both fixes
+  (187/187 Playwright + 130/130 unit), including one real ripple each fix
+  surfaced and I fixed rather than ignored: a hover-preview e2e test that
+  only "passed" before by riding leftover animation drift (real bug in the
+  test, not the product — fixed to do a genuine mouse move), and a new,
+  real, previously-masked Axe violation (`#reader`'s scrollable region
+  wasn't keyboard-focusable — invisible before because the height bug meant
+  it never actually needed to scroll; added `tabindex="0"`).
+- 🔎 **Mobile secondary-axis occupancy — root-caused, not yet fixed; this is
+  a real design/algorithm gap, not a bug with an obvious patch.** After the
+  fixes above, mobile portrait viewports (430×932/390×844/320×640) and
+  844×390 landscape now hit primary occupancy exactly on target (0.8) but
+  secondary comes out ~0.28–0.37 against the 0.52 floor. Proven
+  mathematically, not just measured: `rx/ry` for a given viewport is
+  `(envelope.width/envelope.height) * (safeRect.height/safeRect.width)`,
+  independent of k. At 390×844 that ratio is ≈2.8 — since the bands can
+  only jointly tolerate a max/min ratio of ≈1.69 (0.88/0.52), **no single
+  uniform (isotropic) scale k can satisfy both axis bands simultaneously**
+  for this envelope-aspect/safe-rect-aspect combination. Anisotropic
+  (non-uniform x/y) scaling would fix the math but would visually squash
+  circular node bodies into ellipses, violating H-VIS-005's typed
+  morphology — not a safe mechanism change. Needs real design thought
+  (possibly: a different reference envelope for extreme-aspect viewports,
+  not literally "all 50 nodes' bbox") before touching code. Do not attempt
+  a quick fix here without revisiting this reasoning.
+- 🔎 **Focused occupancy is far below target — bigger than a threshold
+  problem, possibly the real mechanism behind the audit's "ordinary focus
+  weak/knotted" finding.** Investigating the existing (still-loose,
+  `[0.4,0.95]`) focused-occupancy test found `clickNode(page, 'FO.CORPSE')`
+  there exercises `computeFocusCamera`'s *later*-focus path (`gotoField`'s
+  own onboarding wait condition already lands on a first focus before that
+  click) — which preserves the current transform or does a minimal pan
+  rather than a fresh occupancy-targeted refit, unless more than 20% of the
+  focus envelope's projected area is outside the safe rect. Measured on the
+  live app with that exact click pattern: occupancy ≈0.20, not just outside
+  the sealed [0.58,0.82] band but far below even the loose test's 0.4
+  floor (the loose test happens to pass because of a stale prior
+  measurement basis, likely the same safe-rect height bug above — not yet
+  re-confirmed after the fix). Left the test's threshold untouched — not
+  tightened to a number not yet verified true, not loosened further to hide
+  it. Needs a real decision (does more of "later focus" need to actually
+  refit? is the 20%-outside threshold right?) before any code change.
 - 🔎 **Label-overlap solver** is disclosed first-valid-candidate, not
   cost-minimizing (test file's own comment). Needs real rework to reach the
   sealed zero-overlap requirement in the densest RelO cluster, not just a
@@ -169,10 +214,11 @@ Come last, once everything above is genuinely closed — not before.
   - Read order on resume: this file → `EXECUTOR/HORIZON_LOCK.md` →
   `EXECUTOR/ACCEPTANCE_CONTRACT.json` → whichever checklist section is
   next.
-- Next concrete step when work resumes: re-measure mobile occupancy with
-  the correct methodology (see E2 ❓ above), then design the Field
-  composition fix for the confirmed secondary-axis failure, then the
-  label-overlap solver rework — in that order, since the composition fix
-  changes the geometry the label solver has to work with.
+- Next concrete step when work resumes: decide the later-focus refit
+  question (focused occupancy, see E2 above) since it's plausibly the
+  bigger perceptual issue; then the mobile secondary-axis design question;
+  then the label-overlap solver rework. In that order, since composition
+  changes affect the geometry the label solver has to work with, and both
+  affect what "final" evidence/screenshots should look like.
 - Every fix: full local suite + `build:verify` before pushing; push
   triggers the `/next/` republish automatically.

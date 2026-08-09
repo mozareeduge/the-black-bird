@@ -170,6 +170,13 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
       route: window.__bbTest.getState().history.route.length,
       wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
     }));
+    // clickNode's own commit already left the synthetic cursor sitting at
+    // FO.CORPSE's center; hovering the same still point produces no real
+    // mousemove/mouseenter (the browser correctly doesn't fire one for a
+    // pointer that didn't move), so this only exercises the "hover the
+    // already-active object" scenario if the mouse genuinely arrives via a
+    // real move -- moving off the node first, then back onto it.
+    await page.mouse.move(5, 5);
     await node(page, 'FO.CORPSE').hover();
     await page.waitForTimeout(260);
     const preview = page.locator('#microPreview');
@@ -289,7 +296,7 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     expect(
       Number.isFinite(state.transform.x) && Number.isFinite(state.transform.y) && Number.isFinite(state.transform.k),
     ).toBe(true);
-    expect(state.transform.k).toBeGreaterThanOrEqual(0.55);
+    expect(state.transform.k).toBeGreaterThanOrEqual(0.2);
     expect(state.transform.k).toBeLessThanOrEqual(2.4);
     expect(await page.locator('.bb-unavailable').count()).toBe(0);
   });
