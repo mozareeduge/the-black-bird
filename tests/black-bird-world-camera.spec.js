@@ -216,18 +216,25 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
     });
   }
 
-  // The 4-direction-plus-diagonal (8 candidate) collision-rejection pass
-  // (recomputeLabelPlacements(), 4.6) resolves label crowding in ordinary
-  // clusters, but this RelO — chosen because it's the densest in the
-  // canonical data (6 participants clustered tightly) — still has a small,
-  // observed-nondeterministic number of residual overlaps after placement
-  // (varies run to run with exact simulation settle timing, seen as 1-2).
-  // Disclosed as a known bound rather than a full "zero overlaps
-  // everywhere" guarantee; a stricter cost-minimizing optimizer (rather
-  // than first-valid-candidate) and settle-time determinism would be
-  // needed to close this last case and remove the variance.
-  test('bounded residual label overlap in the densest RelO clearing at 1280x800', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
+  // Was disclosed as a bounded, non-deterministic 1-2 residual overlaps,
+  // with the comment blaming "first-valid-candidate" placement. That
+  // description doesn't match src/layout/label-solver.js: solveLabels()
+  // already scores all 8 candidates by weighted cost (WEIGHTS.*OverlapArea
+  // etc.) and picks the lowest-cost zero-overlap one when any exists --
+  // it's cost-minimizing already, not first-valid. Re-measured
+  // (2026-08-09) after the E2 camera/safe-rect fixes above (the prior
+  // measurements this test's old tolerance was based on were made against
+  // a wrong, inflated safe rect from the .main min-height bug): 0 label
+  // overlaps at this RelO, at all 3 desktop viewports, across repeated
+  // runs (9/9). Tightened to the sealed exact zero
+  // (priority_overlap_max: 0) and extended to all 3 viewports (was 1).
+  for (const vp of [
+    { width: 1440, height: 960 },
+    { width: 1280, height: 800 },
+    { width: 1024, height: 640 },
+  ]) {
+  test(`zero label overlap in the densest RelO clearing at ${vp.width}x${vp.height}`, async ({ page }) => {
+    await page.setViewportSize(vp);
     await gotoField(page);
     await clickNode(page, 'RelO.R4CB4A8D8'); // the dense, multi-participant RelO used throughout this suite
     await page.waitForTimeout(1600);
@@ -280,6 +287,7 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
       }
       return overlaps;
     });
-    expect(overlapCount).toBeLessThanOrEqual(2);
+    expect(overlapCount).toBe(0);
   });
+  }
 });

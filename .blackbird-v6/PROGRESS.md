@@ -168,10 +168,19 @@ yet independently verified · — not yet reached.
   mouse" issue as the earlier P-SCN-018 fix — same fix (move the mouse off
   the graph first). Full suite reverified clean after all of it: 191/191
   Playwright + 131/131 unit.
-- 🔎 **Label-overlap solver** is disclosed first-valid-candidate, not
-  cost-minimizing (test file's own comment). Needs real rework to reach the
-  sealed zero-overlap requirement in the densest RelO cluster, not just a
-  tighter test.
+- ✅ **Label-overlap — was already resolved by the geometry fixes above; no
+  solver rework needed.** The test's own comment blamed "first-valid-
+  candidate" placement, but `src/layout/label-solver.js`'s `solveLabels()`
+  already scores all 8 candidates by weighted overlap cost and picks the
+  lowest-cost zero-overlap one (not first-valid) — that description was
+  simply wrong/outdated. Re-measured after the safe-rect and occupancy
+  fixes: 0 label overlaps at the densest RelO cluster, at all 3 desktop
+  viewports, across repeated runs (21/21 total across two verification
+  passes) — the prior "1-2 residual overlaps" measurements this test's
+  loose tolerance was based on were almost certainly against the wrong,
+  inflated safe rect from the `.main` `min-height` bug. Tightened
+  `tests/black-bird-world-camera.spec.js` from `<=2` to the sealed exact
+  `0`, extended to all 3 desktop viewports (was 1).
 - ❓ RelO continuous clearing "almost disappears" perceptually (matrix row
   "RelO") — H-VIS-006 requires positive local-luminance-lift proof within
   the 0.10–0.16 fill band. Not yet independently re-measured.
@@ -232,11 +241,19 @@ Come last, once everything above is genuinely closed — not before.
   - Read order on resume: this file → `EXECUTOR/HORIZON_LOCK.md` →
   `EXECUTOR/ACCEPTANCE_CONTRACT.json` → whichever checklist section is
   next.
-- Next concrete step when work resumes: decide the later-focus refit
-  question (focused occupancy, see E2 above) since it's plausibly the
-  bigger perceptual issue; then the mobile secondary-axis design question;
-  then the label-overlap solver rework. In that order, since composition
-  changes affect the geometry the label solver has to work with, and both
-  affect what "final" evidence/screenshots should look like.
+- E2 desktop geometry is now fully closed and verified: neutral occupancy,
+  focused occupancy, and label overlap all meet the sealed exact bands at
+  all 3 desktop viewports (not loosened tests -- real bugs, root-caused,
+  fixed, re-measured). The one open E2 item is the mobile secondary-axis
+  design question (mathematically proven no uniform-k fix exists; needs
+  real design thought before touching code, see above). Next concrete
+  step when work resumes: either resolve that, or move on to auditing the
+  rest of E2's list (RelO clearing perceptibility, Route/wear/afterglow
+  material strength, mobile Field collisions/dense-zoom, the disputed
+  1024x640 overlay-leak claim) and E3 (accessibility/interaction) --
+  reasonable to interleave since both are currently unverified leads, not
+  confirmed defects, and E3's text-zoom-200 item may already be
+  side-effect-fixed by the E1 accessibility.css wiring (needs a real check,
+  not an assumption).
 - Every fix: full local suite + `build:verify` before pushing; push
   triggers the `/next/` republish automatically.
