@@ -197,7 +197,7 @@ button,input{font:inherit}
 .rail{border-right:1px solid var(--line);background:#080807;display:flex;flex-direction:column;align-items:stretch;padding:28px 7px;gap:8px;z-index:15}
 .rail-btn{height:42px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;display:flex;align-items:center;justify-content:center;transition:.18s;}
 .rail-btn:hover,.rail-btn.active{border-color:var(--line2);color:var(--text);background:#100f0d}
-.main{display:grid;grid-template-columns:minmax(0,1fr) 0px;min-width:0;height:100%;transition:grid-template-columns 620ms cubic-bezier(.22,.8,.36,1);}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 0px;min-width:0;min-height:0;height:100%;transition:grid-template-columns 620ms cubic-bezier(.22,.8,.36,1);}
 .main.reader-open{grid-template-columns:minmax(0,1fr) clamp(360px,34vw,500px);}
 .panel{min-width:0;overflow:hidden;opacity:0;pointer-events:none;transform:translateX(24px);transition:opacity 520ms ease,transform 620ms cubic-bezier(.22,.8,.36,1);}
 .main.reader-open .panel{opacity:1;pointer-events:auto;transform:translateX(0);}
@@ -535,7 +535,7 @@ g.node[data-bb-light="cold-rest"] .node-label:not(.quiet){fill:var(--bb-cold-tex
       </section>
       <section class="panel">
         <div id="route" class="route"></div>
-        <div id="reader" class="reader"></div>
+        <div id="reader" class="reader" tabindex="0"></div>
       </section>
     </main>
   </div>
@@ -1108,7 +1108,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
 
   // src/layout/camera.js
-  var SCALE_MIN = 0.55;
+  var SCALE_MIN = 0.2;
   var SCALE_MAX = 2.4;
   var NEUTRAL_OCCUPANCY = 0.8;
   var FOCUS_OCCUPANCY = 0.7;
@@ -3591,7 +3591,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   var routeMemoryLayer = root.append("g").attr("class", "route-memory-layer");
   var nodeLayer = root.append("g");
   var afterglowLayer = root.append("g").attr("class", "bb-afterglow-layer").attr("pointer-events", "none");
-  var zoom = d3.zoom().scaleExtent([0.55, 2.4]).on("zoom", (ev) => {
+  var zoom = d3.zoom().scaleExtent([0.2, 2.4]).on("zoom", (ev) => {
     uiRuntime.transform = ev.transform;
     root.attr("transform", ev.transform);
     updateLabelVisibility();
