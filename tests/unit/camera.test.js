@@ -84,26 +84,44 @@ test('first focus fits the focus envelope to the focus occupancy band (0.58-0.82
   assert.ok(fullyInside(proj, safeRect), 'focus contour must be fully inside the safe rect after first focus');
 });
 
-test('later focus preserves the current transform exactly when the envelope is already fully inside', () => {
-  const safeRect = computeSafeRect(PANE, MARGINS);
-  const focusEnvelope = { x: 500, y: 400, width: 50, height: 50 };
-  const currentTransform = { x: 0, y: 0, k: 1 }; // places the small envelope well inside a 960x840 safe rect
+test('later focus preserves the current transform exactly when the envelope is already fully inside and within the occupancy band', () => {
+  const safeRect = computeSafeRect(PANE, MARGINS); // {x:480,y:60,width:960,height:840}
+  // Sized/positioned for ~0.7 occupancy (well inside [0.58,0.82]), not just
+  // "small and somewhere inside" -- a tiny in-view envelope is fully inside
+  // but out of band, and must NOT be preserved (see the next test).
+  const focusEnvelope = { x: 635, y: 205, width: 650, height: 550 };
+  const currentTransform = { x: 0, y: 0, k: 1 };
   const t = computeFocusCamera(focusEnvelope, safeRect, currentTransform);
   assert.equal(t, currentTransform, 'must be the identical transform reference, not a recomputed one');
 });
 
-test('a minimal pan nudges a barely-outside envelope into view without rescaling', () => {
+test('later focus refits (does not preserve) when the envelope is fully inside but out of the occupancy band', () => {
+  const safeRect = computeSafeRect(PANE, MARGINS);
+  // Fully inside at k=1 (occupancy ~0.31, well below the 0.58 floor), and
+  // large enough that the refit's ideal 0.70-occupancy scale (~2.24) stays
+  // under scaleMax (2.4) -- an even smaller envelope would still trigger a
+  // refit but couldn't actually reach the band (scale-clamped), which would
+  // conflate "refit happened" with "refit hit its target" in one assertion.
+  const focusEnvelope = { x: 500, y: 400, width: 300, height: 250 };
+  const currentTransform = { x: 0, y: 0, k: 1 };
+  const t = computeFocusCamera(focusEnvelope, safeRect, currentTransform);
+  assert.notEqual(t.k, currentTransform.k, 'an in-band-failing envelope must be refit even though it is geometrically fully inside');
+  const occ = occupancy(focusEnvelope, t, safeRect);
+  assert.ok(occ >= FOCUS_MIN && occ <= FOCUS_MAX, `refit occupancy ${occ} should land in the sealed focus band`);
+});
+
+test('a minimal pan nudges a barely-outside, in-band envelope into view without rescaling', () => {
   const safeRect = { x: 0, y: 0, width: 1000, height: 1000 };
-  // Envelope projects just past the right edge (<=20% of its own area outside).
-  const focusEnvelope = { x: 0, y: 0, width: 100, height: 100 };
-  const currentTransform = { x: 950, y: 0, k: 1 }; // projected x in [950,1050]: 50% outside on x, but width*height small
-  // Choose a case with a small outside fraction: shift so overlap area / total = ~0.9 (10% outside)
-  const currentTransformSmallOverflow = { x: 910, y: 0, k: 1 }; // projected [910,1010]x[0,100]; outside width=10 of 100 => 10% area outside
-  const t = computeFocusCamera(focusEnvelope, safeRect, currentTransformSmallOverflow);
-  assert.equal(t.k, currentTransformSmallOverflow.k, 'minimal pan must not rescale');
+  // 700x700 in a 1000x1000 safe rect -> 0.7 occupancy (in band), so the
+  // outside-fraction path is what's under test here, not the occupancy-band one.
+  const focusEnvelope = { x: 0, y: 0, width: 700, height: 700 };
+  // projected x:[370,1070] (70 outside of 700 width => 10% area outside), y:[150,850] fully inside.
+  const currentTransform = { x: 370, y: 150, k: 1 };
+  const t = computeFocusCamera(focusEnvelope, safeRect, currentTransform);
+  assert.equal(t.k, currentTransform.k, 'minimal pan must not rescale');
   const proj = projectedRect(focusEnvelope, t);
   assert.ok(fullyInside(proj, safeRect), 'minimal pan must bring the envelope fully inside');
-  assert.notEqual(t.x, currentTransformSmallOverflow.x, 'minimal pan must actually move x');
+  assert.notEqual(t.x, currentTransform.x, 'minimal pan must actually move x');
 });
 
 test('more than 20% outside triggers a full refit, not a pan', () => {

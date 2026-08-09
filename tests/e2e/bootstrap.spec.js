@@ -2,7 +2,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
-const { gotoField, clickNode } = require('../bb-helpers.cjs');
+const { gotoField, clickNode, commitViaIndex } = require('../bb-helpers.cjs');
 
 const UNAVAILABLE_TITLE = 'The field could not be opened';
 const UNAVAILABLE_BODY =
@@ -181,7 +181,11 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
     // View/Index/Solo interaction, and About — all local state that has
     // nowhere to persist (no localStorage/sessionStorage anywhere in
     // src/app.js), so a reload must produce an identical fresh start.
-    for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.ABEL', 'FO.BURIAL', 'FO.ODIN']) await clickNode(page, id);
+    // Committed via the Index drawer, not Field screen clicks: this
+    // sequence deliberately jumps between distant clusters (quran -> norse),
+    // and a correctly fitted focus camera (H-VIS-001) legitimately leaves a
+    // later, unrelated target off-screen after zooming in on the current one.
+    for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.ABEL', 'FO.BURIAL', 'FO.ODIN']) await commitViaIndex(page, id);
     await page.locator('.rail-btn[data-action="about"]').click();
     await page.keyboard.press('Escape');
 

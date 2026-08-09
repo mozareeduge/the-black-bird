@@ -133,23 +133,41 @@ yet independently verified · — not yet reached.
   (possibly: a different reference envelope for extreme-aspect viewports,
   not literally "all 50 nodes' bbox") before touching code. Do not attempt
   a quick fix here without revisiting this reasoning.
-- 🔎 **Focused occupancy is far below target — bigger than a threshold
-  problem, possibly the real mechanism behind the audit's "ordinary focus
-  weak/knotted" finding.** Investigating the existing (still-loose,
-  `[0.4,0.95]`) focused-occupancy test found `clickNode(page, 'FO.CORPSE')`
-  there exercises `computeFocusCamera`'s *later*-focus path (`gotoField`'s
-  own onboarding wait condition already lands on a first focus before that
-  click) — which preserves the current transform or does a minimal pan
-  rather than a fresh occupancy-targeted refit, unless more than 20% of the
-  focus envelope's projected area is outside the safe rect. Measured on the
-  live app with that exact click pattern: occupancy ≈0.20, not just outside
-  the sealed [0.58,0.82] band but far below even the loose test's 0.4
-  floor (the loose test happens to pass because of a stale prior
-  measurement basis, likely the same safe-rect height bug above — not yet
-  re-confirmed after the fix). Left the test's threshold untouched — not
-  tightened to a number not yet verified true, not loosened further to hide
-  it. Needs a real decision (does more of "later focus" need to actually
-  refit? is the 20%-outside threshold right?) before any code change.
+- ✅ **Focused occupancy — fixed and verified at all 3 desktop viewports.**
+  Was the real mechanism behind the audit's "ordinary focus weak/knotted"
+  finding, not just a loose threshold: `computeFocusCamera`'s later-focus
+  path preserved the current transform (or did a minimal pan) whenever the
+  focus envelope was geometrically inside the safe rect at all — even a
+  tiny envelope occupying a small fraction of it, which is "inside" but not
+  remotely composed to the 0.58–0.82 target. Measured live: ~0.20 before
+  the fix. Fixed in `src/layout/camera.js`: `computeFocusCamera` now also
+  forces a refit when the *current projected occupancy itself* falls
+  outside `[FOCUS_OCCUPANCY_MIN=0.58, FOCUS_OCCUPANCY_MAX=0.82]`, not only
+  when a meaningful fraction of the envelope is geometrically outside the
+  rect — "avoid a jarring refit when already in view" was never meant to
+  also mean "never correct an out-of-band composition." Verified live
+  after the fix: ~0.60 at all 3 desktop viewports, now inside the sealed
+  band; `tests/black-bird-world-camera.spec.js`'s focused-occupancy test
+  tightened from `[0.4,0.95]` to the exact sealed band across all 3
+  viewports (was 1). Kept, not broke, the existing preserve/minimal-pan
+  mechanics: the two unit tests for those got occupancy-realistic fixtures
+  (the old ones used arbitrarily tiny envelopes never meant to test
+  occupancy compliance — that's *why* they didn't already catch this), plus
+  a new unit test for the added out-of-band-refit case.
+  This is a broad-reach change (every later-focus transition app-wide), and
+  it surfaced real ripples, all fixed: two Route-accumulation e2e tests
+  that click through several distant, unrelated clusters in sequence now
+  legitimately leave earlier targets off-screen after a tighter, more
+  correct focus refit (exactly as a real reader would experience — they'd
+  reach for Index/search too) — added `commitViaIndex()` to
+  `tests/bb-helpers.cjs` (the same commit path already used/tested
+  elsewhere for Index-driven commits) and switched those specific
+  multi-cluster sequences to it; `clickNode`'s real-screen-click contract
+  is untouched for tests actually about pointer commit. One more
+  hover-preview test hit the same "content animates under a stationary
+  mouse" issue as the earlier P-SCN-018 fix — same fix (move the mouse off
+  the graph first). Full suite reverified clean after all of it: 191/191
+  Playwright + 131/131 unit.
 - 🔎 **Label-overlap solver** is disclosed first-valid-candidate, not
   cost-minimizing (test file's own comment). Needs real rework to reach the
   sealed zero-overlap requirement in the densest RelO cluster, not just a

@@ -7,6 +7,8 @@ const SCALE_MIN = 0.2;
 const SCALE_MAX = 2.4;
 const NEUTRAL_OCCUPANCY = 0.8;
 const FOCUS_OCCUPANCY = 0.7;
+const FOCUS_OCCUPANCY_MIN = 0.58;
+const FOCUS_OCCUPANCY_MAX = 0.82;
 const REFIT_OUTSIDE_THRESHOLD = 0.2;
 
 function clamp(v, min, max) {
@@ -76,20 +78,43 @@ function minimalPan(projected, safeRect, t) {
   return { x: t.x + dx, y: t.y + dy, k: t.k };
 }
 
+function projectedOccupancy(projected, safeRect) {
+  if (safeRect.width <= 0 || safeRect.height <= 0) return 0;
+  return Math.max(projected.width / safeRect.width, projected.height / safeRect.height);
+}
+
 // firstFocus: fit to 0.70. laterFocus: preserve transform when the focus
-// envelope is fully inside the safe rect; a minimal pan when partially
-// outside; a full refit only when more than 20% of the envelope's projected
-// area lies outside the safe rect.
+// envelope is fully inside the safe rect AND already within the sealed
+// occupancy band [occupancyMin,occupancyMax]; a minimal pan when partially
+// outside; a full refit when more than 20% of the envelope's projected area
+// lies outside the safe rect, OR when it's fully/mostly inside but so small
+// (or so large) that it sits outside the occupancy band regardless -- an
+// envelope near a previous focus's center can be "fully inside" while
+// occupying a small fraction of the safe rect, which preserve/minimal-pan
+// alone would leave there indefinitely (H-VIS-001's focused-occupancy band
+// is the locked outcome; "avoid a jarring refit for an in-view target" was
+// never meant to also mean "never correct an out-of-band composition").
 export function computeFocusCamera(envelope, safeRect, currentTransform, opts = {}) {
-  const { scaleMin = SCALE_MIN, scaleMax = SCALE_MAX, occupancy = FOCUS_OCCUPANCY, isFirstFocus = false } = opts;
+  const {
+    scaleMin = SCALE_MIN,
+    scaleMax = SCALE_MAX,
+    occupancy = FOCUS_OCCUPANCY,
+    occupancyMin = FOCUS_OCCUPANCY_MIN,
+    occupancyMax = FOCUS_OCCUPANCY_MAX,
+    isFirstFocus = false,
+  } = opts;
   if (isFirstFocus || !currentTransform) {
     return fitEnvelope(envelope, safeRect, { scaleMin, scaleMax, occupancy });
   }
   const projected = projectEnvelope(envelope, currentTransform);
   const outside = fractionOutside(projected, safeRect);
+  if (outside > REFIT_OUTSIDE_THRESHOLD) {
+    return fitEnvelope(envelope, safeRect, { scaleMin, scaleMax, occupancy });
+  }
+  const inBand = projectedOccupancy(projected, safeRect) >= occupancyMin && projectedOccupancy(projected, safeRect) <= occupancyMax;
+  if (!inBand) return fitEnvelope(envelope, safeRect, { scaleMin, scaleMax, occupancy });
   if (outside === 0) return currentTransform;
-  if (outside <= REFIT_OUTSIDE_THRESHOLD) return minimalPan(projected, safeRect, currentTransform);
-  return fitEnvelope(envelope, safeRect, { scaleMin, scaleMax, occupancy });
+  return minimalPan(projected, safeRect, currentTransform);
 }
 
 // T-REQ-017: camera work is cancellable by txId. `compute` runs unconditionally

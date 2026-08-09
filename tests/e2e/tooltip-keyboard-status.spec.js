@@ -226,6 +226,13 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     await node(page, 'FO.CAIN').hover();
     // Commit immediately, well inside the 200ms hover-preview debounce.
     await clickNode(page, 'FO.CAIN');
+    // The commit's own focus-fit camera animation can move node positions
+    // under a mouse that hasn't otherwise moved; if a different node's hit
+    // area sweeps under the (stationary) cursor mid-animation, that's a
+    // second, separately-legitimate hover, not the stale-preview bug this
+    // test checks for. Move off the graph so only the original armed timer
+    // (for the now-committed FO.CAIN) is in play.
+    await page.mouse.move(5, 5);
     // If the armed hover timer were not cancelled on commit, it would fire
     // here (~200ms after hover) and show a stale preview for the object
     // that is now already the committed focus.

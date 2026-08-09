@@ -1,10 +1,16 @@
 'use strict';
 const { test, expect } = require('@playwright/test');
-const { gotoField, clickNode, appState } = require('../bb-helpers.cjs');
+const { gotoField, clickNode, commitViaIndex, appState } = require('../bb-helpers.cjs');
 
 // Desktop's max visible tail is 4 (routeApertureEvents), so condensation
 // requires strictly more than 5 total route events; onboarding entry may
 // already record one. Eight real commits guarantees condensation regardless.
+// This sequence deliberately jumps between distant, unrelated clusters
+// (quran -> norse) to accumulate route history fast -- committed via the
+// Index drawer (commitViaIndex), not a Field screen click: a correctly
+// fitted focus camera (H-VIS-001) legitimately zooms in on the current
+// target's own cluster, which can leave a later, unrelated target
+// genuinely off-screen, same as it would for a real reader.
 const COMMIT_SEQUENCE = [
   'FO.CORPSE',
   'FO.CAIN',
@@ -29,7 +35,7 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
   }) => {
     await gotoField(page, { reduced: true });
     const initialRoute = (await appState(page)).routeIds.length;
-    for (const id of COMMIT_SEQUENCE) await clickNode(page, id);
+    for (const id of COMMIT_SEQUENCE) await commitViaIndex(page, id);
 
     const state = await appState(page);
     const totalEvents = initialRoute + COMMIT_SEQUENCE.length;
@@ -49,7 +55,7 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
     page,
   }) => {
     await gotoField(page, { reduced: true });
-    for (const id of COMMIT_SEQUENCE) await clickNode(page, id);
+    for (const id of COMMIT_SEQUENCE) await commitViaIndex(page, id);
     const before = await appState(page);
     const beforeWear = await page.evaluate(() => JSON.stringify(window.__bbTest?.getState()?.trace.wear || {}));
 
@@ -70,7 +76,7 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
   }) => {
     test.setTimeout(90000); // two full commit sequences plus two drawer cycles
     await gotoField(page, { reduced: true });
-    for (const id of COMMIT_SEQUENCE) await clickNode(page, id);
+    for (const id of COMMIT_SEQUENCE) await commitViaIndex(page, id);
     const before = await page.evaluate(() => ({
       route: window.__bbTest.getState().history.route.length,
       wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,
@@ -91,7 +97,7 @@ test.describe('Route aperture/modal and independent trace controls (T19)', () =>
     await expect(page.locator('#routeDrawer')).not.toHaveClass(/open/);
 
     // Rebuild route + wear, then clear field trace only.
-    for (const id of COMMIT_SEQUENCE) await clickNode(page, id);
+    for (const id of COMMIT_SEQUENCE) await commitViaIndex(page, id);
     const beforeTraceClear = await page.evaluate(() => ({
       route: window.__bbTest.getState().history.route.length,
       wear: Object.keys(window.__bbTest.getState().trace.wear || {}).length,

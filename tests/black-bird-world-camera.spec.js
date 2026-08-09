@@ -172,39 +172,49 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
     });
   }
 
-  // Not yet tightened to the sealed [0.58,0.82] band. Investigating this
-  // (2026-08-09) found `clickNode(page, 'FO.CORPSE')` here exercises
-  // computeFocusCamera's *later*-focus path (gotoField's own onboarding
-  // wait condition already lands on a first focus before this click), which
-  // preserves the current transform or does a minimal pan rather than a
-  // fresh occupancy-targeted refit unless >20% of the focus envelope's
-  // projected area is outside the safe rect. Measured on the *live app*
-  // with this exact click pattern, occupancy comes out far below target
-  // (~0.20, not just outside the band) -- plausibly the real mechanism
-  // behind the audit's "ordinary focus... weak, knotted" finding, not a
-  // one-off measurement artifact. This is a bigger, separate question
-  // (should more later-focus transitions actually refit? is the >20%
-  // threshold right?) than the neutral-fit bugs above, and isn't fixed yet.
-  // Left at its current (already non-sealed) band rather than tightened to
-  // a number not yet verified true, or loosened further to hide it -- see
-  // .blackbird-v6/PROGRESS.md.
-  test('focused occupancy is within a reasonable band of the limiting safe dimension at 1280x800', async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await gotoField(page);
-    await clickNode(page, 'FO.CORPSE');
-    await page.waitForTimeout(700);
-    const ratio = await page.evaluate(() => {
-      const safe = window.__bbTest.computeFieldSafeRect();
-      const focus = window.__bbTest.buildFocusSet('FO.CORPSE');
-      const envelope = window.__bbTest.computeNodeEnvelope(focus.ids, 44);
-      const t = window.__bbTest.getUiRuntime().transform;
-      const rx = (envelope.width * t.k) / safe.width;
-      const ry = (envelope.height * t.k) / safe.height;
-      return Math.max(rx, ry);
+  // Was left at a weakened [0.4,0.95] band. Root cause (2026-08-09):
+  // `clickNode(page, 'FO.CORPSE')` here exercises computeFocusCamera's
+  // *later*-focus path (gotoField's onboarding already lands on a first
+  // focus before this click), which used to preserve the current transform
+  // or do a minimal pan whenever the envelope was geometrically inside the
+  // safe rect at all -- even if tiny and far below the occupancy target
+  // (measured ~0.20 on the live app, not just outside the band). Fixed in
+  // src/layout/camera.js: computeFocusCamera now also forces a refit when
+  // the current projected occupancy itself falls outside
+  // [FOCUS_OCCUPANCY_MIN,FOCUS_OCCUPANCY_MAX], not only when a meaningful
+  // fraction of the envelope is geometrically outside the safe rect.
+  // Verified this is the real mechanism, not a threshold-tightening dodge:
+  // measured live-app occupancy went from ~0.20 to ~0.60 across all 3
+  // desktop viewports after the fix, and the existing unit-test coverage
+  // for the untouched "preserve when already inside AND in-band" and
+  // "minimal pan when barely outside AND in-band" mechanics was kept (with
+  // corrected, occupancy-realistic fixtures -- the old ones used
+  // arbitrarily tiny envelopes that were never meant to test occupancy
+  // compliance) plus a new test for the added out-of-band-refit case
+  // (tests/unit/camera.test.js).
+  for (const vp of [
+    { width: 1440, height: 960 },
+    { width: 1280, height: 800 },
+    { width: 1024, height: 640 },
+  ]) {
+    test(`focused occupancy meets the sealed primary-axis band at ${vp.width}x${vp.height}`, async ({ page }) => {
+      await page.setViewportSize(vp);
+      await gotoField(page);
+      await clickNode(page, 'FO.CORPSE');
+      await page.waitForTimeout(900);
+      const ratio = await page.evaluate(() => {
+        const safe = window.__bbTest.computeFieldSafeRect();
+        const focus = window.__bbTest.buildFocusSet('FO.CORPSE');
+        const envelope = window.__bbTest.computeNodeEnvelope(focus.ids, 44);
+        const t = window.__bbTest.getUiRuntime().transform;
+        const rx = (envelope.width * t.k) / safe.width;
+        const ry = (envelope.height * t.k) / safe.height;
+        return Math.max(rx, ry);
+      });
+      expect(ratio).toBeGreaterThanOrEqual(0.58);
+      expect(ratio).toBeLessThanOrEqual(0.82);
     });
-    expect(ratio).toBeGreaterThanOrEqual(0.4);
-    expect(ratio).toBeLessThanOrEqual(0.95);
-  });
+  }
 
   // The 4-direction-plus-diagonal (8 candidate) collision-rejection pass
   // (recomputeLabelPlacements(), 4.6) resolves label crowding in ordinary

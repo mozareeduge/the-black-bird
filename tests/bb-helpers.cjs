@@ -44,6 +44,27 @@ async function clickNode(page,id){
   },id);
   throw new Error(`clickNode: a real click landed but did not commit ${id}. diagnostics=${JSON.stringify(diag)}`);
 }
+// Commits an object via the Index drawer search (P-SCN-041/043's own path)
+// instead of a screen click on the Field. Use this -- not clickNode -- when
+// a test's own point is Route/trace/state bookkeeping across a *sequence*
+// of commits that deliberately jumps between distant/unrelated clusters:
+// a real, correctly-fitted focus camera legitimately zooms in on the
+// current target's own cluster (H-VIS-001's focused-occupancy band), which
+// can leave an unrelated far node genuinely off-screen -- exactly as a real
+// user would experience it, who'd also reach for Index/search rather than
+// a direct click they physically can't make. clickNode's real-screen-click
+// contract stays exactly right for tests that are actually about pointer
+// commit/resolution.
+async function commitViaIndex(page,id){
+  await page.locator('.rail-btn[data-action="index"]').click();
+  await expect(page.locator('#objectDrawer')).toHaveClass(/open/);
+  await page.locator('#objectSearch').fill(id);
+  const openLink=page.locator(`[data-open="${id}"]`).first();
+  await expect(openLink).toBeVisible();
+  await openLink.click();
+  const activeId=await page.evaluate(()=>window.__bbTest?.getUiRuntime?.()?.focusedId);
+  if(activeId!==id) throw new Error(`commitViaIndex: opening ${id} from the Index did not commit it (activeId=${activeId})`);
+}
 async function appState(page){return page.evaluate(()=>{const s=window.__bbTest?.getState?.()||{};const ui=window.__bbTest?.getUiRuntime?.()||{};return{phase:s.lifecycle?.phase,surface:s.responsive?.surface,activeId:ui.focusedId,routeIds:(s.history?.route||[]).map(e=>e.id),soloIds:s.solo?.active?[...s.solo.members].sort():null,overlay:ui.chromeOverlay,aboutOpen:s.overlay?.kind==='about',transform:ui.transform?{x:ui.transform.x,y:ui.transform.y,k:ui.transform.k}:null};});}
 async function noGeometryErrors(page){const bad=await page.evaluate(()=>[...document.querySelectorAll('line,path,circle,rect')].filter(el=>[...el.attributes].some(a=>/NaN|Infinity/.test(a.value))).map(el=>el.outerHTML.slice(0,160)));expect(bad).toEqual([]);}
-module.exports={gotoField,tagNodes,node,clickNode,appState,noGeometryErrors};
+module.exports={gotoField,tagNodes,node,clickNode,commitViaIndex,appState,noGeometryErrors};
