@@ -267,13 +267,53 @@ yet independently verified · — not yet reached.
   got real production coverage as part of the E1 accessibility.css fix;
   200% resize is blocked on the same CDP-zoom-emulation gap noted above).
 
-### E4 — Scenario proof reconstruction (115 P-SCN) — NOT YET REACHED
+### E4 — Scenario proof reconstruction (115 P-SCN) — FIRST PASS DONE, GOOD NEWS
 
-- ❓ 115/115 gate currently counts status/evidence strings rather than
-  proving scenario-specific execution (`CURRENT_OBSERVED_STATE.md`). Needs
-  re-verification of how many of the 115 are real vs. bookkeeping once E2/E3
-  are stable (fixing scenario proof for a Field that's about to change
-  geometry would be wasted work).
+- ✅ **Audited all 115 entries mechanically, not just the claim.** Wrote a
+  script (not committed -- one-off, see method below) that, for every
+  entry's `evidence` reference, verified the referenced file exists and
+  the exact test-title string appears in it (i.e., not a dangling/fake
+  pointer). Result: 106/115 clean on the first pass; 9 flagged, of which
+  7 turned out to be false positives from my own strict string-matching
+  (deliberately-truncated evidence strings ending "...", an escaped
+  apostrophe, a missing subordinate function name in an otherwise-real,
+  otherwise-matching test title) -- all still point to real, existing,
+  passing tests. **`CURRENT_OBSERVED_STATE.md`'s blanket claim overstates
+  the problem**: the registry is mostly solid, not mostly bookkeeping.
+- Separately scanned every entry's `notes`+`evidence` text for
+  self-admitted weak-coverage language ("as setup", "generally", "nearly
+  every test", "incidental", etc.) — 3 of 115 flagged, 1 was a false
+  positive (P-SCN-018, which has a real specific test plus an added
+  engineering rationale, not weak evidence). The other 2 were **real,
+  confirmed gaps**, now fixed:
+  - **P-SCN-001** ("Open About before entry") — old evidence was a test
+    that always runs *after* `gotoField`'s wait for the entered/focused
+    phase, even with `realOnboarding:true`; it never actually exercised
+    the pre-entry threshold screen. Turns out there's a whole real,
+    dedicated code path for this (`#thAboutBtn`, `openAbout("threshold")`,
+    a `from-threshold` panel class) with zero prior test coverage. Added
+    a real one in `tests/e2e/modals-about.spec.js`.
+  - **P-SCN-003** ("Complete onboarding with reduced motion") — old
+    evidence was literally "every e2e test's own setup uses this",
+    explicitly the "setup-only evidence" pattern `EXECUTION_DAG.md` E4
+    forbids. Added a real one in `tests/e2e/bootstrap.spec.js`: runs a
+    real Enter-triggered onboarding to its own natural completion (not
+    interrupted, unlike the existing P-SCN-004/005 tests) under reduced
+    motion, checks the landing Route event and the blur/pulse contract.
+  Both new tests pass; `tests/generated/scenario-coverage-map.json`
+  updated to point at them (checked the diff stayed minimal -- first
+  attempt accidentally reformatted/re-encoded the whole 1173-line file
+  via a naive Python re-serialize, caught and fixed before committing).
+  `scripts/check-scenario-coverage.mjs` still reports 115/115/0/0.
+- **Not done**: my audit checked "does the reference point to something
+  real" and "does the note admit weakness" — it did NOT re-read all 115
+  scenario *titles* against their referenced tests' actual assertions to
+  judge whether each is genuinely scenario-*specific* (vs. real-but-generic
+  coverage that happens to also satisfy the scenario). That deeper pass is
+  still open if a fully rigorous E4 closure is wanted; what's done so far
+  is the mechanical-validity pass plus the specific gaps a systematic
+  self-admission scan actually surfaced, not a claim that all 115 are
+  individually perfect.
 
 ### E5 — Evidence system reconstruction — NOT YET REACHED
 

@@ -156,6 +156,44 @@ test.describe('Bootstrap validation and failure surfaces (T04)', () => {
     expect(new Set(state.route).size).toBe(state.route.length);
   });
 
+  // P-SCN-003: registry evidence for this used to be "every e2e test's own
+  // setup uses gotoField({reduced:true})" -- true, but that's incidental
+  // (setup-only) coverage, not a scenario-specific proof that onboarding
+  // itself actually *completes* correctly, start to finish, under reduced
+  // motion. This lets a real Enter-triggered onboarding run to its own
+  // natural completion (not interrupted, unlike P-SCN-004/005 above) and
+  // checks the landing state and motion contract directly.
+  test('onboarding completes cleanly end to end under reduced motion, landing on exactly one Black Bird Route event with no blur/pulse (P-SCN-003)', async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/?bbtest=1');
+    const enterBtn = page.getByRole('button', { name: /enter/i }).first();
+    await expect(enterBtn).toBeVisible();
+    await enterBtn.click();
+    await page.waitForFunction(() => window.__bbTest?.getUiRuntime()?.onboardingActive === true, { timeout: 4000 });
+    // Let onboarding run to its own natural end, not an interrupting click.
+    await page.waitForFunction(() => window.__bbTest?.getUiRuntime()?.onboardingActive === false, { timeout: 8000 });
+    await page.waitForFunction(
+      () => window.__bbTest?.getState()?.lifecycle.phase === 'focused' && !!window.__bbTest.getUiRuntime().focusedId,
+      { timeout: 8000 },
+    );
+    expect(errors).toEqual([]);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    expect(await page.locator('g.node').count()).toBe(50);
+    const state = await page.evaluate(() => ({
+      focusedId: window.__bbTest.getUiRuntime().focusedId,
+      route: window.__bbTest.getState().history.route.map((e) => e.id),
+      design: window.__bbDesign?.snapshot(),
+    }));
+    expect(state.focusedId).toBe('FO.BLACK_BIRD_FIELD');
+    expect(state.route).toEqual(['FO.BLACK_BIRD_FIELD']);
+    expect(state.design.maxAppliedBlurPx).toBe(0);
+    expect(state.design.travelPulseActive).toBeFalsy();
+  });
+
   test('the threshold card reveals within a bounded time even when custom fonts never finish loading (P-SCN-006)', async ({
     page,
   }) => {

@@ -9,9 +9,9 @@
       "category": "entry",
       "status": "covered",
       "evidence": [
-        "tests/e2e/modals-about.spec.js :: About changes no poem state on the live app (state-pure)"
+        "tests/e2e/modals-about.spec.js :: opening About from the threshold, before entry, opens the from-threshold panel and leaves entry still available (P-SCN-001)"
       ],
-      "notes": "About's state-purity is proven generally, not phase-specific, so it holds before entry too."
+      "notes": "Dedicated test: navigates without completing onboarding, opens About from the threshold-only #thAboutBtn, verifies the from-threshold panel state and that entry still works afterward."
     },
     {
       "id": "P-SCN-002",
@@ -29,9 +29,9 @@
       "category": "entry",
       "status": "covered",
       "evidence": [
-        "every tests/e2e/*.spec.js test via bb-helpers.gotoField({reduced:true})"
+        "tests/e2e/bootstrap.spec.js :: onboarding completes cleanly end to end under reduced motion, landing on exactly one Black Bird Route event with no blur/pulse (P-SCN-003)"
       ],
-      "notes": "Reduced-motion onboarding is exercised as setup by nearly every e2e test in the suite."
+      "notes": "Dedicated test: runs a real Enter-triggered onboarding to its own natural completion (not interrupted) under reduced motion, checks the landing Route event and the blur/pulse motion contract directly."
     },
     {
       "id": "P-SCN-004",

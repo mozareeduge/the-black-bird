@@ -112,4 +112,37 @@ test.describe('One modal controller and state-pure About (T21)', () => {
     await expect(link).toBeVisible();
     await expect(link).toHaveAttribute('href', 'research/');
   });
+
+  // P-SCN-001: opening About before entry (from the threshold's own
+  // #thAboutBtn) is a real, dedicated code path (openAbout("threshold"),
+  // the from-threshold panel class), distinct from the post-entry rail
+  // button -- and had no scenario-specific test. The registry's prior
+  // "evidence" (the state-purity test above) always runs after
+  // gotoField's own wait for the focused/entered phase, so it never
+  // actually exercised the pre-entry threshold screen.
+  test('opening About from the threshold, before entry, opens the from-threshold panel and leaves entry still available (P-SCN-001)', async ({
+    page,
+  }) => {
+    await page.goto('/?bbtest=1');
+    await expect(page.locator('.threshold-card')).toBeVisible();
+    await expect(page.locator('#app')).toHaveClass(/phase-threshold/);
+    await page.locator('#thAboutBtn').click();
+    await expect(page.locator('#aboutPanel')).toHaveClass(/open/);
+    await expect(page.locator('#aboutPanel')).toHaveClass(/from-threshold/);
+    // Still pre-entry underneath the modal -- opening About didn't itself commit onboarding.
+    await expect(page.locator('#app')).toHaveClass(/phase-threshold/);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#aboutPanel')).not.toHaveClass(/open/);
+    await expect(page.locator('.threshold-card')).toBeVisible();
+    // Entry still works normally afterward.
+    const enter = page.getByRole('button', { name: /enter/i }).first();
+    await enter.click();
+    await page.waitForFunction(
+      () =>
+        window.__bbTest?.getState() &&
+        document.querySelectorAll('g.node').length === 50 &&
+        window.__bbTest.getState().lifecycle.phase === 'focused',
+      { timeout: 12000 },
+    );
+  });
 });
