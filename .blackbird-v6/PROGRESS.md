@@ -195,8 +195,17 @@ yet independently verified · — not yet reached.
   matrix-row complaint predates other fixes in this round, or was about a
   different aspect (shape/extent) than raw luminance — either way, current
   state is verified, not assumed.
-- ❓ Ordinary/ambient focus material "weak, central labels still congest"
-  (matrix row "Ordinary focus") — not yet independently re-measured.
+- ❓→likely-resolved-as-side-effect. Visually inspected a live FO.CORPSE
+  focus screenshot at 1280×800 after the focused-occupancy fix: clear,
+  well-sized warm penumbra, immediate participants legibly clustered
+  around it, no visible label congestion/overlap. Consistent with the
+  occupancy jump (0.20→0.60) actually being the mechanism behind this
+  matrix-row complaint too, not just the "weak, knotted" framing in
+  isolation. Not marked ✅/closed: this is one screenshot, one object, one
+  viewport — a visual spot-check, not the same rigor as the measured
+  items above, and "is it actually good" is ultimately the user's/GPT's
+  artistic call per the package's own terms, not mine to certify. Worth
+  the user looking at `/next/` directly on this point specifically.
 - ❓ Route/wear/afterglow "visible material too weak/unproven" (matrix row
   "Route/wear") — not yet independently re-measured.
 - ❓ Mobile Field default collisions, thin relational material, unproven
