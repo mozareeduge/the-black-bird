@@ -1,5 +1,6 @@
 'use strict';
 const { test, expect } = require('@playwright/test');
+const { gotoField, clickNode } = require('../bb-helpers.cjs');
 
 // Loads layout.css/mobile.css/accessibility.css together into an isolated
 // DOM (same isolation technique as desktop-composition.spec.js's
@@ -245,6 +246,42 @@ test.describe('Environmental resilience: forced-colors, missing fonts, zoom/refl
     expect(result.dispatched.every((c) => c.type.startsWith('RECONCILE_'))).toBe(true);
     expect(result.dispatched.some((c) => forbiddenTypes.includes(c.type))).toBe(false);
     expect(result.listenersRemaining).toBe(0);
+  });
+
+  test('the page hiding mid-focus-transition and resuming leaves a clean, consistent camera/focus state (P-SCN-092)', async ({
+    page,
+  }) => {
+    // The RECONCILE_DOCUMENT_VISIBILITY reducer case only ever touches
+    // state.trace (via reconcileTraceDeadlines) -- there is no separate
+    // reducer-level "camera paused" concept, because the camera transition
+    // and force simulation are pure client-side rendering concerns (d3-zoom
+    // transform, d3-force ticks) driven by elapsed-time math, not reducer
+    // state. This scenario's title also names "focus/camera motion", which
+    // the existing reconcileTraceDeadlines-only evidence never actually
+    // exercised. Real, not reduced, motion is used deliberately so a camera
+    // tween/simulation reheat is genuinely in flight when visibility flips.
+    await gotoField(page, { reduced: false });
+    await clickNode(page, 'FO.CORPSE');
+    await page.waitForTimeout(50); // still mid camera-transition / sim reheat
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.waitForTimeout(1000);
+    const state = await page.evaluate(() => {
+      const s = window.__bbTest.getState();
+      const ui = window.__bbTest.getUiRuntime();
+      return { activeId: ui.focusedId, phase: s.lifecycle.phase, anchorId: s.reading.anchorId, k: ui.transform.k };
+    });
+    expect(state.activeId).toBe('FO.CORPSE');
+    expect(state.anchorId).toBe('FO.CORPSE');
+    expect(state.phase).toBe('focused');
+    expect(Number.isFinite(state.k)).toBe(true);
   });
 });
 

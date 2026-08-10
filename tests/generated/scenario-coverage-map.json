@@ -784,9 +784,10 @@
       "category": "lifecycle",
       "status": "covered",
       "evidence": [
-        "tests/unit/trace.test.js :: reconcileTraceDeadlines removes only expired entries against wall-clock time, without replay (P-RULE-030)"
+        "tests/unit/trace.test.js :: reconcileTraceDeadlines removes only expired entries against wall-clock time, without replay (P-RULE-030)",
+        "tests/e2e/environmental-resilience.spec.js :: the page hiding mid-focus-transition and resuming leaves a clean, consistent camera/focus state (P-SCN-092)"
       ],
-      "notes": null
+      "notes": "Original evidence covered only the trace-deadline half of this scenario's title; the camera/focus-motion half was untested. Verified directly (real, not reduced, motion, hide/resume mid-transition) that camera/focus state stays clean and consistent -- no reducer-level camera-pause concept exists (RECONCILE_DOCUMENT_VISIBILITY only ever touches state.trace), and d3's elapsed-time timer model is structurally resilient to being paused. Added dedicated coverage rather than leaving this as an assumption."
     },
     {
       "id": "P-SCN-093",

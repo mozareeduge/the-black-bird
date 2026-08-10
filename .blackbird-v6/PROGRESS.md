@@ -388,15 +388,48 @@ yet independently verified · — not yet reached.
     still reports 115/115/0/0.
   - No app defects found in this pass — every gap was a citation/coverage
     gap in the test suite itself, not incorrect product behavior.
-- **Still not done**: a full line-by-line re-judgment of all 115 titles
-  against their tests' actual assertions (as opposed to two targeted
-  automated scans — dangling-reference validity, then self-admission
-  language twice over). What's covered now: reference validity (115/115),
-  setup-only/incidental language (2 gaps fixed), and generic-not-specific
-  language (4 gaps fixed). A scenario whose evidence is real, specific, and
-  silent about any limitation could still in principle be under-asserting
-  something the title implies — that residual risk is what a full
-  line-by-line pass would close, and remains open if wanted.
+- ✅ **Line-by-line pass, batch 1/N (19 scenarios: `memory`, `lifecycle`,
+  `hidden-target` categories — the highest-risk multi-step/resilience/
+  edge-case categories, per the plan).** Read each title against its
+  evidence's actual assertions, not just reference validity or
+  self-admission keywords:
+  - **P-SCN-092** ("Page hides during focus/camera motion and resumes
+    after timers elapsed") — real gap. Evidence only covered the
+    trace-deadline half of the title (`reconcileTraceDeadlines`); the
+    "focus/camera motion" half was never exercised. Traced the mechanism
+    (`RECONCILE_DOCUMENT_VISIBILITY` only ever touches `state.trace` —
+    no reducer-level camera-pause concept exists at all) and verified
+    directly with real motion: hide the page 50ms into a camera
+    transition/sim reheat, resume after 300ms, camera/focus state comes
+    back clean and consistent. No app defect — but no test had ever
+    checked it either. Added `tests/e2e/environmental-resilience.spec.js`
+    coverage.
+  - **P-SCN-113/114** ("Clear Route while trace animation is active" /
+    "Clear trace during camera/focus transition") — both notes
+    self-admit "not literally timed against an in-flight [X]". Checked
+    whether that matters: `clearRoute()`/`clearTrace()` are pure,
+    synchronous, timer-free functions with zero dependency on any
+    concurrent animation state (animations are a pure rendering response
+    to already-cleared state, not a competing process). Confirmed: not a
+    gap, the existing independence-property test is genuinely sufficient
+    — there's no separate timing-dependent code path to miss.
+  - Remaining 16 of this batch (P-SCN-060/061/062/063/064/065/066/067/
+    068/069/108/109/110/115/116/120): evidence read against title,
+    genuinely specific and sufficient, no gap. Confirmed P-SCN-116 is
+    the real "500+ events" scenario (unit-level, `route.test.js`),
+    correctly distinct from P-SCN-062's "beyond display tail" (a much
+    smaller collapse threshold) — resolves an ambiguity noted during the
+    E5 route-long fix.
+  - `scenario-coverage-map.json` updated for P-SCN-092 only (diff
+    verified minimal). `check-scenario-coverage.mjs` still 115/115/0/0.
+- **Still open**: ~96 of 115 scenarios not yet individually re-judged
+  this way (remaining categories: `entry`, `selection`, `preview`,
+  `reader`, `external`, `index`, `view`, `solo`, `mobile`,
+  `accessibility`, `session`, `bootstrap`, `responsive`, `camera`,
+  `overlay`). Continue in further batches of ~15-20 if/when picked back
+  up — batch 1's yield (1 real gap in 19) suggests this is worth
+  continuing but each batch should still be judged on its own token cost
+  vs. expected yield.
 
 ### E5 — Evidence system reconstruction — IN PROGRESS
 
