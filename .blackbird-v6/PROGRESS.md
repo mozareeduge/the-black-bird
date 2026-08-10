@@ -730,3 +730,36 @@ resume the optional E4 deep pass in a future session if still wanted.
   not an assumption).
 - Every fix: full local suite + `build:verify` before pushing; push
   triggers the `/next/` republish automatically.
+
+## Session completion checkpoint (2026-08-10, final)
+
+At `8cca2c7`, confirmed via real CI job status (not just a green
+checkmark): **all 8 checks pass** — `validate`, `build-and-test`,
+`cross-browser` ×3, `exact-head-verify`, `final-candidate-evidence`,
+`publish`.
+
+- **E1** — CLOSED.
+- **E2** — every confirmed-real defect fixed and verified; the one
+  remaining item (mobile secondary-axis occupancy) is mathematically
+  proven to have no uniform-scale solution and is **explicitly reserved
+  for the user's design decision**, not deferred for any other reason.
+- **E3** — mostly already covered by E1/E2/E4 work; the two residual
+  items (real browser-zoom text resize, a couple of evidence-artifact
+  identifiers) are known Playwright/CDP tooling limits, not confirmed
+  product defects.
+- **E4** — CLOSED. All 115 scenarios individually re-judged across 5
+  batches; 8 real/citation gaps found and fixed, each independently
+  verified before the fix, several catching real app behavior bugs.
+- **E5** — CLOSED. All 4 originally-named evidence-system defects found
+  and fixed (Axe scanner swallow, projected-edge selector, route-long
+  threshold, mobile motion frame size), plus a 4th found along the way
+  (entry motion never actually recorded).
+- **E6** — CLOSED, verified against real CI job logs.
+- **E7–E9** — not started; per their own definition they come only once
+  everything above is closed, and the mobile-axis item is a genuine,
+  intentional exception to "everything above," not an oversight.
+
+**Nothing else in this ledger is being left open by inattention.**
+What remains is either the user's own design call or a disclosed,
+known automation-tooling limit. The candidate is live at `/next/` for
+review.
