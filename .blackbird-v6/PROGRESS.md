@@ -207,7 +207,15 @@ yet independently verified · — not yet reached.
   artistic call per the package's own terms, not mine to certify. Worth
   the user looking at `/next/` directly on this point specifically.
 - ❓ Route/wear/afterglow "visible material too weak/unproven" (matrix row
-  "Route/wear") — not yet independently re-measured.
+  "Route/wear") — partial spot-check only. A live 4-commit sequence screenshot
+  shows Route's thin neutral dotted connector lines clearly and distinctly
+  (matches spec). Could not responsibly judge wear (amber-brown
+  accumulation) or afterglow (departure residue) from a single static
+  screenshot — both are inherently temporal/motion materials, and a still
+  frame at one arbitrary moment isn't rigorous evidence either way for
+  them. Needs actual motion capture to verify properly (this is really an
+  E5 evidence-capture question, not something to eyeball now) — left open
+  rather than guessed at.
 - ❓ Mobile Field default collisions, thin relational material, unproven
   dense-zoom k≈2.4 state (matrix row "Mobile Field") — depends on the mobile
   measurement-methodology fix above.
