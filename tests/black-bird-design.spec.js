@@ -6,6 +6,47 @@ test.describe('decided visual-system contract',()=>{
   test('ordinary focus is warm/cold and route remains selected history',async({page})=>{await clickNode(page,'FO.CORPSE');const before=await design(page);await clickNode(page,'FO.BURIAL');const after=await design(page);expect(after.lightMode).toBe('warm-cold');expect(after.routeIds.at(-1)).toBe('FO.BURIAL');expect(after.routeIds.length).toBe(before.routeIds.length+1);expect(after.wearEntries.length).toBeGreaterThanOrEqual(0);expect(after.wearEntries.every(e=>e.passCount<=7)).toBeTruthy();});
  test('RelO focus creates one live bone clearing and suppresses penumbra',async({page})=>{await clickNode(page,'RelO.R4CB4A8D8');const s=await design(page);expect(s.lightMode).toBe('clearing');expect(s.clearing.relOId).toBe('RelO.R4CB4A8D8');expect(s.clearing.count).toBe(1);expect(s.clearing.finite).toBeTruthy();expect(s.penumbraVisible).toBeFalsy();expect(s.clearing.visibleMemberIds.length).toBeGreaterThan(1);await noGeometryErrors(page);});
  test('RelO clearing is one masked field with no visible member circles or spokes (4.9, BB-R11)',async({page})=>{await clickNode(page,'RelO.R4CB4A8D8');const counts=await page.evaluate(()=>({field:document.querySelectorAll('.bb-clearing-field').length,circles:document.querySelectorAll('circle.bb-clearing').length,spokes:document.querySelectorAll('line.bb-clearing-spoke').length,opacity:+getComputedStyle(document.querySelector('.bb-clearing-field')).opacity}));expect(counts.field).toBe(1);expect(counts.circles).toBe(0);expect(counts.spokes).toBe(0);expect(counts.opacity).toBeGreaterThan(0);await noGeometryErrors(page);});
+ test('RelO clearing has positive local-luminance presence: rendered mean luminance inside is detectably higher than matched cold-field background (H-VIS-006 positive-presence rule)',async({page})=>{
+  await clickNode(page,'RelO.R4CB4A8D8');
+  await page.waitForTimeout(900);
+  const nodeBox=await page.locator('[data-bb-test-id="RelO.R4CB4A8D8"]').boundingBox().catch(()=>null)
+    ?? await (async()=>{await page.evaluate(()=>{for(const g of document.querySelectorAll('g.node'))if(g.__data__?.id)g.setAttribute('data-bb-test-id',g.__data__.id);});return page.locator('[data-bb-test-id="RelO.R4CB4A8D8"]').boundingBox();})();
+  const vp=page.viewportSize();
+  const buf=await page.screenshot();
+  const dataUrl='data:image/png;base64,'+buf.toString('base64');
+  const cx=nodeBox.x+nodeBox.width/2, cy=nodeBox.y+nodeBox.height/2;
+  // Candidate points near the RelO center (should sample the clearing tint,
+  // not a node body) vs. far corners of the field pane (should be plain
+  // cold background) -- both filtered through elementFromPoint so only
+  // genuine SVG-background samples (not a node/label/chrome element) count.
+  const insideCandidates=[[cx+70,cy],[cx-70,cy],[cx,cy+70],[cx,cy-70],[cx+50,cy+50],[cx-50,cy-50]];
+  const outsideCandidates=[[40,40],[vp.width*0.42,40],[40,vp.height-40],[vp.width*0.42,vp.height-40]];
+  const result=await page.evaluate(async({dataUrl,insideCandidates,outsideCandidates})=>{
+    const img=new Image();
+    await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=reject;img.src=dataUrl;});
+    const canvas=document.createElement('canvas');
+    canvas.width=img.width;canvas.height=img.height;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0);
+    const scaleX=img.width/window.innerWidth, scaleY=img.height/window.innerHeight;
+    function isBackground(x,y){
+      const el=document.elementFromPoint(x,y);
+      return !!el && (el.tagName==='svg' || el.classList?.contains('bb-clearing-field') || el.closest('.bb-clearing-layer'));
+    }
+    function luminance(x,y){
+      const px=ctx.getImageData(Math.round(x*scaleX),Math.round(y*scaleY),1,1).data;
+      return 0.2126*px[0]+0.7152*px[1]+0.0722*px[2];
+    }
+    const inside=insideCandidates.filter(([x,y])=>isBackground(x,y)).map(([x,y])=>luminance(x,y));
+    const outside=outsideCandidates.filter(([x,y])=>isBackground(x,y)).map(([x,y])=>luminance(x,y));
+    return {inside,outside};
+  },{dataUrl,insideCandidates,outsideCandidates});
+  expect(result.inside.length,'need at least one genuine clearing-background sample point').toBeGreaterThan(0);
+  expect(result.outside.length,'need at least one genuine cold-field sample point').toBeGreaterThan(0);
+  const meanInside=result.inside.reduce((a,b)=>a+b,0)/result.inside.length;
+  const meanOutside=result.outside.reduce((a,b)=>a+b,0)/result.outside.length;
+  expect(meanInside,`clearing luminance ${meanInside.toFixed(1)} must be detectably higher than cold-field luminance ${meanOutside.toFixed(1)}`).toBeGreaterThan(meanOutside*1.3);
+ });
  test('aperture core stays darker than field in warm and clearing states',async({page})=>{await clickNode(page,'FO.BLACK_BIRD_FIELD');const colors=await page.evaluate(()=>{const g=[...document.querySelectorAll('g.node')].find(x=>x.__data__?.id==='FO.BLACK_BIRD_FIELD');return{field:getComputedStyle(document.documentElement).getPropertyValue('--bb-field').trim(),core:getComputedStyle(g.querySelector('.bb-aperture-core')).fill};});expect(colors.core).not.toBe('');await clickNode(page,'RelO.R4CB4A8D8');expect((await design(page)).apertureCoreLit).toBeFalsy();});
  test('afterglow and wear are bounded and Reset Trace does not rewrite Route',async({page})=>{await clickNode(page,'FO.CORPSE');await clickNode(page,'FO.BURIAL');let s=await design(page);expect(s.afterglowIds.length).toBeLessThanOrEqual(8);expect(s.wearEntries.every(e=>e.passCount<=7)).toBeTruthy();const route=[...s.routeIds];await page.evaluate(()=>window.__bbDesign.resetTrace());s=await design(page);expect(s.afterglowIds).toEqual([]);expect(s.wearEntries).toEqual([]);expect(s.routeIds).toEqual(route);});
  test('local fonts load with no external font requests',async({page})=>{const requests=[];page.on('request',r=>{if(/fonts\.googleapis|fonts\.gstatic|fontsource|jsdelivr|unpkg/i.test(r.url()))requests.push(r.url());});await page.reload();await page.waitForFunction(()=>window.__bbDesign?.fontSnapshot);const f=await page.evaluate(()=>window.__bbDesign.fontSnapshot());expect(f.faces.every(x=>x.status==='loaded')).toBeTruthy();expect(f.urls.every(x=>x.startsWith('assets/fonts/'))).toBeTruthy();expect(requests).toEqual([]);});

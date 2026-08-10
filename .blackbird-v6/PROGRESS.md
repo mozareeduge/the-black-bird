@@ -181,9 +181,20 @@ yet independently verified · — not yet reached.
   inflated safe rect from the `.main` `min-height` bug. Tightened
   `tests/black-bird-world-camera.spec.js` from `<=2` to the sealed exact
   `0`, extended to all 3 desktop viewports (was 1).
-- ❓ RelO continuous clearing "almost disappears" perceptually (matrix row
-  "RelO") — H-VIS-006 requires positive local-luminance-lift proof within
-  the 0.10–0.16 fill band. Not yet independently re-measured.
+- ✅ **RelO continuous clearing — independently re-measured, found compliant,
+  not the defect the matrix row described.** `--bb-clearing-fill` is
+  `rgba(228,219,201,.16)` (already at the sealed 0.16 ceiling), and the
+  live rendered result was checked by actually sampling composited pixel
+  luminance (screenshot round-tripped through an in-page `<canvas>` +
+  `getImageData` — no new dependency needed), not just reading the CSS
+  value: mean luminance inside the clearing (~16–18) vs. matched cold-field
+  background (~6–8) at 1280×800 — roughly 2–2.5x, a genuine, non-trivial
+  lift, not "practically invisible." Locked with a new regression test
+  (`tests/black-bird-design.spec.js`, "RelO clearing has positive
+  local-luminance presence"), robust across 5 repeated runs. Possible this
+  matrix-row complaint predates other fixes in this round, or was about a
+  different aspect (shape/extent) than raw luminance — either way, current
+  state is verified, not assumed.
 - ❓ Ordinary/ambient focus material "weak, central labels still congest"
   (matrix row "Ordinary focus") — not yet independently re-measured.
 - ❓ Route/wear/afterglow "visible material too weak/unproven" (matrix row
@@ -198,10 +209,20 @@ yet independently verified · — not yet reached.
 
 ### E3 — Interaction, accessibility, resilience — NOT YET REACHED
 
-- ❓ text-zoom-200 evidence was viewport substitution, not real 200% browser
-  zoom — my accessibility.css wiring fix may have removed the reason this
-  was faked (the reflow-safety CSS it needed now exists in production);
-  needs a real 200%-zoom test to confirm, not assumed fixed as a side effect.
+- ❓ text-zoom-200: confirmed this is `RESPONSIVE-ACCESS/text-zoom-200` in
+  `tests/contracts/evidence-plan.json`/`final-closure-contract.json` — an
+  E5 evidence-artifact identifier, not a current test-suite gap. Correctly
+  deferred to E5, not miscategorized. One real finding worth recording:
+  tried CSS `zoom:2` on `<html>` as a "real zoom" simulation and it does
+  NOT change `window.innerWidth` in headless Chromium/Playwright (verified
+  directly) — doesn't behave like real browser page zoom here. Existing
+  tests' "200%-zoom-equivalent viewport" (shrunk viewport width) is
+  actually the W3C's own defined reflow-testing methodology (WCAG SC
+  1.4.10 explicitly equates zoom levels to CSS-pixel viewport widths), so
+  that part is legitimate, not a shortcut -- but SC 1.4.4 (Resize Text) is
+  a different criterion about genuine zoom behavior, and CDP-level real
+  zoom emulation (not CSS zoom) would need investigating when E5 is
+  reached, not assumed solved by the accessibility.css wiring.
 - ❓ keyboard-edge-focus / tooltip-edge scenarios don't establish their named
   edge cases.
 - — everything else in `EXECUTION_DAG.md` E3's list, not yet audited.
