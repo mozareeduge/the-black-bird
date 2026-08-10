@@ -161,6 +161,23 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     expect(result.finalText).toBe('Route: A, B, C.');
   });
 
+  test('hovering an inactive object shows a visible preview with its correct label (P-SCN-017)', async ({ page }) => {
+    // The only prior coverage of PREVIEW_OBJECT was the reducer's
+    // Route/trace-neutrality test (state-shape only) and P-SCN-018's
+    // already-active-object variant below -- no test hovered a genuinely
+    // inactive, baseline object and checked the real preview UI actually
+    // appears with the right content.
+    await gotoField(page, { reduced: true });
+    await tagNodes(page);
+    await page.mouse.move(5, 5);
+    await node(page, 'FO.CAIN').hover();
+    await page.waitForTimeout(260);
+    const preview = page.locator('#microPreview');
+    await expect(preview).toHaveClass(/visible/);
+    await expect(preview.locator('.micro-preview-title')).toHaveText('Cain');
+    expect(await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId)).not.toBe('FO.CAIN');
+  });
+
   test('hovering the already-active object still previews it, with no Route/trace side effect (P-SCN-018)', async ({
     page,
   }) => {

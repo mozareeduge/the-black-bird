@@ -445,11 +445,38 @@ yet independently verified · — not yet reached.
   - `scenario-coverage-map.json` updated for P-SCN-093/100/125 (diff
     verified minimal). `check-scenario-coverage.mjs` still 115/115/0/0.
     `verify:closure:local` clean (16/17).
-- **Still open**: ~78 of 115 scenarios not yet individually re-judged
-  (remaining categories: `entry`, `selection`, `preview`, `reader`,
-  `index`, `view`, `solo`, `mobile`, `accessibility`). Yield so far: 2
-  real gaps in 37 scenarios across 2 batches — worth continuing, each
-  batch judged on its own token cost vs. expected yield.
+- ✅ **Line-by-line pass, batch 3/N (32 scenarios: `entry`, `selection`,
+  `preview`, `reader`).** Two real gaps found:
+  - **P-SCN-017** ("Preview inactive object") — evidence covered only
+    PREVIEW_OBJECT's Route/trace neutrality, never the visual preview UI
+    for the baseline case (P-SCN-018's test only exercises the
+    already-active-object variant). Added a dedicated test hovering a
+    genuinely inactive object, checking `#microPreview` becomes visible
+    with the correct label. Caught its own bug while writing it: `node()`
+    needs `tagNodes()` called first, normally done implicitly by
+    `clickNode()` — this test deliberately doesn't commit first, so it
+    needed the explicit call.
+  - **P-SCN-023/026** ("Read FO" / "Read RelO") — RNO/MNO/RefO/NameO all
+    had a live-DOM Reader-panel check; FO and RelO didn't, only the
+    type-generic view-model unit test. Root cause: FO and RelO have no
+    prose `body` at all (structural/relational objects, unlike the
+    prose-bearing types), so a body-text-match test (my first attempt)
+    was architecturally wrong for them — fixed to check their real
+    canonical relations (`vm.relos`/`vm.participants`) actually appear as
+    index items in the rendered Reader panel. One combined test added to
+    `tests/e2e/reader.spec.js` for both.
+  - Remaining 30 of this batch (including 3 more self-admitting notes
+    checked and confirmed non-gaps: P-SCN-117's "not a single combined
+    multi-channel test" — the reducer-level idempotency check is
+    channel-agnostic by construction, combining channels adds no new
+    information): genuinely specific and sufficient.
+  - `scenario-coverage-map.json` updated for P-SCN-017/023/026 (diff
+    verified minimal). `check-scenario-coverage.mjs` still 115/115/0/0.
+- **Still open**: ~46 of 115 scenarios not yet individually re-judged
+  (remaining categories: `index`, `view`, `solo`, `mobile`,
+  `accessibility`). Yield so far: 5 real gaps in 69 scenarios across 3
+  batches — still worth continuing, each batch judged on its own token
+  cost vs. expected yield.
 
 ### E5 — Evidence system reconstruction — IN PROGRESS
 

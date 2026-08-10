@@ -117,6 +117,34 @@ test.describe('Reader subject view models and renderer (T18)', () => {
     expect(normalize(rendered)).toContain(normalize(plainBody).slice(0, 40));
   });
 
+  test('the live Reader panel lists FO and RelO real canonical relations, not a paraphrase or omission (P-SCN-023/026)', async ({
+    page,
+  }) => {
+    // RNO/MNO (above) and RefO/NameO (elsewhere in this file) already get a
+    // live-DOM check; FO and RelO -- both separately named scenarios -- only
+    // had the type-generic view-model unit test, never a live-render check.
+    // Unlike RNO/MNO/RefO, FO and RelO have no prose `body` at all (they're
+    // structural/relational objects) -- their Reader content is a rendered
+    // index list of related ids (vm.relos/appearsIn/sourceNames for FO,
+    // vm.participants for RelO), so the meaningful check is that those real
+    // canonical ids actually appear as index items, not a body-text match.
+    const { DATA, ctx, buildObjectViewModel } = await loadModels();
+    const foId = DATA.nodes.find((n) => n.type === 'FO' && n.id !== 'FO.BLACK_BIRD_FIELD' && buildObjectViewModel(n.id, ctx).relos.length).id;
+    const relId = DATA.nodes.find((n) => n.type === 'RelO').id;
+
+    await gotoField(page, { reduced: true });
+
+    const foVm = buildObjectViewModel(foId, ctx);
+    await clickNode(page, foId);
+    const foIndexIds = await page.evaluate(() => [...document.querySelectorAll('#reader .index-item')].map((el) => el.dataset.id));
+    for (const relatedId of foVm.relos) expect(foIndexIds).toContain(relatedId);
+
+    const relVm = buildObjectViewModel(relId, ctx);
+    await clickNode(page, relId);
+    const relIndexIds = await page.evaluate(() => [...document.querySelectorAll('#reader .index-item')].map((el) => el.dataset.id));
+    for (const participantId of relVm.participants) expect(relIndexIds).toContain(participantId);
+  });
+
   test('following an inline MNO link commits its target (P-SCN-027)', async ({ page }) => {
     await gotoField(page, { reduced: true });
     // MNO.WINDOW_DARKNESS body links to FO.WINDOW (verified against canonical-data.js).

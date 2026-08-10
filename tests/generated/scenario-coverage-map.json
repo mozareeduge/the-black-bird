@@ -143,9 +143,10 @@
       "category": "preview",
       "status": "covered",
       "evidence": [
-        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)",
+        "tests/e2e/tooltip-keyboard-status.spec.js :: hovering an inactive object shows a visible preview with its correct label (P-SCN-017)"
       ],
-      "notes": "Covers PREVIEW_OBJECT route/trace neutrality; not the visual preview UI itself."
+      "notes": "Original evidence covered only PREVIEW_OBJECT's Route/trace neutrality, not the visual preview UI itself for the baseline (inactive-object) case -- P-SCN-018's test only ever exercised the already-active-object variant. Added a dedicated test hovering a genuinely inactive object and checking the real #microPreview becomes visible with the correct label."
     },
     {
       "id": "P-SCN-018",
@@ -205,9 +206,10 @@
       "category": "reader",
       "status": "covered",
       "evidence": [
-        "tests/e2e/reader.spec.js :: every one of the six canonical object types produces a view model..."
+        "tests/e2e/reader.spec.js :: every one of the six canonical object types produces a view model that preserves canonical text and links exactly, with no generated filler",
+        "tests/e2e/reader.spec.js :: the live Reader panel lists FO and RelO real canonical relations, not a paraphrase or omission (P-SCN-023/026)"
       ],
-      "notes": null
+      "notes": "FO has no prose body (unlike RNO/MNO) -- it's a structural/relational object, so the earlier live-DOM checks (RNO/MNO body text, RefO citation, NameO source script) never covered it. Added a live check that FO's real canonical relos actually appear as index items in the rendered Reader panel."
     },
     {
       "id": "P-SCN-024",
@@ -235,9 +237,10 @@
       "category": "reader",
       "status": "covered",
       "evidence": [
-        "tests/e2e/reader.spec.js :: every one of the six canonical object types produces a view model..."
+        "tests/e2e/reader.spec.js :: every one of the six canonical object types produces a view model that preserves canonical text and links exactly, with no generated filler",
+        "tests/e2e/reader.spec.js :: the live Reader panel lists FO and RelO real canonical relations, not a paraphrase or omission (P-SCN-023/026)"
       ],
-      "notes": null
+      "notes": "Same gap as P-SCN-023: RelO has no prose body either (just participants), and had no live-DOM check of its own. Added a live check that RelO's real canonical participants appear as index items in the rendered Reader panel."
     },
     {
       "id": "P-SCN-027",
