@@ -323,10 +323,26 @@ yet independently verified · — not yet reached.
   E2–E4 are stable — evidence should be generated from the real final state,
   not regenerated repeatedly against a moving target.
 
-### E6 — CI truth — NOT YET REACHED
+### E6 — CI truth — FIX PUSHED, AWAITING CI CONFIRMATION
 
-- ❓ Exact-head CI reportedly doesn't run the complete closure command (a
-  subset only). Re-verify once there's a stable candidate to run it against.
+- ✅ **Confirmed and fixed.** `.github/workflows/exact-head-verify.yml`'s own
+  header comment claimed it "runs the same full local suite against that
+  literal commit," but its actual steps only ran
+  build/build:verify/test:unit/test:e2e/test:a11y — never
+  `npm run verify:closure:ci` (`scripts/verify-closure.mjs --ci`), the
+  actual complete-closure command. source-policy, contract-coherence,
+  production-ownership, semantic-duplication, traceability, the
+  115-scenario coverage gate, the generated pairwise/critical-triple
+  suites, and the legacy Playwright suites were never exercised by CI at
+  all. Fixed: workflow now installs all 3 browsers and runs
+  `verify:closure:ci` directly. Verified `verify:closure:local` passes
+  cleanly locally first (16/17, only cross-browser skipped — no
+  firefox/webkit binaries in this sandbox, expected/documented) before
+  trusting the change enough to push it. Pushed as `10cdfed`; CI run
+  queued at push time (run id 31370318556) — **still needs the actual
+  GitHub Actions run to complete and be checked**, not just assumed green
+  because the local equivalent passed. Timeout bumped 30→55min for the
+  much larger check list.
 
 ### E7–E9 — Freeze, final evidence/owner bundle, terminal state — NOT YET REACHED
 
