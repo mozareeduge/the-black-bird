@@ -82,7 +82,7 @@ function countLabelOverlaps() {
 }
 
 test.describe('Responsive/visual closure (F08/R6): no sheet leak, label collision, or clipped chrome', () => {
-  test('the compact desktop profile (1024x640): Index drawer, Field View drawer, and About panel settle fully inside the viewport', async ({
+  test('the compact desktop profile (1024x640): Index drawer, Field View drawer, About panel, and Route drawer settle fully inside the viewport', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1024, height: 640 });
@@ -112,6 +112,24 @@ test.describe('Responsive/visual closure (F08/R6): no sheet leak, label collisio
     await page.waitForTimeout(400);
     await noHorizontalOverflow(page);
     await withinViewport(page, page.locator('#aboutPanel'));
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#aboutPanel')).not.toHaveClass(/open/);
+
+    // The Route drawer was never checked at this compact height (it isn't
+    // reachable via the drawers above -- opening it needs a collapsed
+    // Route strip, which needs > 4 committed objects, see
+    // routeApertureEvents() in src/app.js): a real coverage gap, not a
+    // confirmed defect. 5 distinct commits (6 total with onboarding)
+    // collapses the strip at this >=1180px... except 1024 is BELOW that
+    // threshold, so maxTail is 3 here and collapse needs > 4 total events --
+    // 4 explicit commits (5 total) already clears it.
+    for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.BURIAL', 'FO.ALLAH']) {
+      await clickNode(page, id);
+    }
+    await page.locator('#route [data-route-open], #route .route-ellipsis').first().click();
+    await page.locator('#routeDrawer').waitFor({ state: 'visible' });
+    await noHorizontalOverflow(page);
+    await withinViewport(page, page.locator('#routeDrawer'));
   });
 
   for (const vp of [

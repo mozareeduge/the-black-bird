@@ -293,6 +293,74 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
     expect(await page.locator('.bb-unavailable').count()).toBe(0);
   });
 
+  test('pinch-zooming to the maximum scale on a dense mobile RelO clearing produces no label or node collisions', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { reduced: true });
+    await clickNode(page, 'RelO.R4CB4A8D8'); // the dense, multi-participant RelO used throughout the suite
+    await page.waitForTimeout(500);
+
+    const svgBox = await page.locator('#graphSvg').boundingBox();
+    await page.mouse.move(svgBox.x + svgBox.width / 2, svgBox.y + svgBox.height / 2);
+    await page.keyboard.down('Control');
+    for (let i = 0; i < 15; i++) {
+      await page.mouse.wheel(0, -120);
+      await page.waitForTimeout(30);
+    }
+    await page.keyboard.up('Control');
+    await page.waitForTimeout(200);
+
+    const k = await page.evaluate(() => window.__bbTest.getUiRuntime().transform.k);
+    expect(k).toBe(2.4); // scaleMax (algorithm-contracts.json) -- confirms this is genuinely the max-zoom state
+
+    const counts = await page.evaluate(() => {
+      const t = window.__bbTest.getUiRuntime().transform;
+      const labelRects = [...document.querySelectorAll('text.node-label')]
+        .filter((el) => getComputedStyle(el).display !== 'none')
+        .map((el) => {
+          const g = el.closest('g.node');
+          const n = g && g.__data__;
+          if (!n) return null;
+          const bbox = el.getBBox();
+          const ox = +el.getAttribute('x') || 0,
+            oy = +el.getAttribute('y') || 0;
+          const anchor = el.getAttribute('text-anchor');
+          const cx = n.x + ox,
+            cy = n.y + oy;
+          let rx1, rx2;
+          if (anchor === 'start') {
+            rx1 = cx;
+            rx2 = cx + bbox.width;
+          } else if (anchor === 'end') {
+            rx1 = cx - bbox.width;
+            rx2 = cx;
+          } else {
+            rx1 = cx - bbox.width / 2;
+            rx2 = cx + bbox.width / 2;
+          }
+          const ry1 = cy - bbox.height * 0.8,
+            ry2 = cy + bbox.height * 0.3;
+          const sx1 = t.applyX(rx1),
+            sx2 = t.applyX(rx2),
+            sy1 = t.applyY(ry1),
+            sy2 = t.applyY(ry2);
+          return { x1: Math.min(sx1, sx2), x2: Math.max(sx1, sx2), y1: Math.min(sy1, sy2), y2: Math.max(sy1, sy2) };
+        })
+        .filter(Boolean);
+      let labelOverlaps = 0;
+      for (let i = 0; i < labelRects.length; i++)
+        for (let j = i + 1; j < labelRects.length; j++) {
+          const a = labelRects[i],
+            b = labelRects[j];
+          if (a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1) labelOverlaps++;
+        }
+      return { labelOverlaps, labelCount: labelRects.length };
+    });
+    expect(counts.labelOverlaps).toBe(0);
+    expect(counts.labelCount).toBeGreaterThan(0);
+  });
+
   test('keyboard traversal still works on the mobile viewport (P-SCN-077)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoField(page, { reduced: true });

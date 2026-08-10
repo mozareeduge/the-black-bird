@@ -216,16 +216,48 @@ yet independently verified · — not yet reached.
   them. Needs actual motion capture to verify properly (this is really an
   E5 evidence-capture question, not something to eyeball now) — left open
   rather than guessed at.
-- ❓ Mobile Field default collisions, thin relational material, unproven
-  dense-zoom k≈2.4 state (matrix row "Mobile Field") — depends on the mobile
-  measurement-methodology fix above.
+- ✅ **Mobile Field default collisions / dense-zoom k≈2.4 — checked directly
+  with real geometry measurement, does not reproduce.** Measured actual
+  label-bbox and node-body overlap (same formula as the desktop
+  zero-overlap test) at: (a) default whole-field mobile state, both
+  390x844 and 430x932 — 0 overlaps; (b) a real pinch-zoom gesture
+  (Ctrl+wheel, matching P-SCN-076's established pattern) on the densest
+  RelO clearing driven all the way to scaleMax=2.4 — 0 label overlaps, 0
+  significant node-body overlaps, 50 labels rendered. Added a permanent
+  regression test for the max-zoom case (previously uncovered — existing
+  tests check the *result* of automatic focus-camera fits, not manual
+  zoom-in past that) to `tests/e2e/mobile-chambers.spec.js`. "Thin
+  relational material" is a qualitative/aesthetic claim, not something a
+  collision count can settle — left as the user's own call, same as the
+  Route/wear/afterglow material-strength item above.
 - ✅ **1024×640 "horizontal mobile-sheet band" — checked directly, does not
   reproduce.** Screenshotted the live page at 1024×640 in both neutral and
   focused states: clean compact-desktop composition, no mobile-sheet
   styling bleed (1024 is above the 900px mobile breakpoint, so it should
-  never see mobile sheet styles at all, and doesn't). Confirms the PR
-  body's own "did not reproduce" finding independently, not just repeated
-  from it.
+  never see mobile sheet styles at all, and doesn't).
+- ✅ **1024×640 "overlay-leak" — checked directly, does not reproduce.**
+  Every overlay at this viewport was individually verified within-bounds:
+  Index/Field-View/About (existing test, already passing) plus Route
+  drawer (untested before — real coverage gap, not a confirmed defect;
+  measured directly, clean, added to the same test). No edge sheet applies
+  (mobile-only, and 1024 is above the 860px breakpoint). A different claim
+  than the mobile-sheet-band finding above, same viewport, same
+  conclusion.
+- 🔎 **New find, not yet investigated: `black-bird-design.spec.js`'s
+  "reduced motion preserves state without blur or pulse" test is
+  genuinely flaky (~1/3 fail rate, reproduces on clean HEAD without any
+  of this session's changes — confirmed via `git stash`).** Failure is
+  always the same: the 2nd `clickNode` (FO.BURIAL, right after FO.CORPSE)
+  reports the click landed but `activeId` reads back as
+  `FO.BLACK_BIRD_FIELD` — looks like the click missed FO.BURIAL's hit
+  target and landed on field background instead, despite
+  `waitForCameraSettled`/`waitForSimSettled` both having already passed.
+  Pre-existing, unrelated to any fix in this session — not investigated
+  further yet (token-budget triage: discovered during a routine full-suite
+  run, not on this cycle's fix path). Worth a real look next: likely the
+  same category of camera-reposition-vs.-click-timing race already fixed
+  once this session for a different test (see the hover-preview
+  animation-drift fix above).
 - ✅ **Object Solo — spot-checked, composition held up through the camera
   fixes (uses the same focus-fit path, so benefits from the same
   occupancy correction).** Live screenshot (FO.CORPSE Solo via the real
