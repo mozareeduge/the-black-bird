@@ -523,7 +523,7 @@ yet independently verified · — not yet reached.
   work is planned unless a future lead specifically calls one of the 115
   into question again.
 
-### E5 — Evidence system reconstruction — IN PROGRESS
+### E5 — Evidence system reconstruction — CLOSED
 
 - ✅ **Axe scanner error silently passing the evidence gate — confirmed real,
   root-caused, and fixed (not just the audit's suspicion).**
@@ -608,6 +608,32 @@ yet independently verified · — not yet reached.
   - Re-ran `evidence:generate` after all 3 fixes: 44/44 entries, gate
     clean (only the expected local `ffprobe`-missing errors, unchanged
     from before).
+- ✅ **4th real bug, closing the last named E5 item ("normal-motion-vs-
+  reduced-motion capture correctness"): `entry-and-interruption`'s
+  capture never actually recorded real entry motion.** It navigated to
+  the real threshold, waited 1.5s (genuinely showing it), then called
+  `gotoField(page, {reduced:false})` — which, with `realOnboarding` left
+  at its default `false`, internally re-navigates to the skipIntro URL.
+  That hard page reload discarded the threshold view and skipped past
+  onboarding entirely, so the "entry" recording only ever showed a
+  static threshold frame, a jarring reload-cut, then a plain post-skip
+  landing — the actual animated entry transition was never captured.
+  Verified directly (reproduced the exact sequence): confirmed
+  `hasThreshold: true` before the cut, then a URL change to
+  `?skipIntro=1` after. Fixed by using `gotoField(page, {reduced:false,
+  realOnboarding:true})` directly — drives gotoField's own real
+  Enter-button click, capturing genuine animated entry motion with no
+  reload-cut. Verified: stays on the same URL throughout, lands
+  correctly (`phase:'focused'`, `anchorId:'FO.BLACK_BIRD_FIELD'`),
+  `reducedMotion:false` honored, and the subsequent commit still shows
+  real motion (`maxAppliedBlurPx:0.6`, `travelPulseActive:true`).
+  Re-ran full `evidence:generate`: 44/44 entries; gate clean (only the
+  expected local `ffprobe`-missing errors).
+- **E5 CLOSED.** All 4 originally-named false/wrong-state evidence items
+  (Axe scanner swallow, projected-edge selector, route-long threshold,
+  mobile motion frame size) plus this 4th one found along the way
+  (entry-motion reload-cut) are fixed and directly verified. No further
+  named E5 leads remain.
 
 ### E6 — CI truth — CLOSED, VERIFIED IN ACTUAL CI (not just locally-plausible)
 

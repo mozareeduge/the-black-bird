@@ -350,10 +350,19 @@ const MOBILE_VIEWPORT = { width: 390, height: 844 };
 // right size from the start.
 const MOTION_RECORDINGS = [
   ['entry-and-interruption', DESKTOP_VIEWPORT, async (page) => {
-    await page.goto('http://127.0.0.1:4173/?bbtest=1');
-    await page.waitForTimeout(1500);
-    await gotoField(page, { reduced: false });
-    await page.waitForTimeout(2000);
+    // The previous version navigated to the real threshold, waited 1.5s
+    // (genuinely showing it), then called gotoField(page, {reduced:false})
+    // -- which, with realOnboarding left at its default false, internally
+    // re-navigates to the skipIntro URL. That hard page reload discarded
+    // the threshold view and skipped straight past onboarding, so this
+    // "entry" recording never actually captured the real animated entry
+    // transition it's named for -- only a static threshold frame, a jarring
+    // reload-cut, then a plain post-skip landing. realOnboarding:true drives
+    // gotoField's own real Enter-button click, capturing the genuine
+    // animated entry motion (reduced:false is honored throughout: no
+    // emulateMedia call, natural motion).
+    await gotoField(page, { reduced: false, realOnboarding: true });
+    await page.waitForTimeout(1000);
     await clickNode(page, 'FO.CORPSE');
     await page.waitForTimeout(6000);
   }],
