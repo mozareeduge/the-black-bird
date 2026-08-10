@@ -106,8 +106,28 @@ async function captureProjectedInspection(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await gotoField(page, { reduced: true });
   await clickNode(page, 'FO.CAIN');
-  const edge = page.locator('.edge.projected, line.projected, .proj-edge, path.projected').first();
-  if (await edge.count()) await edge.click({ timeout: 3000 }).catch(() => {});
+  // The real projected-edge click target is line.hit (src/app.js: projHitSel,
+  // the invisible wide-stroke hit line the click handler is actually bound
+  // to -- .link-proj is the thin visible stroke, not the pointer target).
+  // The previous selector list (.edge.projected/line.projected/.proj-edge/
+  // path.projected) matches no element the app ever renders, so
+  // edge.count() was always 0 and this click silently no-op'd every time --
+  // this "projected inspection" evidence never actually inspected one.
+  // A direct dispatchEvent (not a Playwright locator .click()) on the first
+  // display!=none line.hit matches the same proven pattern
+  // tests/e2e/tooltip-keyboard-status.spec.js already uses for P-SCN-124 --
+  // Playwright's actionability/visibility check on these transparent,
+  // camera-panned hit lines is unreliable (bounding boxes can read as
+  // off-viewport even when display!=none and the app itself renders/hits
+  // them fine), so a locator .click() times out where a real click
+  // wouldn't.
+  const clicked = await page.evaluate(() => {
+    const line = [...document.querySelectorAll('line.hit')].find((l) => l.getAttribute('display') !== 'none');
+    if (!line) return false;
+    line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    return true;
+  });
+  if (clicked) await page.waitForTimeout(300);
 }
 async function captureSolo(page, id) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -163,8 +183,20 @@ async function captureRouteLong(page) {
   // call had run, always saw zero matches, and `continue`d on every
   // iteration -- this function committed nothing at all (F09/R7: caught the
   // same way as captureWholeField's bug above).
-  for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.BURIAL', 'FO.ALLAH']) {
+  // routeApertureEvents() (src/app.js) only collapses the strip once
+  // history.route.length exceeds maxTail+1 (4+1=5 at this >=1180px
+  // viewport, including the 1 onboarding event). The previous 4-commit list
+  // landed at exactly 5 total events -- one short of collapse -- so this
+  // "route-long" screenshot was indistinguishable from an ordinary short
+  // route. A 5th distinct commit (6 total) reliably collapses it; opening
+  // the resulting drawer is what actually shows the long-route state.
+  for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.BURIAL', 'FO.ALLAH', 'FO.ABEL']) {
     await clickNode(page, id).catch(() => {});
+  }
+  const ellipsis = page.locator('#route [data-route-open], #route .route-ellipsis').first();
+  if (await ellipsis.count()) {
+    await ellipsis.click();
+    await page.locator('#routeDrawer').waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   }
 }
 // Route and trace clear independently (Route drawer's two distinct
@@ -303,8 +335,21 @@ const STATIC_SETS = {
   ],
 };
 
+const DESKTOP_VIEWPORT = { width: 1280, height: 800 };
+const MOBILE_VIEWPORT = { width: 390, height: 844 };
+// Every motion context below was previously created with a hardcoded
+// 1280x800 recordVideo.size regardless of which scenario ran in it.
+// Playwright's recordVideo.size, once set at context creation, is the
+// video's fixed frame size for its whole lifetime -- calling
+// setViewportSize() later (as 'mobile-complete-path' does, to actually
+// show the mobile-shaped UI) changes the live page viewport but not the
+// video frame, so that recording's real mobile-portrait content was
+// letterboxed/scaled into a landscape 1280x800 frame instead of being
+// recorded at its own real dimensions. Each entry below now names its
+// required viewport so the context (and its video) is created at the
+// right size from the start.
 const MOTION_RECORDINGS = [
-  ['entry-and-interruption', async (page) => {
+  ['entry-and-interruption', DESKTOP_VIEWPORT, async (page) => {
     await page.goto('http://127.0.0.1:4173/?bbtest=1');
     await page.waitForTimeout(1500);
     await gotoField(page, { reduced: false });
@@ -312,7 +357,7 @@ const MOTION_RECORDINGS = [
     await clickNode(page, 'FO.CORPSE');
     await page.waitForTimeout(6000);
   }],
-  ['rapid-latest-action', async (page) => {
+  ['rapid-latest-action', DESKTOP_VIEWPORT, async (page) => {
     await gotoField(page, { reduced: true });
     for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.BURIAL', 'FO.ALLAH']) {
       await clickNode(page, id).catch(() => {});
@@ -320,15 +365,20 @@ const MOTION_RECORDINGS = [
     }
     await page.waitForTimeout(2000);
   }],
-  ['preview-and-projected-inspection', async (page) => {
+  ['preview-and-projected-inspection', DESKTOP_VIEWPORT, async (page) => {
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CAIN');
     await page.waitForTimeout(2000);
-    const edge = page.locator('.edge.projected, line.projected, .proj-edge, path.projected').first();
-    if (await edge.count()) await edge.click({ timeout: 3000 }).catch(() => {});
+    // See captureProjectedInspection's comment above -- line.hit is the
+    // real click target and a direct dispatchEvent (not a locator .click())
+    // is required for the same actionability-check reason.
+    await page.evaluate(() => {
+      const line = [...document.querySelectorAll('line.hit')].find((l) => l.getAttribute('display') !== 'none');
+      if (line) line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
     await page.waitForTimeout(6000);
   }],
-  ['relation-and-solo', async (page) => {
+  ['relation-and-solo', DESKTOP_VIEWPORT, async (page) => {
     await gotoField(page, { reduced: true });
     await clickNode(page, 'RelO.R7080EA25');
     await page.waitForTimeout(2000);
@@ -339,7 +389,7 @@ const MOTION_RECORDINGS = [
     if (await soloBtn.count()) await soloBtn.click();
     await page.waitForTimeout(6000);
   }],
-  ['temporal-truth-and-clears', async (page) => {
+  ['temporal-truth-and-clears', DESKTOP_VIEWPORT, async (page) => {
     await gotoField(page, { reduced: true });
     // routeApertureEvents() (src/app.js) only collapses the strip to an
     // ellipsis -- the sole way to open the route drawer, D-DEC-10/22 -- once
@@ -363,8 +413,7 @@ const MOTION_RECORDINGS = [
     }
     await page.waitForTimeout(4000);
   }],
-  ['mobile-complete-path', async (page) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+  ['mobile-complete-path', MOBILE_VIEWPORT, async (page) => {
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CORPSE');
     await page.waitForTimeout(1500);
@@ -373,7 +422,7 @@ const MOTION_RECORDINGS = [
     await page.locator('[data-mobile="field"]').click();
     await page.waitForTimeout(4000);
   }],
-  ['reduced-motion-parity', async (page) => {
+  ['reduced-motion-parity', DESKTOP_VIEWPORT, async (page) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await gotoField(page, { reduced: true });
     await clickNode(page, 'FO.CORPSE');
@@ -462,11 +511,11 @@ async function main() {
     }
 
     // ── motion recordings ─────────────────────────────────────────────
-    for (const [name, fn] of MOTION_RECORDINGS) {
+    for (const [name, viewport, fn] of MOTION_RECORDINGS) {
       const context = await browser.newContext({
-        viewport: { width: 1280, height: 800 },
+        viewport,
         baseURL: BASE_URL,
-        recordVideo: { dir: MOTION_DIR, size: { width: 1280, height: 800 } },
+        recordVideo: { dir: MOTION_DIR, size: viewport },
       });
       const page = await context.newPage();
       try {

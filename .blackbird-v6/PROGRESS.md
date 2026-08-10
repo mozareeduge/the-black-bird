@@ -414,15 +414,41 @@ yet independently verified · — not yet reached.
     `black-bird-design.spec.js`/`black-bird-world-camera.spec.js` tests,
     `build`/`build:verify` — all green. `verify:closure:local` also run as
     the aggregate integration check.
-- ❓ Still open, deferred until picked up next: the other named
-  false/wrong-state evidence artifacts (projected-edge state evidence,
-  route-long 500+ event evidence, mobile motion frame size, normal-motion
-  vs. reduced-motion capture correctness). Evidence should be generated from
-  the real final state, so these are reasonable to defer further until E2–E4
-  are fully stable, but the Axe fix above was addressed now because it was a
-  genuine, previously-invisible correctness bug in the evidence system
-  itself (a false-negative accessibility gate), not a moving-target
-  re-capture question.
+- ✅ **3 more real, confirmed bugs in `scripts/generate-evidence.mjs`, fixed and directly verified (not just re-run):**
+  - `captureProjectedInspection`/`preview-and-projected-inspection`: the
+    click selector (`.edge.projected, line.projected, .proj-edge,
+    path.projected`) matches no element the app ever renders — the real
+    class is `line.hit` (`src/app.js` `projHitSel`). `edge.count()` was
+    always 0, so this "projected inspection" evidence never inspected one.
+    Fixed to find the first `display!=none` `line.hit` and dispatch a real
+    click event on it (Playwright locator `.click()` on these elements
+    times out — their computed bounding boxes read as off-viewport under
+    the camera pan/zoom transform even when actually rendered/clickable;
+    matches the proven pattern already used by
+    `tests/e2e/tooltip-keyboard-status.spec.js`'s P-SCN-124 test).
+    Verified directly: dispatch succeeds, `state.reading.inspection` is
+    populated, `#reader .edge-head` becomes visible.
+  - `captureRouteLong`: committed only 4 nodes = 5 total route events
+    (incl. onboarding), one short of the >5 threshold
+    `routeApertureEvents()` needs to collapse the strip at this viewport —
+    so "route-long" was indistinguishable from an ordinary route. Fixed to
+    5 commits (6 total) and now opens the resulting drawer. Verified
+    directly: 6 total events, ellipsis present, drawer opens.
+  - Every motion-recording context was built with a hardcoded
+    `recordVideo.size: {1280,800}` regardless of scenario;
+    `mobile-complete-path` then called `setViewportSize(390,844)`
+    mid-context, which changes the live page but not the already-fixed
+    video frame size — its real mobile content was being
+    recorded into a landscape frame. `MOTION_RECORDINGS` entries now
+    declare their own viewport (`DESKTOP_VIEWPORT`/`MOBILE_VIEWPORT`), and
+    the context/recordVideo size is built from that per entry. Not
+    independently pixel-verified (no `ffprobe` locally, same pre-existing
+    gap as always) — verified by code/API contract instead
+    (Playwright's `recordVideo.size` is fixed at context creation; the fix
+    makes that size match the scenario for the first time).
+  - Re-ran `evidence:generate` after all 3 fixes: 44/44 entries, gate
+    clean (only the expected local `ffprobe`-missing errors, unchanged
+    from before).
 
 ### E6 — CI truth — CLOSED, VERIFIED IN ACTUAL CI (not just locally-plausible)
 
