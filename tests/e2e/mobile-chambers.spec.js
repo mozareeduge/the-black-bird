@@ -124,6 +124,35 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
     expect(afterStop).toBe(0);
   });
 
+  test('the virtual keyboard opening during an active Index search leaves the search input and results reachable (P-SCN-123)', async ({
+    page,
+  }) => {
+    // The isolated-controller test above only proves the visualViewport
+    // mechanism itself works with a fake environment; it never combined a
+    // real keyboard-open event with the Index search UI actually being
+    // open on the live app. A real on-screen keyboard shrinks
+    // visualViewport.height while leaving window.innerHeight (the CSS
+    // layout viewport / 100vh) unchanged -- unlike setViewportSize, which
+    // would shrink both -- so that distinction is simulated directly here.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { reduced: true });
+    await page.locator('[data-mobile="index"]').click();
+    await page.locator('#objectSearch').fill('Cain');
+    await page.waitForTimeout(100);
+
+    const fakeHeight = 500; // was 844; simulates ~344px of keyboard coverage
+    await page.evaluate((h) => {
+      Object.defineProperty(window.visualViewport, 'height', { configurable: true, get: () => h });
+      window.visualViewport.dispatchEvent(new Event('resize'));
+    }, fakeHeight);
+
+    expect(await page.evaluate(() => window.innerHeight)).toBe(844); // layout viewport untouched
+    const searchBox = await page.locator('#objectSearch').boundingBox();
+    const resultBox = await page.locator('.object-row').first().boundingBox();
+    expect(searchBox.y + searchBox.height).toBeLessThanOrEqual(fakeHeight);
+    expect(resultBox.y + resultBox.height).toBeLessThanOrEqual(fakeHeight);
+  });
+
   test('ensureNoRedundantSheet closes an open legacy sheet and reports whether it did (D-DEC-09/D-DEC-19)', async ({
     page,
   }) => {

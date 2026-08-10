@@ -635,9 +635,10 @@
       "category": "mobile",
       "status": "covered",
       "evidence": [
-        "tests/black-bird-mobile.spec.js :: no clipped active label or active body at 390x844 bottom-nav-adjusted safe rect"
+        "tests/black-bird-mobile.spec.js :: no clipped active label or active body at 390x844 bottom-nav-adjusted safe rect",
+        "tests/e2e/responsive-visual-closure.spec.js :: mobile 390x844: no node-label collisions in the dense cluster RelO.R4CB4A8D8"
       ],
-      "notes": "Dense-cluster default fit is implied by the no-clipping guarantee, not literally a dense-cluster fixture."
+      "notes": "Original evidence checked only a single ordinary node's clipping, not a dense cluster. Real dense-cluster-at-default-fit coverage already existed (added earlier this session for the E2 mobile-collision investigation) but was never cited here -- now linked."
     },
     {
       "id": "P-SCN-076",
@@ -647,7 +648,7 @@
       "evidence": [
         "tests/e2e/mobile-chambers.spec.js :: a pinch-equivalent zoom gesture on mobile changes the camera scale without breaking the session (P-SCN-076)"
       ],
-      "notes": "Exercised via a ctrlKey+wheel event (the standard browser translation of a trackpad/touch pinch, which d3-zoom's default filter treats as scale) at a 390px viewport; confirmed the camera scale changes and stays within [0.55, 2.4] (algorithm-contracts.json scaleMin/scaleMax) with no other session state disturbed."
+      "notes": "Exercised via a ctrlKey+wheel event (the standard browser translation of a trackpad/touch pinch, which d3-zoom's default filter treats as scale) at a 390px viewport; confirmed the camera scale changes and stays within [0.2, 2.4] (scaleMin lowered from 0.55 this session; test assertion already updated, this note was stale) with no other session state disturbed."
     },
     {
       "id": "P-SCN-077",
@@ -1103,9 +1104,10 @@
       "category": "mobile",
       "status": "covered",
       "evidence": [
-        "tests/e2e/mobile-chambers.spec.js :: start() wires the visualViewport resize listener and an immediate resize reconciles again; stop() unwires it (T-REQ-041)"
+        "tests/e2e/mobile-chambers.spec.js :: start() wires the visualViewport resize listener and an immediate resize reconciles again; stop() unwires it (T-REQ-041)",
+        "tests/e2e/mobile-chambers.spec.js :: the virtual keyboard opening during an active Index search leaves the search input and results reachable (P-SCN-123)"
       ],
-      "notes": "Covers the visual-viewport-height mechanism; not literally combined with an open Index search."
+      "notes": "Original evidence covered only the isolated visualViewport mechanism with fake env/doc collaborators, never combined with an open Index search on the live app. Verified directly and added dedicated coverage: simulating a real keyboard open (visualViewport.height shrinks, window.innerHeight/100vh stays put -- unlike setViewportSize) leaves both the search input and its results reachable within the visible area."
     },
     {
       "id": "P-SCN-124",

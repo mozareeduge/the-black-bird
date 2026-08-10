@@ -472,11 +472,36 @@ yet independently verified · — not yet reached.
     information): genuinely specific and sufficient.
   - `scenario-coverage-map.json` updated for P-SCN-017/023/026 (diff
     verified minimal). `check-scenario-coverage.mjs` still 115/115/0/0.
-- **Still open**: ~46 of 115 scenarios not yet individually re-judged
-  (remaining categories: `index`, `view`, `solo`, `mobile`,
-  `accessibility`). Yield so far: 5 real gaps in 69 scenarios across 3
-  batches — still worth continuing, each batch judged on its own token
-  cost vs. expected yield.
+- ✅ **Line-by-line pass, batch 4/N (30 scenarios: `index`, `view`, `solo`,
+  `mobile`).** Two citation gaps and one real coverage gap:
+  - **P-SCN-075** ("Mobile dense cluster default fit") — cited evidence
+    checked only a single ordinary node's clipping, not a dense cluster.
+    Real dense-cluster-at-default-fit coverage already existed (added
+    earlier this session for the E2 mobile-collision investigation,
+    `responsive-visual-closure.spec.js`'s dense-cluster label-collision
+    test) but was never linked to this scenario id — now cited.
+  - **P-SCN-076** — another stale note (same pattern as P-SCN-100 in
+    batch 2): prose still said scaleMin `[0.55, 2.4]`; the test assertion
+    was already correctly `[0.2, 2.4]`. Doc-only fix.
+  - **P-SCN-123** ("Mobile virtual keyboard opens during Index search") —
+    evidence covered only the isolated visualViewport mechanism with fake
+    collaborators, never combined with a real open Index search. Verified
+    directly (simulating a real keyboard-open: `visualViewport.height`
+    shrinks, `window.innerHeight`/100vh stays put, unlike
+    `setViewportSize` which would shrink both) that the search input and
+    results both stay reachable. Added dedicated coverage to
+    `tests/e2e/mobile-chambers.spec.js` — caught its own bug while
+    writing it (forgot `page.setViewportSize` before `gotoField`, so the
+    mobile bottom-nav was never visible; fixed).
+  - Remaining 27 of this batch: already had detailed "confirmed correct
+    as-is" notes from earlier rigorous work this session (P-SCN-047/048/
+    050/056/072/073/074/111 etc.) — spot-checked, genuinely solid.
+  - `scenario-coverage-map.json` updated for P-SCN-075/076/123 (diff
+    verified minimal). `check-scenario-coverage.mjs` still 115/115/0/0.
+- **Still open**: 16 of 115 scenarios not yet individually re-judged
+  (`accessibility` category only — the largest single category).
+  Cumulative yield: 7 real/citation gaps in 99 scenarios across 4
+  batches.
 
 ### E5 — Evidence system reconstruction — IN PROGRESS
 
