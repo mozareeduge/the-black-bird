@@ -310,7 +310,7 @@ yet independently verified · — not yet reached.
   got real production coverage as part of the E1 accessibility.css fix;
   200% resize is blocked on the same CDP-zoom-emulation gap noted above).
 
-### E4 — Scenario proof reconstruction (115 P-SCN) — FIRST PASS DONE, GOOD NEWS
+### E4 — Scenario proof reconstruction (115 P-SCN) — CLOSED
 
 - ✅ **Audited all 115 entries mechanically, not just the claim.** Wrote a
   script (not committed -- one-off, see method below) that, for every
@@ -498,10 +498,30 @@ yet independently verified · — not yet reached.
     050/056/072/073/074/111 etc.) — spot-checked, genuinely solid.
   - `scenario-coverage-map.json` updated for P-SCN-075/076/123 (diff
     verified minimal). `check-scenario-coverage.mjs` still 115/115/0/0.
-- **Still open**: 16 of 115 scenarios not yet individually re-judged
-  (`accessibility` category only — the largest single category).
-  Cumulative yield: 7 real/citation gaps in 99 scenarios across 4
-  batches.
+- ✅ **Line-by-line pass, batch 5/5 (final): 16 scenarios (`accessibility`
+  category, the last one) — all 115/115 now individually re-judged.**
+  No new gaps this batch — every entry already had detailed, specific
+  evidence (several with explicit "confirmed against the live app" notes
+  from earlier rigorous work). Not a null result: this is what the pass
+  is supposed to find once the earlier, cheaper gaps are exhausted. One
+  citation strengthened: **P-SCN-085** ("Reduced-motion full path") cited
+  only the narrowest of `reduced-motion.spec.js`'s 5 tests; broadened to
+  reflect the actual aggregate coverage (CSS-transition-collapse, live
+  Reader/panel/sheet, JS motion-path, orientation-change, plus P-SCN-003
+  and P-SCN-126 elsewhere) — doc-only, no new test needed.
+  `scenario-coverage-map.json` diff verified minimal.
+  `check-scenario-coverage.mjs` still 115/115/0/0.
+- **E4 CLOSED.** Final tally across all 5 batches: **8 real/citation gaps
+  found and fixed out of 115 scenarios**, every one independently
+  verified (not assumed) before any fix, several catching real app
+  behavior bugs along the way (not just test-suite gaps) that were fixed
+  at the source. Combined with the earlier mechanical-validity pass
+  (115/115 references real) and two self-admission-language scans (6
+  gaps), this scenario registry has now been checked by every method this
+  round used: reference validity, self-admission language (twice),
+  citation-vs-actual-assertion (line-by-line, all 115). No further E4
+  work is planned unless a future lead specifically calls one of the 115
+  into question again.
 
 ### E5 — Evidence system reconstruction — IN PROGRESS
 

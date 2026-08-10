@@ -717,9 +717,12 @@
       "category": "accessibility",
       "status": "covered",
       "evidence": [
-        "tests/e2e/reduced-motion.spec.js :: live app JS motion paths: reduced motion yields zero blur, no travel pulse, and no field-force alpha heating across two commits"
+        "tests/e2e/reduced-motion.spec.js :: with reduced motion, accessibility.css collapses those same layout.css/mobile.css transitions to an effective instant, with no per-module cooperation required",
+        "tests/e2e/reduced-motion.spec.js :: live app: reduced motion already collapses the Reader/panel/sheet transitions via the template's own blanket rule (regression guard)",
+        "tests/e2e/reduced-motion.spec.js :: live app JS motion paths: reduced motion yields zero blur, no travel pulse, and no field-force alpha heating across two commits (regression guard)",
+        "tests/e2e/reduced-motion.spec.js :: live app: an orientation change under reduced motion still preserves the active object with no re-animation (P-RULE-022/033)"
       ],
-      "notes": null
+      "notes": "Original evidence cited only the narrowest of this file's 5 reduced-motion tests (JS blur/pulse/alpha). \"Full path\" is genuinely covered in aggregate across this file's CSS-transition-collapse, live Reader/panel/sheet, JS motion-path, and orientation-change tests, plus P-SCN-003 (onboarding under reduced motion) and P-SCN-126 (reduced motion + rapid commit + modal combo) elsewhere -- broadened the citation to actually reflect that breadth."
     },
     {
       "id": "P-SCN-086",
