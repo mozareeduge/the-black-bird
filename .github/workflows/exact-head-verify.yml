@@ -18,7 +18,7 @@ permissions: {contents: read}
 jobs:
   exact-head-verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,12 +26,18 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: 22, cache: npm}
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run build
-      - run: npm run build:verify
-      - run: npm run test:unit
-      - run: npm run test:e2e
-      - run: npm run test:a11y
+      # verify:closure:ci (scripts/verify-closure.mjs --ci) is the actual
+      # complete closure command -- every local check plus the cross-browser
+      # smoke suite, all required (not skippable) in --ci mode. This step
+      # previously ran only build/build:verify/test:unit/test:e2e/test:a11y,
+      # a subset that didn't match this workflow's own header comment
+      # ("runs the same full local suite against that literal commit") --
+      # source-policy, contract-coherence, production-ownership,
+      # semantic-duplication, traceability, 115-scenario coverage, the
+      # generated pairwise/critical-triple suites, and the legacy Playwright
+      # suites were never actually exercised here.
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run verify:closure:ci
       - if: always()
         uses: actions/upload-artifact@v4
         with:
