@@ -240,9 +240,15 @@ yet independently verified · — not yet reached.
   actually the W3C's own defined reflow-testing methodology (WCAG SC
   1.4.10 explicitly equates zoom levels to CSS-pixel viewport widths), so
   that part is legitimate, not a shortcut -- but SC 1.4.4 (Resize Text) is
-  a different criterion about genuine zoom behavior, and CDP-level real
-  zoom emulation (not CSS zoom) would need investigating when E5 is
-  reached, not assumed solved by the accessibility.css wiring.
+  a different criterion about genuine zoom behavior. Follow-up: real
+  Chrome page-zoom (Ctrl+/-) isn't cleanly reachable through Playwright/CDP
+  either -- it's a known, general automation-tooling gap, not something
+  fixable by writing better test code here. The genuinely faithful way to
+  test SC 1.4.4 specifically (which is about *text* resize, not full-page
+  reflow) is root `font-size` scaling (e.g.
+  `documentElement.style.fontSize='200%'`) rather than chasing real
+  browser zoom -- worth building that way when E5 is reached, not
+  reattempting CSS/CDP zoom tricks.
 - ❓ keyboard-edge-focus / tooltip-edge: same pattern as text-zoom-200 —
   confirmed these are `RESPONSIVE-ACCESS/keyboard-edge-focus` and
   `RESPONSIVE-ACCESS/tooltip-edge` in `tests/contracts/evidence-plan.json`,
