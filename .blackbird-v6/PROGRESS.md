@@ -422,14 +422,34 @@ yet independently verified · — not yet reached.
     E5 route-long fix.
   - `scenario-coverage-map.json` updated for P-SCN-092 only (diff
     verified minimal). `check-scenario-coverage.mjs` still 115/115/0/0.
-- **Still open**: ~96 of 115 scenarios not yet individually re-judged
-  this way (remaining categories: `entry`, `selection`, `preview`,
-  `reader`, `external`, `index`, `view`, `solo`, `mobile`,
-  `accessibility`, `session`, `bootstrap`, `responsive`, `camera`,
-  `overlay`). Continue in further batches of ~15-20 if/when picked back
-  up — batch 1's yield (1 real gap in 19) suggests this is worth
-  continuing but each batch should still be judged on its own token cost
-  vs. expected yield.
+- ✅ **Line-by-line pass, batch 2/N (18 scenarios: `session`, `bootstrap`,
+  `camera`, `overlay`, `external`, `responsive`).** Two real gaps found:
+  - **P-SCN-093** ("Cross desktop/mobile breakpoint with active object,
+    Solo, Route, and modal closed") — the two existing resize tests never
+    actually crossed the real 860px breakpoint (one stays mobile-to-mobile
+    at 390/844, the other resizes to 900px, still desktop), and neither
+    combined Solo+Route+modal state. Verified directly (1024→390, with
+    Solo active, 2 Route events, About open) that all four survive a real
+    cross cleanly, then added dedicated coverage to
+    `tests/e2e/mobile-chambers.spec.js`.
+  - **P-SCN-125** ("Narrow 320px viewport preserves all capabilities") —
+    flagged twice now (first in the original self-admission scan, still
+    unresolved until this pass). Existing evidence covered layout reflow
+    only. Verified directly that commit, View-drawer + type-toggle, Index
+    search, and Field↔Read surface switch all work at 320px, then added
+    dedicated coverage to `tests/e2e/responsive-visual-closure.spec.js`.
+  - Also fixed a trivial stale note (P-SCN-100 still said scaleMin
+    `[0.55, 2.4]` in prose; the test assertion itself was already correctly
+    updated to 0.2 earlier this session — doc-only, not a real gap).
+  - Remaining 16 of this batch: genuinely specific and sufficient, no gap.
+  - `scenario-coverage-map.json` updated for P-SCN-093/100/125 (diff
+    verified minimal). `check-scenario-coverage.mjs` still 115/115/0/0.
+    `verify:closure:local` clean (16/17).
+- **Still open**: ~78 of 115 scenarios not yet individually re-judged
+  (remaining categories: `entry`, `selection`, `preview`, `reader`,
+  `index`, `view`, `solo`, `mobile`, `accessibility`). Yield so far: 2
+  real gaps in 37 scenarios across 2 batches — worth continuing, each
+  batch judged on its own token cost vs. expected yield.
 
 ### E5 — Evidence system reconstruction — IN PROGRESS
 

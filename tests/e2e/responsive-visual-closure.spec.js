@@ -160,6 +160,33 @@ test.describe('Responsive/visual closure (F08/R6): no sheet leak, label collisio
     await noHorizontalOverflow(page);
   });
 
+  test('320px viewport preserves all core capabilities, not just layout reflow (P-SCN-125)', async ({ page }) => {
+    // The reflow test above only checks layout (no overflow) and that the
+    // Index drawer opens -- this scenario's title claims "all capabilities",
+    // which was never actually exercised together at this narrowest
+    // supported width: committing a node, the View drawer + a type toggle,
+    // Index search, and the Field<->Read surface switch.
+    await page.setViewportSize({ width: 320, height: 640 });
+    await gotoField(page, { mobile: true, reduced: true });
+    await clickNode(page, 'FO.CAIN');
+    expect(await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId)).toBe('FO.CAIN');
+
+    await page.locator('[data-mobile="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-type="FO"]').first().click();
+    await page.keyboard.press('Escape');
+
+    await page.locator('[data-mobile="index"]').click();
+    await expect(page.locator('#objectDrawer')).toHaveClass(/open/);
+    await page.locator('#objectSearch').fill('Cain');
+    expect(await page.locator('[data-open], .index-item').count()).toBeGreaterThan(0);
+    await page.keyboard.press('Escape');
+
+    await page.locator('[data-mobile="read"]').click();
+    expect(await page.evaluate(() => window.__bbTest.getState().responsive.surface)).toBe('read');
+    await noHorizontalOverflow(page);
+  });
+
   test('200%-zoom-equivalent viewport (640x360): no horizontal overflow, bottom-nav stays in frame', async ({ page }) => {
     await page.setViewportSize({ width: 640, height: 360 });
     await gotoField(page, { mobile: true, reduced: true });

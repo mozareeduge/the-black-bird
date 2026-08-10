@@ -795,9 +795,10 @@
       "category": "responsive",
       "status": "covered",
       "evidence": [
-        "tests/e2e/mobile-chambers.spec.js :: live app: an orientation/viewport change on mobile preserves the active object and the Field/Read session (P-RULE-033)"
+        "tests/e2e/mobile-chambers.spec.js :: live app: an orientation/viewport change on mobile preserves the active object and the Field/Read session (P-RULE-033)",
+        "tests/e2e/mobile-chambers.spec.js :: crossing the real desktop/mobile breakpoint preserves active object, Solo, Route, and open-modal state (P-SCN-093)"
       ],
-      "notes": "Covers active-object preservation across viewport change; not literally Solo+Route+modal simultaneously."
+      "notes": "Original evidence resized only within one side of the 860px breakpoint (390<->844, both mobile) or to 900px (still desktop) -- never actually crossed it, and never combined with Solo/Route/modal state. Added a dedicated test that commits, enters Solo, opens About, then resizes 1024->390 (crossing the real breakpoint): all four survive unchanged, no errors, no overflow."
     },
     {
       "id": "P-SCN-094",
@@ -869,7 +870,7 @@
       "evidence": [
         "tests/e2e/tooltip-keyboard-status.spec.js :: a user zoom overlapping a new direct commit leaves a consistent final state (P-SCN-100)"
       ],
-      "notes": "A user-initiated ctrlKey+wheel zoom gesture straddling a direct node commit (mid-gesture) leaves a consistent final state: the new commit lands, and the camera transform stays finite and within [0.55, 2.4]."
+      "notes": "A user-initiated ctrlKey+wheel zoom gesture straddling a direct node commit (mid-gesture) leaves a consistent final state: the new commit lands, and the camera transform stays finite and within [0.2, 2.4] (scaleMin lowered from 0.55 this session; test assertion already updated, this note was stale)."
     },
     {
       "id": "P-SCN-101",
@@ -1119,9 +1120,10 @@
       "category": "responsive",
       "status": "covered",
       "evidence": [
-        "tests/e2e/environmental-resilience.spec.js :: the composition grid reflows to 320px CSS width with no horizontal overflow, and a 200%-zoom-equivalent viewport keeps the bottom-nav fully in view (T-REQ-040)"
+        "tests/e2e/environmental-resilience.spec.js :: the composition grid reflows to 320px CSS width with no horizontal overflow, and a 200%-zoom-equivalent viewport keeps the bottom-nav fully in view (T-REQ-040)",
+        "tests/e2e/responsive-visual-closure.spec.js :: 320px viewport preserves all core capabilities, not just layout reflow (P-SCN-125)"
       ],
-      "notes": "Covers layout reflow at 320px; not every capability's reachability."
+      "notes": "Original evidence covered layout reflow only. Verified directly and added dedicated coverage: commit, View drawer + type toggle, Index search, and Field<->Read surface switch all work correctly at 320px."
     },
     {
       "id": "P-SCN-126",

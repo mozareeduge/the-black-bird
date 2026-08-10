@@ -220,6 +220,46 @@ test.describe('Mobile Field/Read projection, safe areas, and visual viewport rec
     expect(after.surface).toBe(before.surface);
   });
 
+  test('crossing the real desktop/mobile breakpoint preserves active object, Solo, Route, and open-modal state (P-SCN-093)', async ({
+    page,
+  }) => {
+    // The existing orientation test above resizes 390<->844 (both under the
+    // 860px breakpoint -- landscape mobile, never actually desktop), and
+    // P-SCN-056 resizes to 900px (still > 860px, still desktop). Neither
+    // crosses the real breakpoint; this scenario's own title names four
+    // things that should all survive it together, not yet jointly checked.
+    await page.setViewportSize({ width: 1024, height: 640 });
+    await gotoField(page, { reduced: true });
+    await clickNode(page, 'FO.CORPSE');
+    await clickNode(page, 'FO.CAIN');
+    await page.locator('.rail-btn[data-action="index"]').click();
+    await page.locator('#objectSearch').fill('Cain');
+    await page.locator('[data-solo="FO.CAIN"]').first().click();
+    await page.locator('.rail-btn[data-action="about"]').click();
+    await expect(page.locator('#aboutPanel')).toHaveClass(/open/);
+
+    const before = await page.evaluate(() => ({
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      soloActive: window.__bbTest.getState().solo.active,
+      soloIds: (window.__bbTest.getState().solo.members || []).slice().sort(),
+      routeLen: window.__bbTest.getState().history.route.length,
+    }));
+
+    await page.setViewportSize({ width: 390, height: 844 }); // crosses the real 860px breakpoint
+    await page.waitForTimeout(150);
+
+    const after = await page.evaluate(() => ({
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      soloActive: window.__bbTest.getState().solo.active,
+      soloIds: (window.__bbTest.getState().solo.members || []).slice().sort(),
+      routeLen: window.__bbTest.getState().history.route.length,
+    }));
+    expect(after).toEqual(before);
+    await expect(page.locator('#aboutPanel')).toHaveClass(/open/);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+    expect(overflow).toBe(true);
+  });
+
   test('inspecting a projected edge on mobile opens the edge sheet, not the desktop panel (P-SCN-030)', async ({
     page,
   }) => {
