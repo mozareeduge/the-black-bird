@@ -243,21 +243,23 @@ yet independently verified · — not yet reached.
   (mobile-only, and 1024 is above the 860px breakpoint). A different claim
   than the mobile-sheet-band finding above, same viewport, same
   conclusion.
-- 🔎 **New find, not yet investigated: `black-bird-design.spec.js`'s
-  "reduced motion preserves state without blur or pulse" test is
-  genuinely flaky (~1/3 fail rate, reproduces on clean HEAD without any
-  of this session's changes — confirmed via `git stash`).** Failure is
-  always the same: the 2nd `clickNode` (FO.BURIAL, right after FO.CORPSE)
-  reports the click landed but `activeId` reads back as
-  `FO.BLACK_BIRD_FIELD` — looks like the click missed FO.BURIAL's hit
-  target and landed on field background instead, despite
-  `waitForCameraSettled`/`waitForSimSettled` both having already passed.
-  Pre-existing, unrelated to any fix in this session — not investigated
-  further yet (token-budget triage: discovered during a routine full-suite
-  run, not on this cycle's fix path). Worth a real look next: likely the
-  same category of camera-reposition-vs.-click-timing race already fixed
-  once this session for a different test (see the hover-preview
-  animation-drift fix above).
+- ✅ **Flaky `black-bird-design.spec.js` "reduced motion preserves state
+  without blur or pulse" test — root-caused and fixed.** Root cause: this
+  was the only test in the file that calls `page.reload()` then
+  `clickNode()` — but its post-reload readiness wait only checked
+  `window.__bbDesign?.contractVersion==='2.0.0'` (proves the design API
+  exists, nothing about whether reload's own re-triggered auto-focus/
+  camera-fit/simulation settling had finished). Every other test gets a
+  much stronger gate via `gotoField()` (node count, lifecycle phase,
+  anchorId, `fieldFitted()`, camera-settle poll) — this one, uniquely,
+  didn't, because it reloads mid-test instead of navigating via
+  `gotoField()`. Racing `clickNode`'s 2nd call against that still-settling
+  reheat was the real cause: the click lands on stale pre-reheat
+  coordinates and misses, `activeId` reads back as the initial
+  `FO.BLACK_BIRD_FIELD`. Fixed by adding the same readiness wait
+  `gotoField()` uses, inline, after the reload. Verified: 18/18 repeat
+  runs clean after the fix (was ~1/3 fail rate before, reproduced
+  independently via `git stash` on clean HEAD).
 - ✅ **Object Solo — spot-checked, composition held up through the camera
   fixes (uses the same focus-fit path, so benefits from the same
   occupancy correction).** Live screenshot (FO.CORPSE Solo via the real
