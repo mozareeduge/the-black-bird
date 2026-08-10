@@ -314,15 +314,55 @@ yet independently verified · — not yet reached.
   attempt accidentally reformatted/re-encoded the whole 1173-line file
   via a naive Python re-serialize, caught and fixed before committing).
   `scripts/check-scenario-coverage.mjs` still reports 115/115/0/0.
-- **Not done**: my audit checked "does the reference point to something
-  real" and "does the note admit weakness" — it did NOT re-read all 115
-  scenario *titles* against their referenced tests' actual assertions to
-  judge whether each is genuinely scenario-*specific* (vs. real-but-generic
-  coverage that happens to also satisfy the scenario). That deeper pass is
-  still open if a fully rigorous E4 closure is wanted; what's done so far
-  is the mechanical-validity pass plus the specific gaps a systematic
-  self-admission scan actually surfaced, not a claim that all 115 are
-  individually perfect.
+- ✅ **Second, deeper pass: grepped every entry's `notes` for admitted
+  generic/non-specific coverage** (words like "generically", "not X
+  specifically", "not every"), the class of gap the self-admission scan
+  above didn't target (that pass looked for setup-only/incidental language;
+  this one specifically looked for "covered by a broader test, not this
+  scenario's own behavior"). Found 5, all real:
+  - **P-SCN-046** ("Hide inactive object") and **P-SCN-049** ("Disable
+    active object type") both cited only
+    `reducer.test.js`'s Route/trace-neutrality test for
+    SET_OBJECT_VISIBILITY/SET_TYPE_VISIBILITY — a test that proves these
+    commands don't corrupt history, not that hiding/disabling actually
+    works. Real behavioral coverage already existed
+    (`visibility-solo.test.js`'s `isNodeVisible` tests for individual-hide
+    and group-hidden-type, plus P-SCN-047's own live e2e test for the
+    active-type-disable case) — just never cited. Added those references;
+    no new test needed, no app defect.
+  - **P-SCN-051** ("Toggle projected edges") and **P-SCN-052** ("Toggle
+    labels/source names") had the same reducer test as their *only*
+    evidence, whose own note admitted it "not the projectedEdges option
+    specifically" — genuinely no test anywhere verified the actual visual
+    effect (traced the real mechanism: `projSel.attr("display", d =>
+    projectedVisible(d) ? null : "none")` and `updateLabelVisibility()`'s
+    unconditional `if (!state.view.labels) return false` / `if (d.type ===
+    'NameO' && !state.view.sourceNames) return false` filters). Added two
+    real dedicated tests to `tests/e2e/view-index-solo.spec.js`: one
+    toggles `projected` and asserts every `.link-proj` line's `display`
+    goes to `none` and back; one toggles `labels` and asserts every
+    `text.node-label` goes to `none` and back, then focuses the one real
+    NameO node (`NameO.AR.GHURAB`) and asserts its label is hidden with
+    `sourceNames` off and shown with it on (a global visible-label-count
+    comparison was tried first and rejected — the label budget/priority
+    system already saturates on non-NameO nodes at whole-field zoom, so
+    sourceNames toggling doesn't change the *count*, only which specific
+    node renders; the per-node check is the actually-correct assertion).
+    Both new tests pass on first real run. `scenario-coverage-map.json`
+    updated for all 4 ids (diff verified minimal — 2 files/19 lines,
+    correct re-serialization this time). `check-scenario-coverage.mjs`
+    still reports 115/115/0/0.
+  - No app defects found in this pass — every gap was a citation/coverage
+    gap in the test suite itself, not incorrect product behavior.
+- **Still not done**: a full line-by-line re-judgment of all 115 titles
+  against their tests' actual assertions (as opposed to two targeted
+  automated scans — dangling-reference validity, then self-admission
+  language twice over). What's covered now: reference validity (115/115),
+  setup-only/incidental language (2 gaps fixed), and generic-not-specific
+  language (4 gaps fixed). A scenario whose evidence is real, specific, and
+  silent about any limitation could still in principle be under-asserting
+  something the title implies — that residual risk is what a full
+  line-by-line pass would close, and remains open if wanted.
 
 ### E5 — Evidence system reconstruction — IN PROGRESS
 

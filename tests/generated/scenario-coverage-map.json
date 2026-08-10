@@ -365,9 +365,10 @@
       "category": "view",
       "status": "covered",
       "evidence": [
-        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)",
+        "tests/unit/visibility-solo.test.js :: individual hide always hides, regardless of type visibility (structural, no ontology change)"
       ],
-      "notes": "SET_OBJECT_VISIBILITY covered generically."
+      "notes": "SET_OBJECT_VISIBILITY's Route/trace-neutrality was the only cited evidence; its actual hide effect (isNodeVisible respecting objectVisibility for a non-focused object) is real, dedicated coverage in visibility-solo.test.js -- now cited alongside it."
     },
     {
       "id": "P-SCN-047",
@@ -395,9 +396,11 @@
       "category": "view",
       "status": "covered",
       "evidence": [
-        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)",
+        "tests/unit/visibility-solo.test.js :: a group-hidden type stays hidden even without an individual override (P-RULE-016)",
+        "tests/e2e/view-index-solo.spec.js :: group-hiding the field-focused object type returns to the whole field (P-SCN-047)"
       ],
-      "notes": "SET_TYPE_VISIBILITY covered generically."
+      "notes": "SET_TYPE_VISIBILITY's Route/trace-neutrality was the only cited evidence; the actual disable effect on the active object's own type is the same mechanism P-SCN-047 already covers live end to end (group-hiding the focused object's type returns to the whole field) plus the underlying type-visibility state check in visibility-solo.test.js -- now cited."
     },
     {
       "id": "P-SCN-050",
@@ -415,9 +418,9 @@
       "category": "view",
       "status": "covered",
       "evidence": [
-        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+        "tests/e2e/view-index-solo.spec.js :: toggling projected edges off hides every projected-edge line; toggling back on restores them (P-SCN-051)"
       ],
-      "notes": "SET_VIEW_OPTION covered generically, not the projectedEdges option specifically."
+      "notes": null
     },
     {
       "id": "P-SCN-052",
@@ -425,9 +428,9 @@
       "category": "view",
       "status": "covered",
       "evidence": [
-        "tests/unit/reducer.test.js :: preview, inspection, View, Solo, chamber, and camera-shaped commands never touch Route or trace (P-RULE-003/007/012/014)"
+        "tests/e2e/view-index-solo.spec.js :: toggling labels off hides every node label; toggling source names hides/shows only NameO labels (P-SCN-052)"
       ],
-      "notes": "SET_VIEW_OPTION covered generically."
+      "notes": null
     },
     {
       "id": "P-SCN-053",

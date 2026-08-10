@@ -346,6 +346,73 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     expect(await page.evaluate(() => window.__bbTest.nodeVisible('FO.CAIN'))).toBe(true);
   });
 
+  test('toggling projected edges off hides every projected-edge line; toggling back on restores them (P-SCN-051)', async ({ page }) => {
+    await gotoField(page, { reduced: true });
+    const countVisibleProj = () =>
+      page.evaluate(
+        () => [...document.querySelectorAll('.link-proj')].filter((el) => el.getAttribute('display') !== 'none').length
+      );
+    const total = await page.locator('.link-proj').count();
+    expect(total).toBeGreaterThan(0);
+    const visibleBefore = await countVisibleProj();
+    expect(visibleBefore).toBeGreaterThan(0);
+
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-view="projected"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.projectedEdges)).toBe(false);
+    expect(await countVisibleProj()).toBe(0);
+
+    await page.locator('[data-view="projected"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.projectedEdges)).toBe(true);
+    expect(await countVisibleProj()).toBe(visibleBefore);
+  });
+
+  test('toggling labels off hides every node label; toggling source names hides/shows only NameO labels (P-SCN-052)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    const visibleLabelCount = () =>
+      page.evaluate(
+        () => [...document.querySelectorAll('text.node-label')].filter((el) => el.getAttribute('display') !== 'none').length
+      );
+    const visibleBefore = await visibleLabelCount();
+    expect(visibleBefore).toBeGreaterThan(0);
+
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-view="labels"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.labels)).toBe(false);
+    expect(await visibleLabelCount()).toBe(0);
+
+    await page.locator('[data-view="labels"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.labels)).toBe(true);
+    expect(await visibleLabelCount()).toBe(visibleBefore);
+    await page.locator('[data-close="fieldViewDrawer"]').first().click();
+
+    // sourceNames gates only NameO labels, independent of the labels toggle
+    // above -- and unconditionally, even for a focused/active NameO node (the
+    // filter in updateLabelVisibility excludes NameO before priority/budget
+    // is ever considered when sourceNames is off). Focusing a NameO node
+    // directly, rather than counting the whole field, avoids any dependency
+    // on the label budget/priority interaction with other node types.
+    await clickNode(page, 'NameO.AR.GHURAB');
+    expect((await appState(page)).activeId).toBe('NameO.AR.GHURAB');
+    const nameOLabelDisplay = () =>
+      page.evaluate(() => document.querySelector('g.node[data-bb-test-id="NameO.AR.GHURAB"] text.node-label')?.getAttribute('display'));
+    expect(await nameOLabelDisplay()).toBe('none');
+
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-view="sourceNames"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(true);
+    await expect.poll(nameOLabelDisplay).not.toBe('none');
+
+    await page.locator('[data-view="sourceNames"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(false);
+    await expect.poll(nameOLabelDisplay).toBe('none');
+  });
+
   test('Solo survives a resize with membership and Route/trace untouched (P-SCN-056)', async ({ page }) => {
     await gotoField(page, { reduced: true });
     await page.locator('.rail-btn[data-action="index"]').click();
