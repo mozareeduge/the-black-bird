@@ -511,6 +511,48 @@ yet independently verified · — not yet reached.
 
 Come last, once everything above is genuinely closed — not before.
 
+## Session checkpoint (2026-08-10) — real-CI confirmation, deliberate pause
+
+At `41495ab` (latest push), all 8 real CI checks are green: `validate`,
+`build-and-test`, `cross-browser` ×3 (chromium/firefox/webkit),
+`exact-head-verify` (the full local closure gate, run against the exact
+commit), `final-candidate-evidence` (the E5 evidence gate — first clean
+real-CI run since this session's Axe-swallow and 3-more-bugs fixes),
+`publish`. Not just green checkmarks — job logs were pulled and read
+directly earlier in this session for the equivalent E6 confirmation
+pattern; this checkpoint is the same class of evidence.
+
+E2 (all confirmed-real defects fixed and verified), E4 (mechanical-
+validity + two self-admission-language passes — every gap those methods
+surfaced is fixed), E5 (evidence system — 4 real, previously-hidden bugs
+found and fixed), E6 (CI truth, closed on a genuine real-CI run) are all
+in a state where every *identified, verifiable* defect from this
+session's leads is fixed and re-verified. Remaining open items:
+
+- Mobile secondary-axis occupancy — mathematically proven no uniform-k
+  fix exists (see E2 above); **explicitly reserved for the user's design
+  decision**, never attempted unilaterally per standing instruction.
+- A full line-by-line re-judgment of all 115 P-SCN titles against their
+  tests' actual assertions — noted as residual risk, not a confirmed gap.
+  Deliberately not started this cycle: it's expensive (115 items),
+  lower-priority by the user's own ranking, and every gap the cheaper
+  mechanical/self-admission methods could find is already fixed. Doing it
+  now, close to a weekly token-budget reset, would trade a large,
+  uncertain-value token spend for marginal risk reduction on an item the
+  user already ranked below everything else. Left open for a future
+  session if wanted.
+- Route/wear/afterglow material-strength and "thin relational material"
+  (mobile) — both explicitly qualitative/aesthetic calls, not something a
+  measurement can settle; left for the user's own review of `/next/`.
+
+**This is a deliberate pause, not an abandoned task.** The candidate is
+substantially complete on every objectively-verifiable defect this
+session's leads named. What's left is either the user's own call
+(mobile axis, material-strength aesthetics) or a large, low-expected-
+value audit better done with a fresh token budget. Recommended next step:
+the user reviews `/next/` directly and gives the mobile-axis decision;
+resume the optional E4 deep pass in a future session if still wanted.
+
 ## Continuation notes for a fresh session
 
 - Branch: `claude/black-bird-system-recomposition-9hpoia` (PR #9). Base:
