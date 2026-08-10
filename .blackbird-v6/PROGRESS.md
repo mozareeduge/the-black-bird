@@ -332,11 +332,12 @@ yet independently verified · — not yet reached.
   E2–E4 are stable — evidence should be generated from the real final state,
   not regenerated repeatedly against a moving target.
 
-### E6 — CI truth — FIX PUSHED, AWAITING CI CONFIRMATION
+### E6 — CI truth — CLOSED, VERIFIED IN ACTUAL CI (not just locally-plausible)
 
-- ✅ **Confirmed and fixed.** `.github/workflows/exact-head-verify.yml`'s own
-  header comment claimed it "runs the same full local suite against that
-  literal commit," but its actual steps only ran
+- ✅ **Confirmed, fixed, and the real CI run checked directly (job logs, not
+  just the green checkmark).** `.github/workflows/exact-head-verify.yml`'s
+  own header comment claimed it "runs the same full local suite against
+  that literal commit," but its actual steps only ran
   build/build:verify/test:unit/test:e2e/test:a11y — never
   `npm run verify:closure:ci` (`scripts/verify-closure.mjs --ci`), the
   actual complete-closure command. source-policy, contract-coherence,
@@ -345,13 +346,14 @@ yet independently verified · — not yet reached.
   suites, and the legacy Playwright suites were never exercised by CI at
   all. Fixed: workflow now installs all 3 browsers and runs
   `verify:closure:ci` directly. Verified `verify:closure:local` passes
-  cleanly locally first (16/17, only cross-browser skipped — no
-  firefox/webkit binaries in this sandbox, expected/documented) before
-  trusting the change enough to push it. Pushed as `10cdfed`; CI run
-  queued at push time (run id 31370318556) — **still needs the actual
-  GitHub Actions run to complete and be checked**, not just assumed green
-  because the local equivalent passed. Timeout bumped 30→55min for the
-  much larger check list.
+  cleanly locally first (16/17, cross-browser skipped only for lack of
+  local binaries) before trusting the change enough to push it (`10cdfed`).
+  **Then pulled the actual job log for the real CI run (run 31370897648,
+  commit ad75ef3) rather than trusting the green checkmark alone**: log
+  shows `=== verify:closure:ci: SUCCESS (17/17 passed, 0 skipped) ===` —
+  every check ran for real in CI, 0 skipped this time (firefox/webkit
+  genuinely installed and exercised there, all passing). E6 is genuinely
+  closed on real evidence, not an assumption.
 
 ### E7–E9 — Freeze, final evidence/owner bundle, terminal state — NOT YET REACHED
 
