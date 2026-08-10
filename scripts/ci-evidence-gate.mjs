@@ -122,6 +122,30 @@ function main() {
       else if (Math.abs((e.duration_s ?? duration) - duration) > 0.75) errors.push('video duration metadata mismatch: ' + eid);
     } else if (statSync(p).size === 0) {
       errors.push('empty evidence file: ' + eid);
+    } else if (eid === 'machine/accessibility.json') {
+      // Defense in depth alongside generate-evidence.mjs no longer
+      // swallowing a scanner exception into fake data: a non-empty file
+      // alone doesn't prove the scan actually ran and found nothing
+      // serious. {violations: {error: "..."}} (the old swallowed-failure
+      // shape) is non-empty and would otherwise pass silently.
+      let parsed;
+      try {
+        parsed = JSON.parse(readFileSync(p, 'utf8'));
+      } catch {
+        errors.push('machine/accessibility.json is not valid JSON: ' + eid);
+        continue;
+      }
+      if (!Array.isArray(parsed.violations)) {
+        errors.push('machine/accessibility.json.violations is not an array (scanner error recorded as data?): ' + eid);
+        continue;
+      }
+      const seriousOrCritical = parsed.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+      if (seriousOrCritical.length) {
+        errors.push(
+          `machine/accessibility.json records ${seriousOrCritical.length} serious/critical violation(s): ` +
+            seriousOrCritical.map((v) => v.id).join(', '),
+        );
+      }
     }
   }
 

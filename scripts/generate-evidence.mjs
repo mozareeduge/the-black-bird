@@ -523,18 +523,31 @@ async function main() {
     // accessibility: copy axe-core scan summary if present, else regenerate a minimal one.
     {
       const a11yPath = path.join(MACHINE_DIR, 'accessibility.json');
-      const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, baseURL: BASE_URL });
+      // AxeBuilder requires a page created from an explicit context
+      // (browser.newContext().newPage()), not the browser.newPage(options)
+      // shorthand used elsewhere in this file -- it throws "Please use
+      // browser.newContext()" otherwise. That's exactly what was silently
+      // swallowed below before this fix (every prior evidence run's
+      // accessibility.json was actually a recorded scanner failure, not a
+      // real scan -- see the no-swallowed-failure comment below).
+      const a11yContext = await browser.newContext({ viewport: { width: 1280, height: 800 }, baseURL: BASE_URL });
+      const page = await a11yContext.newPage();
       await gotoField(page, { reduced: true });
       await clickNode(page, 'FO.CORPSE');
-      let axeResult = null;
-      try {
-        const { AxeBuilder } = require('@axe-core/playwright');
-        axeResult = await new AxeBuilder({ page }).analyze();
-      } catch (err) {
-        axeResult = { error: String(err) };
+      // No swallowed action failures (E5): a scanner exception used to be
+      // written into the report as {violations: {error: "..."}} -- a
+      // malformed, non-array "violations" field that ci-evidence-gate.mjs
+      // never inspected (only checked the file was non-empty), so a
+      // completely failed scan could pass evidence gating as if it were a
+      // clean result. A real scan failure must fail evidence generation
+      // itself, not get papered over as data.
+      const { AxeBuilder } = require('@axe-core/playwright');
+      const axeResult = await new AxeBuilder({ page }).analyze();
+      await a11yContext.close();
+      if (!Array.isArray(axeResult?.violations)) {
+        throw new Error('machine/accessibility.json: axe-core scan did not return a violations array');
       }
-      await page.close();
-      writeFileSync(a11yPath, JSON.stringify({ candidate_sha: sha, violations: axeResult?.violations ?? axeResult }, null, 2));
+      writeFileSync(a11yPath, JSON.stringify({ candidate_sha: sha, violations: axeResult.violations }, null, 2));
       requiredEntries.push({ id: 'machine/accessibility.json', path: path.relative(OUT, a11yPath), sha256: sha256(a11yPath), candidate_sha: sha, artifact_class: 'derived-report' });
     }
 

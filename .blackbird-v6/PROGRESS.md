@@ -324,13 +324,65 @@ yet independently verified · — not yet reached.
   self-admission scan actually surfaced, not a claim that all 115 are
   individually perfect.
 
-### E5 — Evidence system reconstruction — NOT YET REACHED
+### E5 — Evidence system reconstruction — IN PROGRESS
 
-- ❓ Several named false/wrong-state evidence artifacts (projected-edge,
-  route-long, mobile motion frame size, normal-motion captured as
-  reduced-motion, Axe scanner error passing gate). Defer regeneration until
-  E2–E4 are stable — evidence should be generated from the real final state,
-  not regenerated repeatedly against a moving target.
+- ✅ **Axe scanner error silently passing the evidence gate — confirmed real,
+  root-caused, and fixed (not just the audit's suspicion).**
+  `scripts/ci-evidence-gate.mjs` validated every `machine_reports` entry only
+  for file-non-emptiness — never parsed or inspected the JSON content. Traced
+  the actual failure mode in `scripts/generate-evidence.mjs`: the
+  accessibility block wrapped `AxeBuilder({page}).analyze()` in a try/catch
+  that, on any scanner exception, wrote the caught error object straight into
+  the `violations` field (`{violations: {error: "..."}}` — a malformed,
+  non-array shape) instead of failing the run. The gate's non-emptiness check
+  passed on that fake payload every time.
+  - Running `npm run evidence:generate` to reproduce this **immediately threw
+    a real, previously-hidden error**: `Please use browser.newContext()`,
+    from `AxeBuilder`, at the accessibility block. Root cause: that block
+    used `browser.newPage({...options})` (the implicit-context shorthand
+    used elsewhere in the same file for plain screenshots) instead of an
+    explicit `browser.newContext()` → `context.newPage()`, which
+    `@axe-core/playwright`'s `AxeBuilder` requires. **This means the Axe scan
+    had never actually run successfully in this script before** — every
+    prior `machine/accessibility.json` in evidence history was the swallowed
+    error, not a real scan result, and the gate had no way to tell.
+  - Fixed both ends:
+    - `generate-evidence.mjs`: accessibility block now creates an explicit
+      `browser.newContext({viewport, baseURL})` → `context.newPage()`,
+      closes the context after the scan, and throws
+      (`machine/accessibility.json: axe-core scan did not return a
+      violations array`) if `analyze()` doesn't yield a real array — no more
+      swallowing.
+    - `ci-evidence-gate.mjs`: added a dedicated content-validation branch for
+      `machine/accessibility.json` — parses the JSON, rejects a non-array
+      `violations` field outright (defense in depth, in case a future
+      failure mode reintroduces a swallowed-error shape), and fails the gate
+      on any `serious`/`critical` impact violation actually found.
+  - **Verified against real output, not assumption**: re-ran
+    `npm run evidence:generate` — succeeded (`44 required entries, 3
+    supplementary artifacts`); `candidate-evidence/machine/accessibility.json`
+    now contains a genuine result:
+    `{"candidate_sha": "...", "violations": []}`. Then ran
+    `node scripts/ci-evidence-gate.mjs` — no `machine/accessibility.json`
+    error in the output; the only failures present were `unprobeable video`
+    entries from the local sandbox's missing `ffprobe` binary (expected,
+    pre-existing, documented in TESTING.md — `final-candidate-gate.yml`
+    installs ffmpeg in real CI, so this is not a defect and not something to
+    chase locally).
+  - Regression check before commit: full local suite re-run clean —
+    `test:unit` 131/131, all 115 `tests/e2e/*.spec.js` (chromium), the 25
+    `black-bird-design.spec.js`/`black-bird-world-camera.spec.js` tests,
+    `build`/`build:verify` — all green. `verify:closure:local` also run as
+    the aggregate integration check.
+- ❓ Still open, deferred until picked up next: the other named
+  false/wrong-state evidence artifacts (projected-edge state evidence,
+  route-long 500+ event evidence, mobile motion frame size, normal-motion
+  vs. reduced-motion capture correctness). Evidence should be generated from
+  the real final state, so these are reasonable to defer further until E2–E4
+  are fully stable, but the Axe fix above was addressed now because it was a
+  genuine, previously-invisible correctness bug in the evidence system
+  itself (a false-negative accessibility gate), not a moving-target
+  re-capture question.
 
 ### E6 — CI truth — CLOSED, VERIFIED IN ACTUAL CI (not just locally-plausible)
 
