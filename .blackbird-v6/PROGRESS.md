@@ -219,12 +219,15 @@ yet independently verified · — not yet reached.
 - ❓ Mobile Field default collisions, thin relational material, unproven
   dense-zoom k≈2.4 state (matrix row "Mobile Field") — depends on the mobile
   measurement-methodology fix above.
-- ❓ 1024×640 "horizontal mobile-sheet band" overlay leak
-  (`CURRENT_OBSERVED_STATE.md`) — PR #9's own body says this was
-  investigated and did not reproduce in the prior round; re-check once, but
-  don't assume either way without looking.
+- ✅ **1024×640 "horizontal mobile-sheet band" — checked directly, does not
+  reproduce.** Screenshotted the live page at 1024×640 in both neutral and
+  focused states: clean compact-desktop composition, no mobile-sheet
+  styling bleed (1024 is above the 900px mobile breakpoint, so it should
+  never see mobile sheet styles at all, and doesn't). Confirms the PR
+  body's own "did not reproduce" finding independently, not just repeated
+  from it.
 
-### E3 — Interaction, accessibility, resilience — NOT YET REACHED
+### E3 — Interaction, accessibility, resilience — MOSTLY ALREADY COVERED
 
 - ❓ text-zoom-200: confirmed this is `RESPONSIVE-ACCESS/text-zoom-200` in
   `tests/contracts/evidence-plan.json`/`final-closure-contract.json` — an
@@ -240,9 +243,23 @@ yet independently verified · — not yet reached.
   a different criterion about genuine zoom behavior, and CDP-level real
   zoom emulation (not CSS zoom) would need investigating when E5 is
   reached, not assumed solved by the accessibility.css wiring.
-- ❓ keyboard-edge-focus / tooltip-edge scenarios don't establish their named
-  edge cases.
-- — everything else in `EXECUTION_DAG.md` E3's list, not yet audited.
+- ❓ keyboard-edge-focus / tooltip-edge: same pattern as text-zoom-200 —
+  confirmed these are `RESPONSIVE-ACCESS/keyboard-edge-focus` and
+  `RESPONSIVE-ACCESS/tooltip-edge` in `tests/contracts/evidence-plan.json`,
+  E5 evidence-artifact identifiers, not E3 test-suite gaps. Deferred to E5,
+  not miscategorized.
+- Most of E3's *functional* list (pointer ownership/no retry, tooltip
+  lifecycle, target sizes, roving keyboard, focus visibility, modal
+  inert/restore, reduced motion, breakpoint transitions) already has real,
+  passing test coverage exercised repeatedly throughout this round's full
+  suite runs (`tests/black-bird-accessibility.spec.js`,
+  `tests/e2e/tooltip-keyboard-status.spec.js`, `tests/a11y/axe.spec.js`,
+  `tests/e2e/desktop-composition.spec.js`) — not a fresh audit, but not an
+  unverified gap either; 194/194 passing repeatedly is real signal, not
+  nothing. What's *not* yet done: "actual 200% text resize" and "forced
+  colors on production" as genuinely fresh, dedicated checks (forced-colors
+  got real production coverage as part of the E1 accessibility.css fix;
+  200% resize is blocked on the same CDP-zoom-emulation gap noted above).
 
 ### E4 — Scenario proof reconstruction (115 P-SCN) — NOT YET REACHED
 
