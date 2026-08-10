@@ -226,6 +226,15 @@ yet independently verified · — not yet reached.
   never see mobile sheet styles at all, and doesn't). Confirms the PR
   body's own "did not reproduce" finding independently, not just repeated
   from it.
+- ✅ **Object Solo — spot-checked, composition held up through the camera
+  fixes (uses the same focus-fit path, so benefits from the same
+  occupancy correction).** Live screenshot (FO.CORPSE Solo via the real
+  Index-drawer solo button, not a raw dispatch shortcut — first attempt at
+  a raw `dispatch({type:'ENTER_SOLO',...})` silently did nothing useful,
+  redone through the actual UI path): recessive `SOLO · Corpse` band
+  visible at bottom per H-VIS-008, full members clearly distinguished
+  from secondary (hollow, unlabeled) participants, no visible overlap or
+  overflow.
 
 ### E3 — Interaction, accessibility, resilience — MOSTLY ALREADY COVERED
 
