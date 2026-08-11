@@ -447,6 +447,55 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await expect.poll(visibleNameOLabelCount).toBe(0);
   });
 
+  test('NameO Object-groups toggle now has a real, independent visible effect: the mark itself, regardless of Source Names (design decision, closes the audit-flagged gap)', async ({
+    page,
+  }) => {
+    // Before this design decision, NameO had no visible geometric body at
+    // all -- with Source Names off (the default), the "NameO (4)" toggle in
+    // View -> Object groups was a genuine no-op (nothing to hide or show).
+    // NameO now has its own small body (the smallest of all six types), so
+    // this toggle has the same real, independent effect every other type's
+    // toggle already has -- decoupled from Source Names, which continues to
+    // control only the label text.
+    await gotoField(page, { reduced: true });
+    await tagNodes(page);
+    const nameoIds = ['NameO.AR.GHURAB', 'NameO.ON.HRAFN', 'NameO.OI.SCALD_CROW', 'NameO.EN.AMERICAN_CROW'];
+    const visibleNameOBodyCount = () =>
+      page.evaluate(
+        (ids) =>
+          ids.filter((id) => {
+            const g = document.querySelector(`g.node[data-bb-test-id="${id}"]`);
+            return g && getComputedStyle(g).opacity !== '0' && g.querySelector('.bb-nameo-mark');
+          }).length,
+        nameoIds
+      );
+    expect(await page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(false);
+    expect(await visibleNameOBodyCount(), 'all 4 NameO marks visible by default, with Source Names off').toBe(4);
+
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-type="NameO"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.typeVisibility.NameO)).toBe(false);
+    await expect.poll(visibleNameOBodyCount, 'toggling the type off must genuinely hide every NameO mark').toBe(0);
+
+    await page.locator('[data-type="NameO"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.typeVisibility.NameO)).toBe(true);
+    await expect.poll(visibleNameOBodyCount, 'toggling back on must restore every NameO mark').toBe(4);
+    await page.locator('[data-close="fieldViewDrawer"]').first().click();
+
+    // Source Names still governs only the label -- unaffected by the body.
+    const nameoLabelDisplay = () =>
+      page.evaluate(
+        () => document.querySelector('g.node[data-bb-test-id="NameO.AR.GHURAB"] text.node-label')?.getAttribute('display')
+      );
+    expect(await nameoLabelDisplay()).toBe('none');
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await page.locator('[data-view="sourceNames"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(true);
+    await expect.poll(nameoLabelDisplay).not.toBe('none');
+    expect(await visibleNameOBodyCount(), 'the mark stays visible with Source Names on too').toBe(4);
+  });
+
   test('Solo survives a resize with membership and Route/trace untouched (P-SCN-056)', async ({ page }) => {
     await gotoField(page, { reduced: true });
     await page.locator('.rail-btn[data-action="index"]').click();

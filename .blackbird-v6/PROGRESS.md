@@ -960,3 +960,63 @@ practice going forward in any future session running concurrent
 background investigation against this same checkout is to commit
 verified fixes immediately rather than leaving them uncommitted in a
 shared working tree.
+
+## Session continuation (2026-08-11): NameO body design decision, implemented and closed
+
+The owner reviewed the flagged NameO Object-groups toggle gap and asked
+for a concrete visual resolution: a real, non-representational body for
+NameO, coherent with the existing morphology ontology rather than a new
+shape family, with precise geometry/positioning and thorough cross-view
+testing.
+
+**Decision**: NameO gets the smallest, quietest body in the six-type
+morphology set — a plain filled circle (the same primitive FO/RNO/MNO
+already use, no new shape/hue), `coreR = outerR = 3.0` world units
+(smallest of all six; previous smallest was RefO at 4.5), shared
+`--bb-node-fill`, new `.bb-nameo-mark{fill-opacity:.7}` modifier echoing
+the restraint already given to NameO/RefO label text (`.node-label.quiet`).
+Hit/collide/label-offset/halo/focus radii all derive from the same shared
+`outerR + N` formulas every other type uses — no special-casing. The new
+real collision footprint (`collideR=12`) is strictly smaller than the old
+invisible placeholder's reserved footprint (`collideR=14`), so this can
+only relax existing force-simulation spacing, never introduce a new
+overlap — confirmed live, not just by inspection.
+
+**Behavioral resolution (this is what actually closes the flagged gap)**:
+Object Groups → NameO now controls whether the mark exists at all, exactly
+like every other type's toggle — verified live via a real click, body
+genuinely appears/disappears. View → Source Names continues to control
+only the label text, unchanged. With Source Names off (the default), a
+NameO now renders as a small quiet mark with no label — the same
+"body-visible, label-withheld" pattern RefO/RelO already have below zoom
+1.6, not a new interaction idiom.
+
+**No change** to authored world coordinates
+(`src/data/world-layout.json`) or the label-solver — both already fully
+generic over `nodeMetrics(d)`, so the smaller radius flows through with
+zero code changes to either.
+
+**Tests**: 3 new unit tests (`tests/unit/field-renderer.test.js`) —
+geometry read from the committed `visual-tokens.json` contract (added a
+`coreRadius` field to its `NameO` entry, alongside the pre-existing,
+unused-elsewhere `baselineWidth`), smallest-of-six assertion, shared-formula
+assertion, and a smaller-than-before collision-safety assertion. One new
+e2e test (`tests/e2e/view-index-solo.spec.js`) exercising the toggle from
+the real default state end to end (mark visible by default with no label,
+Object-groups toggle genuinely hides/shows all 4 marks independent of
+Source Names, Source Names still governs only the label) — proven to fail
+against the unfixed geometry/renderer before the change and pass after.
+
+**Full cross-suite regression, one batched run**: 138/138 unit (was 135),
+114/114 across world-camera (including the sealed zero-label-overlap
+checks at all 3 desktop viewports and the densest RelO clusters, several
+of which contain a NameO participant), mobile, design, accessibility,
+baseline, mobile-chambers (incl. the dense-cluster collision checks),
+responsive-visual-closure, reader, and tooltip/keyboard/status — all
+clean, no ripple regressions from either the smaller/real collision
+radius or the new rendered element. Visually verified live at desktop
+(default + Source Names on, screenshot-confirmed correct placement next
+to its label, no visual competition with neighboring FO/RNO bodies) and
+mobile (390×844) — small, quiet, clearly distinct at every state checked.
+Full `verify:closure:local` re-run clean after the change: 16/17 (1
+non-blocking skip, as always locally).

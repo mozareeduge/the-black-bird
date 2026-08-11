@@ -14,7 +14,9 @@ export function morphologyOf(node) {
 }
 
 // Exact morphology metrics: FO coreR=6.4; RNO coreR=6.0/outerR=11.5; MNO mean
-// radius 7.4; RefO diamond 9x9 (half-diagonal outerR = 4.5*sqrt2); RelO
+// radius 7.4; NameO coreR=outerR=3.0 (the smallest body in the set -- a name
+// is a script-surface, not a full field object; see PROGRESS.md's NameO body
+// design decision); RefO diamond 9x9 (half-diagonal outerR = 4.5*sqrt2); RelO
 // hollow ring r=8.5; aperture core r=9.5 / rim r=11.
 export function computeNodeMetrics(node) {
   if (isApertureNode(node)) {
@@ -26,7 +28,7 @@ export function computeNodeMetrics(node) {
     case 'MNO':
       return radiiOf('mno', 7.4, 7.4);
     case 'NameO':
-      return radiiOf('nameo', 0, 5);
+      return radiiOf('nameo', 3.0, 3.0);
     case 'RefO':
       return radiiOf('refo', 4.5, 4.5 * Math.SQRT2);
     case 'RelO':
@@ -95,11 +97,14 @@ export function createFieldRenderer(container) {
         .attr('transform', 'rotate(45)');
     } else if (node.type === 'RelO') {
       g.append('circle').attr('class', 'bb-body').attr('r', m.coreR).attr('fill', 'none').attr('vector-effect', 'non-scaling-stroke');
-    } else if (node.type !== 'NameO') {
+    } else if (node.type === 'NameO') {
+      // Smallest, quietest body in the set -- see computeNodeMetrics's NameO
+      // comment. Reuses .bb-body's shared fill/opacity/transition machinery;
+      // .bb-nameo-mark is purely a restrained fill-opacity modifier.
+      g.append('circle').attr('class', 'bb-body bb-nameo-mark').attr('r', m.coreR);
+    } else {
       g.append('circle').attr('class', 'bb-body').attr('r', m.coreR);
     }
-    // NameO: textual body only, no visible geometric core -- matches the
-    // live renderer exactly (hit target still present below).
 
     g.append('circle').attr('class', 'node-hit').attr('r', m.hitR);
     g.attr('data-bb-id', node.id)

@@ -840,7 +840,15 @@ function nodeShape(g, d) {
       .attr("d", irregularCirclePath(d.id, m.coreR, 14))
       .attr("fill", "var(--bb-node-fill)");
   } else if (d.type === "NameO") {
-    // textual body only: no visible geometric core, hit target still present via .node-hit below
+    // Smallest, quietest body in the morphology set (a name is a
+    // script-surface, not a full field object) -- plain filled circle at
+    // coreR=3 (the smallest of all six types), shared --bb-node-fill,
+    // .bb-nameo-mark's fill-opacity:.7 restraint. See field-renderer.js's
+    // computeNodeMetrics NameO comment for the full design decision.
+    g.append("circle")
+      .attr("class", "bb-body bb-nameo-mark")
+      .attr("r", m.coreR)
+      .attr("fill", "var(--bb-node-fill)");
   } else if (d.type === "RefO") {
     const side = m.coreR * 2; // 9x9 diamond (4.7): coreR=4.5, side=9
     g.append("rect")

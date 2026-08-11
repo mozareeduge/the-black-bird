@@ -36,7 +36,8 @@
       "irregularityPercent": 10
     },
     "NameO": {
-      "baselineWidth": 8
+      "baselineWidth": 8,
+      "coreRadius": 3.0
     },
     "RefO": {
       "diamondWidth": 9,

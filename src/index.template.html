@@ -307,6 +307,10 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .bb-clearing-field{pointer-events:none;}
 .bb-wear,.bb-afterglow{pointer-events:none;}
 .bb-body,.bb-rno-ring{transition:opacity .35s ease,fill .35s ease,stroke-opacity .35s ease;}
+/* NameO's mark: the smallest, quietest body in the morphology set (a name is
+   a script-surface, not a full field object) -- same shared --bb-node-fill
+   as FO/RNO/MNO, echoing .node-label.quiet's restraint rather than a new hue. */
+.bb-nameo-mark{fill-opacity:.7;}
 .bb-cold-rest{filter:blur(var(--bb-dof-max));}
 .bb-arabic{font-family:var(--bb-arabic);}
 .node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;transition:fill .35s ease;}
