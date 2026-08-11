@@ -231,4 +231,27 @@ test.describe('Reader subject view models and renderer (T18)', () => {
     expect(rendered).toContain(DATA.nameos[nameoId].sourceLayer);
     expect(rendered).toContain(DATA.nameos[nameoId].gloss.replace(/\n/g, ''));
   });
+
+  test('a NameO Reader panel label does not reverse its mixed-script label via a blanket dir="rtl" (regression)', async ({
+    page,
+  }) => {
+    // buildNameoContent's label paragraph used to set dir="rtl" on the
+    // WHOLE mixed-script label (e.g. "ghurāb / غراب"), not just the Arabic
+    // run within it -- that reorders the neutral "/" separator and the
+    // Latin run around the Arabic one under the Unicode Bidi Algorithm, so
+    // the paragraph visually rendered as "غراب / ghurāb": a silent mirror
+    // of the title immediately above it, not a plain repeat. Only the
+    // Arabic run itself should ever carry dir="rtl" (appendArabicWrapped's
+    // established, already-correct pattern, used for sourceLayer/gloss).
+    await gotoField(page, { reduced: true });
+    await clickNode(page, 'NameO.AR.GHURAB');
+    const label = page.locator('#reader .bb-arabic-label');
+    await expect(label).toBeVisible();
+    expect(await label.getAttribute('dir'), 'the label paragraph itself must not force a whole-string RTL base direction').toBeNull();
+    const arabicSpan = label.locator('.bb-arabic');
+    await expect(arabicSpan).toHaveAttribute('dir', 'rtl');
+    await expect(arabicSpan).toHaveAttribute('lang', 'ar');
+    expect(await arabicSpan.textContent()).toBe('غراب'); // only the Arabic run, not the whole label
+    expect((await label.textContent()).trim()).toBe('ghurāb / غراب'); // DOM/logical order preserved
+  });
 });

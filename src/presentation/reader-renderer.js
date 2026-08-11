@@ -149,9 +149,17 @@ function buildNameoContent(vm, nodesById, doc) {
   const root = doc.createDocumentFragment();
   root.appendChild(metaBlock(vm.node, doc));
   if (isArabicScript(vm.node.label)) {
-    const label = el(doc, 'p', 'bb-arabic', vm.node.label);
-    label.lang = 'ar';
-    label.dir = 'rtl';
+    // Wrap only the Arabic run, not the whole mixed-script label, in
+    // lang="ar"/dir="rtl" -- the same appendArabicWrapped() pattern used for
+    // sourceLayer/gloss below. Applying dir="rtl" to the full string (the
+    // prior approach) sets the paragraph's own base direction, which
+    // reorders the neutral "/" separator and the Latin run around the
+    // Arabic one under the Unicode Bidi Algorithm: visually "ghurāb /
+    // غراب" became "غراب / ghurāb", a silent mirror of the title
+    // immediately above it rather than a plain repeat.
+    const label = doc.createElement('p');
+    label.className = 'bb-arabic-label';
+    appendArabicWrapped(label, vm.node.label, doc);
     root.appendChild(label);
   }
   const prose = el(doc, 'div', 'prose');

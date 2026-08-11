@@ -2410,9 +2410,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
     if (isArabicScript(vm.node.label)) {
-      const label = el(doc, "p", "bb-arabic", vm.node.label);
-      label.lang = "ar";
-      label.dir = "rtl";
+      const label = doc.createElement("p");
+      label.className = "bb-arabic-label";
+      appendArabicWrapped(label, vm.node.label, doc);
       root2.appendChild(label);
     }
     const prose = el(doc, "div", "prose");
