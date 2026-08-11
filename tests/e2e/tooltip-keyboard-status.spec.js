@@ -397,6 +397,80 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     expect(state.aboutOpen).toBe(false);
   });
 
+  test('a second real commit while the first is still in camera/Reader/trace motion: every surface converges on the latest commit, with no stale prior effect (FQ-06)', async ({
+    page,
+  }) => {
+    // Existing rapid-commit coverage (the [commit, commit, stale-callback]
+    // critical triple, P-SCN-100, P-SCN-126) each prove a PARTIAL slice of
+    // "latest action wins" -- semantic active id and Route always, camera
+    // finiteness or absence-of-error sometimes -- but no single test checks
+    // rendered focus, the Reader subject, the camera actually re-targeting
+    // (not just staying finite), and trace/afterglow together, in one real
+    // race. This closes that gap directly rather than trusting that the
+    // dispatcher's transaction/cancellation mechanism handles it correctly
+    // just because its pieces are each individually tested.
+    await gotoField(page); // full motion (not reduced) -- a real, overlappable camera/Reader transition to race against
+    const firstLabel = await page.evaluate(() => window.__bbTest.byId['FO.CORPSE'].label);
+    const secondLabel = await page.evaluate(() => window.__bbTest.byId['FO.CAIN'].label);
+
+    await clickNode(page, 'FO.CORPSE');
+    await clickNode(page, 'FO.CAIN'); // second real commit before the first's camera/Reader/trace transition can settle
+
+    // Settle fully, then check every surface converges on the SAME latest id.
+    await page.waitForTimeout(1500);
+
+    const after = await page.evaluate(() => {
+      const ui = window.__bbTest.getUiRuntime();
+      const activeNode = document.querySelector('g.node[data-bb-light="warm-core"]');
+      return {
+        activeId: ui.focusedId,
+        renderedFocusId: activeNode?.getAttribute('data-bb-id') ?? null,
+        readerSubjectId: window.__bbTest.getState().reading.readerSubject?.id ?? null,
+        readerTitleText: document.querySelector('#reader .title')?.textContent ?? null,
+        routeIds: window.__bbTest.getState().history.route.map((e) => e.id),
+        transform: { ...ui.transform },
+        trace: window.__bbTest.getState().trace,
+      };
+    });
+
+    // Semantic active/focus == latest valid commit.
+    expect(after.activeId).toBe('FO.CAIN');
+    // Rendered focus (the warm/cold lighting system, not just internal
+    // state) == the same id.
+    expect(after.renderedFocusId).toBe('FO.CAIN');
+    // Reader subject == the same id, and its visible content is the LATEST
+    // object's own label, not a stale leftover from the first.
+    expect(after.readerSubjectId).toBe('FO.CAIN');
+    expect(after.readerTitleText).toBe(secondLabel);
+    expect(after.readerTitleText).not.toBe(firstLabel);
+    // Camera actually re-targeted toward the latest commit (not merely
+    // "some finite number" -- the active node's own screen position must
+    // land inside the visible graph surface after settling).
+    expect(Number.isFinite(after.transform.k) && Number.isFinite(after.transform.x) && Number.isFinite(after.transform.y)).toBe(true);
+    const svgBox = await page.locator('#graphSvg').boundingBox();
+    const cainWorld = await page.evaluate(() => {
+      const d = window.__bbTest.simNodes.find((n) => n.id === 'FO.CAIN');
+      return { x: d.x, y: d.y };
+    });
+    const screenX = after.transform.x + cainWorld.x * after.transform.k;
+    const screenY = after.transform.y + cainWorld.y * after.transform.k;
+    expect(screenX).toBeGreaterThanOrEqual(0);
+    expect(screenX).toBeLessThanOrEqual(svgBox.width);
+    expect(screenY).toBeGreaterThanOrEqual(0);
+    expect(screenY).toBeLessThanOrEqual(svgBox.height);
+    // Route contains the correct committed sequence exactly once, in order.
+    expect(after.routeIds.slice(-2)).toEqual(['FO.CORPSE', 'FO.CAIN']);
+    // No stale prior trace/afterglow effect: afterglow records a PREVIOUS
+    // active object cooling down, not the current one (verified: the
+    // currently-active object never gets its own afterglow entry) -- so the
+    // real assertion is that the race didn't corrupt trace bookkeeping:
+    // FO.CORPSE (the first, now-superseded commit) has a real afterglow
+    // entry, proving the transition through it was recorded despite the
+    // immediate second commit, and the app never errored mid-race.
+    expect(after.trace.afterglows.some((a) => a.id === 'FO.CORPSE')).toBe(true);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+  });
+
   test('landmark DOM order is identical across desktop and mobile, so assistive reading order does not depend on viewport (P-SCN-128)', async ({
     page,
   }) => {
