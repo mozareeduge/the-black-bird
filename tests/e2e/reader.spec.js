@@ -232,26 +232,56 @@ test.describe('Reader subject view models and renderer (T18)', () => {
     expect(rendered).toContain(DATA.nameos[nameoId].gloss.replace(/\n/g, ''));
   });
 
-  test('a NameO Reader panel label does not reverse its mixed-script label via a blanket dir="rtl" (regression)', async ({
+  test('a NameO Reader panel shows its full mixed-script label exactly once, with no redundant second paragraph (FQ-01 regression)', async ({
     page,
   }) => {
-    // buildNameoContent's label paragraph used to set dir="rtl" on the
-    // WHOLE mixed-script label (e.g. "ghurāb / غراب"), not just the Arabic
-    // run within it -- that reorders the neutral "/" separator and the
-    // Latin run around the Arabic one under the Unicode Bidi Algorithm, so
-    // the paragraph visually rendered as "غراب / ghurāb": a silent mirror
-    // of the title immediately above it, not a plain repeat. Only the
-    // Arabic run itself should ever carry dir="rtl" (appendArabicWrapped's
-    // established, already-correct pattern, used for sourceLayer/gloss).
+    // buildNameoContent() used to render vm.node.label a second time in a
+    // dedicated paragraph immediately below the title -- first with a
+    // blanket dir="rtl" that silently mirrored it (fixed earlier this
+    // session), then, once that bidi bug was fixed, as a merely redundant
+    // repeat of content already shown in the title. The duplicate paragraph
+    // is removed entirely; metaBlock's title is the single canonical
+    // rendering. Real per-run Arabic marking (lang="ar"/dir="rtl") still
+    // exists where it's semantically needed: the gloss/sourceLayer prose.
     await gotoField(page, { reduced: true });
     await clickNode(page, 'NameO.AR.GHURAB');
-    const label = page.locator('#reader .bb-arabic-label');
-    await expect(label).toBeVisible();
-    expect(await label.getAttribute('dir'), 'the label paragraph itself must not force a whole-string RTL base direction').toBeNull();
-    const arabicSpan = label.locator('.bb-arabic');
-    await expect(arabicSpan).toHaveAttribute('dir', 'rtl');
-    await expect(arabicSpan).toHaveAttribute('lang', 'ar');
-    expect(await arabicSpan.textContent()).toBe('غراب'); // only the Arabic run, not the whole label
-    expect((await label.textContent()).trim()).toBe('ghurāb / غراب'); // DOM/logical order preserved
+    const reader = page.locator('#reader');
+    const fullLabel = 'ghurāb / غراب';
+
+    // Exactly one element whose ENTIRE text is the complete canonical
+    // label -- the title. (The gloss prose legitimately starts with the
+    // same words as its own real content -- "ghurāb / غراب. A
+    // source-language..." -- so a raw substring count over the whole
+    // panel's text would conflate that genuine content with a duplicated
+    // standalone label; this checks structure, not a substring.)
+    const title = reader.locator('.title');
+    await expect(title).toHaveText(fullLabel);
+    const bodyText = await reader.textContent();
+    const standaloneLabelElements = await reader
+      .locator('*')
+      .evaluateAll((els, label) => els.filter((el) => el.children.length === 0 && el.textContent.trim() === label).length, fullLabel);
+    expect(
+      standaloneLabelElements,
+      'expected exactly one leaf element whose entire text is the full label (the title) -- a second one means a duplicate label paragraph survived'
+    ).toBe(1);
+
+    // No redundant label paragraph of any kind survives.
+    await expect(reader.locator('.bb-arabic-label')).toHaveCount(0);
+
+    // Arabic runs in the remaining content (gloss/sourceLayer) still get
+    // correct per-run lang="ar"/dir="rtl" -- appendArabicWrapped's pattern,
+    // untouched by this change.
+    const arabicRuns = await reader.locator('.bb-arabic').all();
+    expect(arabicRuns.length, 'expected at least one Arabic-script span in the remaining NameO content').toBeGreaterThan(0);
+    for (const run of arabicRuns) {
+      expect(await run.getAttribute('lang')).toBe('ar');
+      expect(await run.getAttribute('dir')).toBe('rtl');
+    }
+    const runTexts = await Promise.all(arabicRuns.map((r) => r.textContent()));
+    expect(runTexts.join('')).toContain('غراب');
+
+    // sourceLayer and gloss content is unchanged.
+    expect(bodyText).toContain('Quranic Arabic / tafsīr Arabic');
+    expect(bodyText).toContain('A source-language black-bird name conventionally translated as crow or raven.');
   });
 });

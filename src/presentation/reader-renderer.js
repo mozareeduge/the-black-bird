@@ -4,11 +4,6 @@
 // overwrites newer presentation (P-RULE-021).
 
 const ARABIC_RUN = /[؀-ۿ]+/g;
-const ARABIC_TEST = /[؀-ۿ]/;
-
-function isArabicScript(s) {
-  return ARABIC_TEST.test(s || '');
-}
 
 // Short label for chips/index items (the compact cross-reference form).
 function shortLabelOf(id, nodesById) {
@@ -147,21 +142,17 @@ function buildFoContent(vm, nodesById, doc) {
 
 function buildNameoContent(vm, nodesById, doc) {
   const root = doc.createDocumentFragment();
+  // metaBlock's title is the single canonical rendering of the full
+  // mixed-script label (e.g. "ghurāb / غراب") -- no second paragraph
+  // repeats it. An earlier version added one to give the Arabic run
+  // explicit lang="ar"/dir="rtl" marking, but applying dir="rtl" to the
+  // whole mixed-script string reordered the neutral "/" separator and the
+  // Latin run around the Arabic one, so it silently mirrored the title
+  // instead of just repeating it; removing the duplicate removes the
+  // defect at the root rather than re-fixing its bidi scoping again. The
+  // sourceLayer/gloss paragraphs below still carry real, correctly-scoped
+  // lang="ar"/dir="rtl" marking on their own Arabic runs.
   root.appendChild(metaBlock(vm.node, doc));
-  if (isArabicScript(vm.node.label)) {
-    // Wrap only the Arabic run, not the whole mixed-script label, in
-    // lang="ar"/dir="rtl" -- the same appendArabicWrapped() pattern used for
-    // sourceLayer/gloss below. Applying dir="rtl" to the full string (the
-    // prior approach) sets the paragraph's own base direction, which
-    // reorders the neutral "/" separator and the Latin run around the
-    // Arabic one under the Unicode Bidi Algorithm: visually "ghurāb /
-    // غراب" became "غراب / ghurāb", a silent mirror of the title
-    // immediately above it rather than a plain repeat.
-    const label = doc.createElement('p');
-    label.className = 'bb-arabic-label';
-    appendArabicWrapped(label, vm.node.label, doc);
-    root.appendChild(label);
-  }
   const prose = el(doc, 'div', 'prose');
   const layer = doc.createElement('p');
   appendArabicWrapped(layer, vm.sourceLayer, doc);

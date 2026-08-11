@@ -496,6 +496,97 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     expect(await visibleNameOBodyCount(), 'the mark stays visible with Source Names on too').toBe(4);
   });
 
+  test('Source Names has the same real, visible effect on mobile as on desktop (FQ-02 Scenario A)', async ({ page }) => {
+    // The default-state Source Names fix (P-SCN-052 regression, above) was
+    // only ever exercised at desktop viewport. Mobile uses the same
+    // fieldViewDrawer component (opened via the bottom-nav's
+    // [data-mobile="view"] instead of the rail), and updateLabelVisibility's
+    // label budget is viewport-dependent (labelBudget() halves roughly for
+    // isMobile()) -- a real, distinct code path worth its own proof rather
+    // than assuming desktop coverage transfers.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { mobile: true, reduced: true });
+    const before = await page.evaluate(() => ({
+      sourceNames: window.__bbTest.getState().view.sourceNames,
+      labels: window.__bbTest.getState().view.labels,
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      routeLen: window.__bbTest.getState().history.route.length,
+      trace: window.__bbTest.getState().trace,
+      readerSubject: window.__bbTest.getState().reading.readerSubject,
+    }));
+    expect(before.sourceNames).toBe(false);
+    expect(before.labels).toBe(true);
+
+    const visibleNameOLabelCount = () =>
+      page.evaluate(
+        () =>
+          [...document.querySelectorAll('g.node[data-bb-type="NameO"] text.node-label')].filter(
+            (el) => el.getAttribute('display') !== 'none'
+          ).length
+      );
+    expect(await visibleNameOLabelCount()).toBe(0);
+
+    await page.locator('.bottom-nav [data-mobile="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-view="sourceNames"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(true);
+    await expect.poll(visibleNameOLabelCount, 'turning Source Names on must render at least one NameO label on mobile too').toBeGreaterThan(0);
+
+    const after = await page.evaluate(() => ({
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      routeLen: window.__bbTest.getState().history.route.length,
+      trace: window.__bbTest.getState().trace,
+      readerSubject: window.__bbTest.getState().reading.readerSubject,
+    }));
+    expect(after.activeId, 'Source Names must not mutate focus').toBe(before.activeId);
+    expect(after.routeLen, 'Source Names must not append Route history').toBe(before.routeLen);
+    expect(after.trace, 'Source Names must not mutate trace/wear/afterglow').toEqual(before.trace);
+    expect(after.readerSubject, 'Source Names must not change the Reader subject').toEqual(before.readerSubject);
+
+    await page.locator('[data-view="sourceNames"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(false);
+    await expect.poll(visibleNameOLabelCount).toBe(0);
+  });
+
+  test('global Labels dominates Source Names: turning Labels off hides NameO labels too, and restoring Labels with Source Names still on brings them back (FQ-02 Scenario B)', async ({
+    page,
+  }) => {
+    // updateLabelVisibility's filter chain checks `!state.view.labels` before
+    // the sourceNames/NameO check, so this is structurally guaranteed by
+    // code order -- but that guarantee was never exercised through a real UI
+    // sequence combining both toggles, only each in isolation (P-SCN-052
+    // above toggles Labels and Source Names as two separate, non-overlapping
+    // sub-tests).
+    await gotoField(page, { reduced: true });
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-view="sourceNames"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(true);
+
+    const visibleNameOLabelCount = () =>
+      page.evaluate(
+        () =>
+          [...document.querySelectorAll('g.node[data-bb-type="NameO"] text.node-label')].filter(
+            (el) => el.getAttribute('display') !== 'none'
+          ).length
+      );
+    await expect.poll(visibleNameOLabelCount).toBeGreaterThan(0);
+
+    await page.locator('[data-view="labels"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.labels)).toBe(false);
+    await expect.poll(visibleNameOLabelCount, 'Labels off must hide NameO labels too, even with Source Names still on').toBe(0);
+    expect(await page.evaluate(() => window.__bbTest.getState().view.sourceNames), 'Labels off must not itself flip Source Names').toBe(
+      true
+    );
+
+    await page.locator('[data-view="labels"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.labels)).toBe(true);
+    await expect.poll(
+      visibleNameOLabelCount,
+      'restoring Labels with Source Names still on must bring NameO labels back without re-toggling Source Names'
+    ).toBeGreaterThan(0);
+  });
+
   test('Solo survives a resize with membership and Route/trace untouched (P-SCN-056)', async ({ page }) => {
     await gotoField(page, { reduced: true });
     await page.locator('.rail-btn[data-action="index"]').click();

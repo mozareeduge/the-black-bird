@@ -148,6 +148,66 @@ test.describe('Responsive/visual closure (F08/R6): no sheet leak, label collisio
     }
   }
 
+  // FQ-02 visual/ripple check: Source Names' label-priority fix changes
+  // which labels compete for the render budget. Verify it doesn't introduce
+  // overlap, swallow the active object's own legibility, or break chrome/
+  // safe-area containment, at the three representative states named in the
+  // completion intake -- not just the single default-state check the
+  // regression test above already covers.
+  async function checkSourceNamesOnState(page, { focusId, mobile = false }) {
+    await clickNode(page, focusId);
+    await page.waitForTimeout(900);
+    const beforeActiveId = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
+
+    const viewButton = mobile ? page.locator('.bottom-nav [data-mobile="view"]') : page.locator('.rail-btn[data-action="view"]');
+    await viewButton.click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-view="sourceNames"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(true);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(900);
+
+    // Active identity unchanged and still legible (own label visible).
+    const afterActiveId = await page.evaluate(() => window.__bbTest.getUiRuntime().focusedId);
+    expect(afterActiveId, 'Source Names must not mutate the active object').toBe(beforeActiveId);
+    const activeLabelVisible = await page.evaluate(
+      (id) => document.querySelector(`g.node[data-bb-id="${id}"] text.node-label`)?.getAttribute('display') !== 'none',
+      beforeActiveId
+    );
+    expect(activeLabelVisible, "the active object's own label must remain visible with Source Names on").toBe(true);
+
+    // No label overlap in this state.
+    const overlapCount = await page.evaluate(countLabelOverlaps);
+    expect(overlapCount, `expected 0 label overlaps with Source Names on, focus=${focusId}`).toBe(0);
+
+    // Chrome/safe-area containment unaffected.
+    await noHorizontalOverflow(page);
+  }
+
+  test('desktop 1280x800: ordinary FO focus + Source Names on has no label overlap and keeps the active label legible', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoField(page, { reduced: true });
+    await checkSourceNamesOnState(page, { focusId: 'FO.CAIN' });
+  });
+
+  test('desktop 1280x800: RelO focus + Source Names on has no label overlap and keeps the active label legible', async ({
+    page,
+  }) => {
+    // RelO focus is where NameO gets its highest, most contentious priority
+    // (isRelParticipant, tier 2) -- the real worst case for crowding.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoField(page, { reduced: true });
+    await checkSourceNamesOnState(page, { focusId: 'RelO.R4CB4A8D8' });
+  });
+
+  test('mobile 390x844: Source Names on has no label overlap and keeps the active label legible', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { mobile: true, reduced: true });
+    await checkSourceNamesOnState(page, { focusId: 'RelO.R4CB4A8D8', mobile: true });
+  });
+
   test('320px reflow (WCAG baseline) on the live page: no horizontal overflow, Index drawer opens cleanly', async ({
     page,
   }) => {
