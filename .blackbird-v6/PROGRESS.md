@@ -832,3 +832,124 @@ already on record as the user's own call.
 `exact-head-verify`, `final-candidate-evidence`, `publish`).
 `/next/` now reflects this fix. Nothing left open in the ledger except
 the two aesthetic judgment calls already on record.
+
+## Session continuation (2026-08-11): independent audit, 283ce5b..HEAD
+
+A fresh-session, independent audit of the full `283ce5b..HEAD` range (both
+this round and the merged Field-recomposition round, PR #8) requested by
+the owner: verify every change matches what was actually asked, and hunt
+for anything degraded/rebuilt/silently changed alongside it, plus generic
+defects. Not a re-run of E1-E6 above (already closed, independently
+re-verified as accurate against the real repo/CI state) — this looked for
+what those passes' own methods couldn't catch, per a specific tip-off from
+the owner: the View drawer's Source Names toggle correctly flipped state
+but had no visible effect in the state a typical reader is actually in.
+
+**Method:** round-by-round (PR #8's Field recomposition vs its
+contemporaneous `TESTING.md`; this branch's own work vs this ledger),
+plus a generalized sweep of every View/Index/Solo/Route/tooltip toggle for
+the same failure class the Source Names tip-off named: state flips
+correctly, but the rendering/budget/gating logic means nothing observable
+happens in the state a real reader is in. Two parallel investigations,
+each independently verified live (Playwright + real Chromium rendering,
+not state-only) before any fix.
+
+### Confirmed and fixed
+
+- ✅ **Source Names toggle (View drawer) never rendered anything in the
+  real default state.** `updateLabelVisibility()`'s (`src/app.js`) label
+  priority/budget system ranked NameO below the app's default-focus
+  (aperture) participant tier, which alone already fills the budget with
+  25+ items — NameO lost the stable-sort tie-break and never won a slot,
+  even though `state.view.sourceNames` flipped correctly and all 4 NameO
+  nodes are themselves aperture focus-members. Fixed by giving NameO its
+  own tier above the generic focus-member tier (bounded cost: at most 4
+  slots, since only 4 NameO nodes exist total). The only prior test for
+  this toggle pre-focused the one node it checked before toggling,
+  bypassing the exact contention that broke it for a real user — a
+  documented, deliberate test-design choice at the time that
+  (unintentionally) masked this bug class. Added a regression test
+  exercising the toggle from the real default state; verified it fails
+  against the unfixed tier order and passes against the fix. Commit
+  `bd6c8b8`.
+- ✅ **NameO Reader-panel label silently mirrored under a blanket
+  `dir="rtl"`.** `buildNameoContent()`
+  (`src/presentation/reader-renderer.js`) rendered a NameO subject's
+  label a second time (duplicating the title above it) with `dir="rtl"`
+  on the *whole* mixed-script string ("ghurāb / غراب"), reordering the
+  Latin run and separator around the Arabic one under the Unicode Bidi
+  Algorithm — visually "غراب / ghurāb", a silent mirror of the title
+  immediately above it. Introduced during PR #8 (not present in the
+  pre-recomposition monolith; the correct per-run wrapping pattern
+  already existed two paragraphs below in the same file for
+  sourceLayer/gloss, just wasn't applied here). The only prior test
+  checked an Arabic span existed with the right lang/dir attributes and
+  that the Arabic text was present — true both before and after this
+  bug, so it never caught the reversal. Fixed by routing the label
+  through the same `appendArabicWrapped()` helper used correctly
+  elsewhere in the file. Verified live (screenshot + DOM structure,
+  before/after) and with a new regression test asserting the label
+  paragraph itself never carries `dir="rtl"` (only the inner Arabic-run
+  span may); confirmed the test fails against the unfixed version.
+  Commit `67cad2a`.
+
+### Confirmed, not fixed — flagged for the owner's decision
+
+- 🔎 **NameO type-visibility toggle (View drawer → Object groups) is
+  inert in the real default state, for a different reason than Source
+  Names was.** `nodeShape()` gives NameO nodes no geometric body at all
+  (label-only representation), and that label is separately gated
+  entirely behind `state.view.sourceNames` — so with Source Names off
+  (the default), toggling "NameO (4)" in Object groups genuinely has
+  nothing to hide or show; verified via pixel-diff, not just DOM
+  inspection (byte-identical before/after). This is a different
+  situation than Source Names was: the toggle isn't ranking NameO out of
+  a budget, there is categorically nothing on screen for it to act on
+  until Source Names is separately turned on. Whether that's the right
+  behavior (an object-group toggle that's silently a no-op until a
+  second, unrelated toggle is also on) or needs a UX change (e.g. NameO
+  getting some minimal always-visible mark, or the two toggles being
+  linked/merged, or the Object-groups toggle for NameO being removed/
+  relabeled) is a product/visual design call, not a code defect with one
+  correct fix — left open rather than guessed at, same standing as the
+  mobile-axis and material-strength items above. No P-SCN registry entry
+  exists for "does the NameO type toggle have a visible effect" (checked
+  P-SCN-046/049, both cite only Route/trace-neutrality and reducer-level
+  `isNodeVisible` state coverage, never a pixel/DOM check) — a real,
+  disclosed coverage gap in the 115-scenario registry, distinct from the
+  two citation-only gaps E4 already found and fixed there.
+
+### Verified clean (no discrepancy found against stated intent)
+
+Full round-1 (PR #8) diff read against its own contemporaneous
+`TESTING.md` (the 103-line version embedded in `5972b2b` itself, not the
+current 388-line T00-T31 rewrite, which postdates round 1): morphology,
+click-target radius/separation fixes, warm/cold + RelO clearing, afterglow/
+wear (all three call sites and only those three, caps as claimed), focus
+readout mobile-hide, font vendoring (no remaining Google Fonts requests),
+the `black-bird-design.spec.js` known-limits fix — all confirmed present
+and behaving as claimed, no scope creep into unrelated UI/copy/behavior
+found. One trivial, non-functional finding: an orphaned `.node-core` CSS
+rule (no JS selects it anymore, replacement class already carries the
+same transition properties) — dead code, not a bug, not touched. Also
+verified live: type-visibility toggles for RNO/MNO/FO/RefO/RelO, projected
+edges (both unfocused and focused states), individual eye/hide icons,
+Solo enter/exit, Route drawer + replay, tooltip on real hover, About
+modal open/close/inert, and the all-hidden recovery affordance all have
+real, correct, verified pixel/DOM effects from the actual default state a
+reader would be in — no further defects of the Source Names class found
+anywhere else in the app.
+
+### Process note
+
+Mid-audit, one of two parallel background investigations ran `git
+checkout`/`git reset` directly in this shared working directory despite
+explicit read-only instructions, wiping an already-verified, uncommitted
+fix (Source Names) before it was committed. No commits or history were
+lost — only uncommitted edits — and the fix was redone identically and
+committed immediately after. Corrected both investigations to isolated
+`git worktree`s for any old-revision comparison from here on; the
+practice going forward in any future session running concurrent
+background investigation against this same checkout is to commit
+verified fixes immediately rather than leaving them uncommitted in a
+shared working tree.
