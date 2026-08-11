@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeSafeRect, computeNeutralCamera, computeFocusCamera, reconcileCamera } from '../../src/layout/camera.js';
+import { computeSafeRect, computeNeutralCamera, computeFocusCamera, neutralCoreEnvelope, reconcileCamera } from '../../src/layout/camera.js';
 import { createTransactionController } from '../../src/application/transaction-controller.js';
 import { readContract } from '../contracts/load.mjs';
 
@@ -134,6 +134,48 @@ test('more than 20% outside triggers a full refit, not a pan', () => {
   assert.notEqual(t.k, currentTransform.k, 'a refit recomputes scale for the focus occupancy target');
   const occ = occupancy(focusEnvelope, t, safeRect);
   assert.ok(Math.abs(occ - FOCUS_TARGET) < 0.01);
+});
+
+test('neutralCoreEnvelope leaves the envelope unchanged when the full envelope already satisfies both occupancy bands (desktop-shaped case)', () => {
+  const envelope = { x: 0, y: 0, width: 800, height: 600 };
+  const safeRect = { x: 0, y: 0, width: 1000, height: 800 };
+  const anchor = { x: 400, y: 300 };
+  const result = neutralCoreEnvelope(envelope, safeRect, anchor);
+  assert.deepEqual(result, envelope);
+});
+
+test('neutralCoreEnvelope crops width, centered on the anchor, when the envelope is too wide for a portrait safe rect', () => {
+  const envelope = { x: -300, y: 0, width: 1400, height: 600 };
+  const safeRect = { x: 0, y: 0, width: 400, height: 800 };
+  const anchor = { x: 100, y: 50 };
+  const result = neutralCoreEnvelope(envelope, safeRect, anchor);
+  assert.notDeepEqual(result, envelope, 'an out-of-band envelope must be cropped, not passed through');
+  assert.equal(result.height, envelope.height, 'only the oversized axis is cropped');
+  assert.ok(Math.abs(result.x + result.width / 2 - anchor.x) < 1e-9, 'the crop is centered on the anchor');
+  const k = Math.min((safeRect.width * 0.8) / result.width, (safeRect.height * 0.8) / result.height);
+  const occX = (result.width * k) / safeRect.width;
+  const occY = (result.height * k) / safeRect.height;
+  assert.ok(Math.abs(occX - 0.8) < 1e-9 && Math.abs(occY - 0.8) < 1e-9, 'both axes land exactly at the neutral occupancy target, not just inside the band');
+});
+
+test('neutralCoreEnvelope crops height, centered on the anchor, when the envelope is too tall for a landscape safe rect (symmetric case)', () => {
+  const envelope = { x: 0, y: 0, width: 300, height: 1400 };
+  const safeRect = { x: 0, y: 0, width: 800, height: 300 };
+  const anchor = { x: 10, y: 700 };
+  const result = neutralCoreEnvelope(envelope, safeRect, anchor);
+  assert.equal(result.width, envelope.width, 'only the oversized axis is cropped');
+  assert.ok(Math.abs(result.y + result.height / 2 - anchor.y) < 1e-9, 'the crop is centered on the anchor');
+  const k = Math.min((safeRect.width * 0.8) / result.width, (safeRect.height * 0.8) / result.height);
+  const occX = (result.width * k) / safeRect.width;
+  const occY = (result.height * k) / safeRect.height;
+  assert.ok(Math.abs(occX - 0.8) < 1e-9 && Math.abs(occY - 0.8) < 1e-9);
+});
+
+test('neutralCoreEnvelope is a no-op guard for a degenerate zero-size envelope', () => {
+  const envelope = { x: 0, y: 0, width: 0, height: 600 };
+  const safeRect = { x: 0, y: 0, width: 400, height: 800 };
+  const result = neutralCoreEnvelope(envelope, safeRect, { x: 0, y: 0 });
+  assert.deepEqual(result, envelope);
 });
 
 test('reconcileCamera returns the computed transform only while its transaction is still active (T-REQ-017)', () => {

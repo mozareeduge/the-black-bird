@@ -1111,6 +1111,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   var SCALE_MIN = 0.2;
   var SCALE_MAX = 2.4;
   var NEUTRAL_OCCUPANCY = 0.8;
+  var NEUTRAL_PRIMARY_MIN = 0.72;
+  var NEUTRAL_PRIMARY_MAX = 0.88;
+  var NEUTRAL_SECONDARY_MIN = 0.52;
   var FOCUS_OCCUPANCY = 0.7;
   var FOCUS_OCCUPANCY_MIN = 0.58;
   var FOCUS_OCCUPANCY_MAX = 0.82;
@@ -1143,6 +1146,32 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function computeNeutralCamera(envelope, safeRect, opts = {}) {
     return fitEnvelope(envelope, safeRect, { ...opts, occupancy: opts.occupancy ?? NEUTRAL_OCCUPANCY });
+  }
+  function neutralCoreEnvelope(envelope, safeRect, anchor, opts = {}) {
+    const {
+      occupancy = NEUTRAL_OCCUPANCY,
+      primaryMin = NEUTRAL_PRIMARY_MIN,
+      primaryMax = NEUTRAL_PRIMARY_MAX,
+      secondaryMin = NEUTRAL_SECONDARY_MIN
+    } = opts;
+    if (envelope.width <= 0 || envelope.height <= 0 || safeRect.width <= 0 || safeRect.height <= 0) return envelope;
+    const scaleX = safeRect.width * occupancy / envelope.width;
+    const scaleY = safeRect.height * occupancy / envelope.height;
+    const k = Math.min(scaleX, scaleY);
+    const occX = envelope.width * k / safeRect.width;
+    const occY = envelope.height * k / safeRect.height;
+    const primary = Math.max(occX, occY);
+    const secondary = Math.min(occX, occY);
+    const inBand = primary >= primaryMin && primary <= primaryMax && secondary >= secondaryMin;
+    if (inBand) return envelope;
+    const safeAspect = safeRect.width / safeRect.height;
+    const envAspect = envelope.width / envelope.height;
+    if (envAspect > safeAspect) {
+      const width2 = envelope.height * safeAspect;
+      return { x: anchor.x - width2 / 2, y: envelope.y, width: width2, height: envelope.height };
+    }
+    const height2 = envelope.width / safeAspect;
+    return { x: envelope.x, y: anchor.y - height2 / 2, width: envelope.width, height: height2 };
   }
   function projectEnvelope(envelope, t) {
     return { x: envelope.x * t.k + t.x, y: envelope.y * t.k + t.y, width: envelope.width * t.k, height: envelope.height * t.k };
@@ -4274,7 +4303,10 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     if (!visible.length || width < 10 || height < 10) return;
     const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (uiRuntime.readerOpen && !isMobile() ? 1 : 0));
     const envelope = getNodeBounds(visible, isMobile() ? 30 : 40);
-    const transform = computeNeutralCamera(envelopeToRect(envelope), safe, { occupancy: 0.8 });
+    const aperture = byId["FO.BLACK_BIRD_FIELD"];
+    const anchor = aperture && aperture.x != null && aperture.y != null ? { x: aperture.x, y: aperture.y } : { x: envelope.cx, y: envelope.cy };
+    const coreEnvelope = neutralCoreEnvelope(envelopeToRect(envelope), safe, anchor);
+    const transform = computeNeutralCamera(coreEnvelope, safe, { occupancy: 0.8 });
     animateCamera(toZoomTransform(transform), { duration: opts.duration ?? 850 });
   }
   function fitVisibleField(opts = {}) {
@@ -5496,6 +5528,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       focusObject,
       getNodeBounds,
       isMobile,
+      neutralCoreEnvelope,
       nodeVisible,
       openDrawer,
       openIndex,

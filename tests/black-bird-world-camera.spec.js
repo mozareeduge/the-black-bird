@@ -123,17 +123,24 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
   // so the fit result is never re-clamped and the contract fixture stays
   // truthful).
   //
-  // Mobile (430x932/390x844/320x640/844x390) is NOT included here: fixing
-  // the same way brings primary into band but drives secondary further out
-  // (measured ~0.28-0.37 against the 0.52 floor) -- the world envelope's
-  // fixed aspect ratio (~1.4:1, H-VIS-002 locks node topology) and a
-  // portrait/extreme-landscape safe rect's aspect ratio are far enough
-  // apart that no single uniform scale k can satisfy both axis bands
-  // simultaneously (their fixed ratio, independent of k, exceeds what the
-  // two bands can jointly tolerate). Real fix needs a different mechanism
-  // (not yet designed) — an isotropic single-k fit structurally cannot
-  // close this for the narrowest viewports. Tracked in
-  // .blackbird-v6/PROGRESS.md, not silently left uncovered.
+  // Mobile (430x932/390x844/320x640/844x390) is NOT included in the loop
+  // below: fixing the same way brings primary into band but drives
+  // secondary further out (measured ~0.28-0.37 against the 0.52 floor) --
+  // the world envelope's fixed aspect ratio (~1.4:1, H-VIS-002 locks node
+  // topology) and a portrait/extreme-landscape safe rect's aspect ratio are
+  // far enough apart that no single uniform scale k can satisfy both axis
+  // bands simultaneously against the FULL envelope (their fixed ratio,
+  // independent of k, exceeds what the two bands can jointly tolerate).
+  // Decided fix (2026-08-11, .blackbird-v6/PROGRESS.md): mobile's neutral
+  // fit target is no longer literally "every node visible at once" --
+  // `neutralCoreEnvelope()` (src/layout/camera.js) crops the *reference
+  // envelope* itself, centered on the aperture (FO.BLACK_BIRD_FIELD), down
+  // to the safe rect's own aspect ratio, whenever (and only when) the full
+  // envelope would leave an axis out of band. Desktop above is untouched
+  // (the full envelope already satisfies both bands there, so the crop is
+  // a verified no-op); mobile gets its own dedicated test below, checked
+  // against the core envelope it's actually fit to -- not the full one,
+  // which is mathematically impossible to satisfy per the proof above.
   for (const vp of [
     { width: 1440, height: 960 },
     { width: 1280, height: 800 },
@@ -171,6 +178,84 @@ test.describe('Stable world & safe-rect camera contract (T02)', () => {
       expect(m.offY).toBeLessThanOrEqual(0.06);
     });
   }
+
+  // Mobile neutral core fit (decided 2026-08-11): checked against the core
+  // envelope the app actually fits to (via the same neutralCoreEnvelope()
+  // the app calls), not the full 50-node envelope -- the whole point of
+  // this design is that the full envelope is provably unfittable to both
+  // bands at once on these viewports (see the comment above).
+  for (const vp of [
+    { width: 430, height: 932 },
+    { width: 390, height: 844 },
+    { width: 320, height: 640 },
+    { width: 844, height: 390 },
+  ]) {
+    test(`mobile neutral core fit meets the sealed primary/secondary bands, centered on the aperture, at ${vp.width}x${vp.height}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(vp);
+      await gotoField(page, { mobile: true });
+      await page.evaluate(() => window.__bbTest.returnToField({ source: 'test' }));
+      await page.waitForTimeout(1000);
+      const m = await page.evaluate(() => {
+        const safe = window.__bbTest.computeFieldSafeRect();
+        const visible = window.__bbTest.simNodes.filter((d) => window.__bbTest.nodeVisible(d.id));
+        const fullEnvelope = window.__bbTest.getNodeBounds(visible, window.__bbTest.isMobile() ? 30 : 40);
+        const fullRect = { x: fullEnvelope.minX, y: fullEnvelope.minY, width: fullEnvelope.width, height: fullEnvelope.height };
+        const safeRect = { x: safe.left, y: safe.top, width: safe.width, height: safe.height };
+        const aperture = window.__bbTest.byId['FO.BLACK_BIRD_FIELD'];
+        const anchor = { x: aperture.x, y: aperture.y };
+        const core = window.__bbTest.neutralCoreEnvelope(fullRect, safeRect, anchor);
+        const t = window.__bbTest.getUiRuntime().transform;
+        const rx = (core.width * t.k) / safe.width;
+        const ry = (core.height * t.k) / safe.height;
+        // The full 50-node world envelope cannot satisfy both bands on
+        // these viewports (proven), so the crop is expected to fire here --
+        // confirm it actually did, not just that some envelope was fit.
+        const wasCropped = core.width !== fullRect.width || core.height !== fullRect.height;
+        // A confidently-composed core, not a degenerate single-node crop:
+        // count nodes whose screen position lands inside the safe rect.
+        const onScreenCount = visible.filter((d) => {
+          const sx = t.x + d.x * t.k,
+            sy = t.y + d.y * t.k;
+          return sx >= safe.left && sx <= safe.right && sy >= safe.top && sy <= safe.bottom;
+        }).length;
+        return {
+          primary: Math.max(rx, ry),
+          secondary: Math.min(rx, ry),
+          wasCropped,
+          onScreenCount,
+        };
+      });
+      expect(m.wasCropped).toBe(true);
+      expect(m.primary).toBeGreaterThanOrEqual(0.72);
+      expect(m.primary).toBeLessThanOrEqual(0.88);
+      expect(m.secondary).toBeGreaterThanOrEqual(0.52);
+      // A well-composed core shows more than just the aperture alone --
+      // its immediate relational neighborhood should be legible too.
+      expect(m.onScreenCount).toBeGreaterThanOrEqual(8);
+    });
+  }
+
+  test('a node outside the initial mobile neutral core crop is still reachable via Index and the camera refits correctly onto it', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoField(page, { mobile: true, reduced: true });
+    await page.evaluate(() => window.__bbTest.returnToField({ source: 'test' }));
+    await page.waitForTimeout(500);
+    await page.locator('[data-mobile="index"]').click();
+    await page.locator('#objectSearch').fill('Odin');
+    await page.locator('[data-open="FO.ODIN"]').first().click();
+    await page.waitForTimeout(500);
+    const state = await page.evaluate(() => ({
+      activeId: window.__bbTest.getUiRuntime().focusedId,
+      k: window.__bbTest.getUiRuntime().transform.k,
+    }));
+    expect(state.activeId).toBe('FO.ODIN');
+    expect(Number.isFinite(state.k)).toBe(true);
+    await noGeometryErrors(page);
+  });
 
   // Was left at a weakened [0.4,0.95] band. Root cause (2026-08-09):
   // `clickNode(page, 'FO.CORPSE')` here exercises computeFocusCamera's

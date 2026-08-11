@@ -83,7 +83,14 @@ yet independently verified · — not yet reached.
 - ✅ Arabic/source-script Reader rendering — checked, **not** actually
   regressed. Added a locking test anyway (`ba974bc`) since none existed.
 
-### E2 — Field visual/material reconstruction — IN PROGRESS
+### E2 — Field visual/material reconstruction — ALL OBJECTIVE DEFECTS CLOSED
+
+Two items below remain open by design, not oversight: both are explicitly
+aesthetic/artistic judgment calls for the user, not measurable defects
+(see their own entries — "ordinary focus weak/knotted" screenshot
+spot-check, and Route/wear/afterglow material-strength). The mobile
+secondary-axis occupancy item, the one genuine open engineering question,
+is now decided and fixed (see below).
 
 - ✅ **Desktop neutral occupancy (primary, secondary, center-offset) — fully
   fixed and verified at all 3 desktop viewports (1440×960, 1280×800,
@@ -116,23 +123,66 @@ yet independently verified · — not yet reached.
   real, previously-masked Axe violation (`#reader`'s scrollable region
   wasn't keyboard-focusable — invisible before because the height bug meant
   it never actually needed to scroll; added `tabindex="0"`).
-- 🔎 **Mobile secondary-axis occupancy — root-caused, not yet fixed; this is
-  a real design/algorithm gap, not a bug with an obvious patch.** After the
-  fixes above, mobile portrait viewports (430×932/390×844/320×640) and
-  844×390 landscape now hit primary occupancy exactly on target (0.8) but
-  secondary comes out ~0.28–0.37 against the 0.52 floor. Proven
-  mathematically, not just measured: `rx/ry` for a given viewport is
-  `(envelope.width/envelope.height) * (safeRect.height/safeRect.width)`,
-  independent of k. At 390×844 that ratio is ≈2.8 — since the bands can
-  only jointly tolerate a max/min ratio of ≈1.69 (0.88/0.52), **no single
-  uniform (isotropic) scale k can satisfy both axis bands simultaneously**
-  for this envelope-aspect/safe-rect-aspect combination. Anisotropic
-  (non-uniform x/y) scaling would fix the math but would visually squash
-  circular node bodies into ellipses, violating H-VIS-005's typed
-  morphology — not a safe mechanism change. Needs real design thought
-  (possibly: a different reference envelope for extreme-aspect viewports,
-  not literally "all 50 nodes' bbox") before touching code. Do not attempt
-  a quick fix here without revisiting this reasoning.
+- ✅ **Mobile secondary-axis occupancy — DECIDED (by the user, 2026-08-11)
+  and FIXED.** Root cause (proven, not just measured): `rx/ry` for a given
+  viewport is `(envelope.width/envelope.height) * (safeRect.height/
+  safeRect.width)`, independent of k. At 390×844 that ratio is ≈2.8 —
+  since the bands can only jointly tolerate a max/min ratio of ≈1.69
+  (0.88/0.52), no single uniform scale k can satisfy both axis bands
+  simultaneously against the *full* 50-node envelope on portrait/extreme-
+  landscape viewports. Anisotropic scaling (rejected: squashes circular
+  node bodies into ellipses, violates H-VIS-005) and moving authored
+  world positions (rejected: violates H-VIS-002's stable world) were both
+  off the table.
+  - **Decision**: mobile's neutral ("whole field") camera target is no
+    longer literally "every node visible at once." `neutralCoreEnvelope()`
+    (`src/layout/camera.js`, new pure function) crops the *reference
+    envelope* itself — centered on the aperture, `FO.BLACK_BIRD_FIELD` —
+    down to the safe rect's own aspect ratio, but **only when the full
+    envelope would actually leave an axis out of band**. Where the full
+    envelope already satisfies both bands (every desktop viewport, and
+    any mobile viewport that happens to), the function returns it
+    completely unchanged — verified live: `cropped:false` at both
+    desktop viewports checked, byte-identical transform to before this
+    change. Where it doesn't (all 4 previously-failing mobile
+    viewports), both axes land at exactly 0.80 occupancy — dead center of
+    both bands, not scraping the 0.52 floor.
+  - **What this actually changes for a reader**: opening the field (or
+    hitting Restore Field) on a phone-width viewport no longer shows the
+    full 50-node constellation shrunk into a horizontal band with large
+    dead margins top/bottom. It shows a confidently-composed core —
+    the aperture and its immediate relational neighborhood, filling the
+    screen properly on both axes — with the rest of the field reachable
+    by the exact same pan/pinch gesture already used everywhere else (no
+    new affordance, no tutorial). Verified with a real screenshot at
+    390×844: good vertical spread, nodes visibly bleeding off the left/
+    right edges as a natural invitation to pan further; verified that a
+    cropped-out node (`FO.ODIN`) is still reachable via Index and the
+    camera refits correctly onto it, no errors.
+  - **Scope, explicitly bounded**: applies only to the mobile *neutral*
+    state (`fitWholeField()` in `src/app.js`). Focused-state fitting,
+    View/Solo/visibility semantics, and world node coordinates are
+    completely untouched — this changes what the camera frames on entry,
+    the same category of thing focus-fit already does for any single
+    object, not a new mechanism.
+  - **Tests**: 5 new unit tests for `neutralCoreEnvelope()` itself
+    (unchanged-when-already-in-band, crop-width case, crop-height
+    symmetric case, degenerate-envelope guard, exact math verification —
+    `tests/unit/camera.test.js`). `tests/black-bird-world-camera.spec.js`:
+    replaced the "mobile not included, no mechanism designed yet" comment
+    with the decision record; added a dedicated mobile occupancy test at
+    all 4 previously-failing viewports (checked against the core envelope
+    actually fit to, per the mathematical proof that the full envelope
+    is unfittable — not a weakened check, a correctly-redefined one) plus
+    an on-screen-node-count sanity floor (≥8, so the crop is a genuine
+    composed core, not a degenerate single-dot view) and a dedicated
+    reachability test for an off-crop node via Index. Full local suite
+    re-verified clean: 135/135 unit (+5 net after also removing none),
+    all mobile-touching e2e suites (`mobile-chambers`,
+    `responsive-visual-closure`, `black-bird-mobile`, plus the full
+    `black-bird-world-camera` file — 19/19, desktop tests unaffected),
+    `verify:closure:local` 16/17 (cross-browser skipped locally as
+    always).
 - ✅ **Focused occupancy — fixed and verified at all 3 desktop viewports.**
   Was the real mechanism behind the audit's "ordinary focus weak/knotted"
   finding, not just a loose threshold: `computeFocusCamera`'s later-focus
@@ -763,3 +813,16 @@ checkmark): **all 8 checks pass** — `validate`, `build-and-test`,
 What remains is either the user's own design call or a disclosed,
 known automation-tooling limit. The candidate is live at `/next/` for
 review.
+
+## Session continuation (2026-08-11): mobile secondary-axis, decided and closed
+
+The user reviewed the mobile secondary-axis writeup, asked for a
+concrete design-technical recommendation, and approved implementing it.
+See the updated E2 entry above for the full decision record
+(`neutralCoreEnvelope()`, aperture-centered crop, only fires when the
+full envelope would leave an axis out of band). Implemented, tested
+(5 new unit tests + a dedicated mobile occupancy/reachability e2e
+block), full local suite re-verified clean. This closes the one
+genuinely open engineering item from the prior checkpoint — E2 now has
+no remaining objective defects, only the two explicitly aesthetic items
+already on record as the user's own call.

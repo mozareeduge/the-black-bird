@@ -5,7 +5,7 @@
 // esbuild into one deterministic, backend-free <script>.
 import { AUTHORED_HOMES, WORLD as AUTHORED_WORLD } from './layout/authored-world.js';
 import { computeFocusTargets } from './layout/focus-targets.js';
-import { computeSafeRect, computeNeutralCamera, computeFocusCamera } from './layout/camera.js';
+import { computeSafeRect, computeNeutralCamera, computeFocusCamera, neutralCoreEnvelope } from './layout/camera.js';
 import { solveLabels } from './layout/label-solver.js';
 import { resolvePointerOwner } from './layout/pointer-ownership.js';
 import { CommandType } from './state/command-types.js';
@@ -1634,7 +1634,10 @@ function fitWholeField(opts = {}) {
   if (!visible.length || width < 10 || height < 10) return;
   const safe = liftedSafeRect(computeFieldSafeRect(), 0.04 * (uiRuntime.readerOpen && !isMobile() ? 1 : 0));
   const envelope = getNodeBounds(visible, isMobile() ? 30 : 40);
-  const transform = computeNeutralCamera(envelopeToRect(envelope), safe, { occupancy: 0.8 });
+  const aperture = byId["FO.BLACK_BIRD_FIELD"];
+  const anchor = aperture && aperture.x != null && aperture.y != null ? { x: aperture.x, y: aperture.y } : { x: envelope.cx, y: envelope.cy };
+  const coreEnvelope = neutralCoreEnvelope(envelopeToRect(envelope), safe, anchor);
+  const transform = computeNeutralCamera(coreEnvelope, safe, { occupancy: 0.8 });
   animateCamera(toZoomTransform(transform), { duration: opts.duration ?? 850 });
 }
 function fitVisibleField(opts = {}) {
@@ -3296,6 +3299,7 @@ if (new URLSearchParams(location.search).get("bbtest") === "1") {
     focusObject,
     getNodeBounds,
     isMobile,
+    neutralCoreEnvelope,
     nodeVisible,
     openDrawer,
     openIndex,
