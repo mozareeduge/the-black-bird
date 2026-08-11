@@ -1020,3 +1020,10 @@ to its label, no visual competition with neighboring FO/RNO bodies) and
 mobile (390×844) — small, quiet, clearly distinct at every state checked.
 Full `verify:closure:local` re-run clean after the change: 16/17 (1
 non-blocking skip, as always locally).
+
+**Confirmed in real CI, not just locally:** all 8 checks green at
+`a88706c` (`validate`, `build-and-test`, `cross-browser` ×3,
+`exact-head-verify`, `final-candidate-evidence`, `publish`). `/next/`
+reflects the new NameO body. This closes the flagged Object-groups
+toggle gap with a real, tested, ontology-coherent visual design rather
+than leaving it open.
