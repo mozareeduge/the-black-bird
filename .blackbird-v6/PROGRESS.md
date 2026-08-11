@@ -940,6 +940,13 @@ real, correct, verified pixel/DOM effects from the actual default state a
 reader would be in — no further defects of the Source Names class found
 anywhere else in the app.
 
+**Confirmed in real CI, not just locally:** all 8 checks green at
+`c6499a0` (`validate`, `build-and-test`, `cross-browser` ×3,
+`exact-head-verify`, `final-candidate-evidence`, `publish`). Local
+`verify:closure:local` also re-run clean end to end after both fixes:
+16/17 (1 non-blocking skip, browser binaries, as always locally).
+`/next/` reflects both fixes.
+
 ### Process note
 
 Mid-audit, one of two parallel background investigations ran `git
