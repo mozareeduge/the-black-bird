@@ -18,6 +18,127 @@ const MOTION_DIR = path.join(OUT, 'motion');
 const MACHINE_DIR = path.join(OUT, 'machine');
 const EVIDENCE_PLAN = JSON.parse(readFileSync(path.join(ROOT, 'tests', 'contracts', 'evidence-plan.json'), 'utf8'));
 
+// FQ-04 (final completion intake): the evidence system already proved file
+// identity (hash/dimensions/duration/duplicate-bytes/candidate-SHA/
+// completeness) -- the missing layer was semantic state identity: a
+// screenshot/video called "X" must prove it was actually captured in state
+// X, not just that a plausible-looking file with that name exists. These
+// three pieces extend the existing system minimally rather than building a
+// second one: a compact state-snapshot reader (uses the same bounded
+// window.__bbTest surface every e2e test already uses), a small predicate
+// evaluator (exact match, or {$gte:n}/{$gt:n}/{$notNull:true} for the few
+// fields where an exact value isn't the meaningful assertion), and a lookup
+// into EVIDENCE_PLAN's new per-entry expect/expect_end fields.
+function planExpect(setId, name) {
+  for (const group of Object.values(EVIDENCE_PLAN.primary_artifacts.static_application_captures)) {
+    if (group.id === `${setId}/${name}`) return group.expect || null;
+  }
+  return null;
+}
+function planExpectEnd(name) {
+  const entry = EVIDENCE_PLAN.primary_artifacts.motion_recordings.find((m) => m.id === `motion/${name}`);
+  return entry?.expect_end || null;
+}
+
+// Attach BEFORE navigation so no page error is missed. Returns a reader, not
+// a live count, so callers snapshot it at the moment of capture.
+function attachErrorCounter(page) {
+  let count = 0;
+  page.on('pageerror', () => {
+    count++;
+  });
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') count++;
+  });
+  return () => count;
+}
+
+// Compact semantic snapshot: only fields that can falsify a wrong-state
+// capture (intake 11.1) -- never the whole app state. Reads exclusively
+// through window.__bbTest, the same bounded test surface every e2e spec
+// already uses; no duplicate application-state store.
+async function captureSemanticState(page, { getErrorCount = () => 0, textResizeRatio = 1 } = {}) {
+  const vp = page.viewportSize() || { width: null, height: null };
+  const media = await page
+    .evaluate(() => ({
+      reduced_motion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      forced_colors: window.matchMedia('(forced-colors: active)').matches,
+    }))
+    .catch(() => ({ reduced_motion: false, forced_colors: false }));
+  const app = await page
+    .evaluate(() => {
+      const t = window.__bbTest;
+      if (!t) return null;
+      const state = t.getState();
+      const ui = t.getUiRuntime();
+      const visibleNameO = [...document.querySelectorAll('g.node[data-bb-type="NameO"] text.node-label')]
+        .filter((el) => el.getAttribute('display') !== 'none')
+        .map((el) => el.closest('g.node')?.getAttribute('data-bb-id'))
+        .filter(Boolean);
+      const typeVisibility = state.view.typeVisibility || {};
+      return {
+        active_id: ui.focusedId ?? null,
+        focused_id: document.activeElement?.getAttribute('data-bb-id') || null,
+        surface: state.responsive.surface,
+        reader_subject: state.reading.readerSubject?.id ?? null,
+        solo: { active: !!state.solo.active, core_id: state.solo.rootId ?? null },
+        view: { labels: !!state.view.labels, sourceNames: !!state.view.sourceNames, projectedEdges: !!state.view.projectedEdges },
+        route_length: state.history.route.length,
+        trace_state: { wear_edge_count: Object.keys(state.trace.wear || {}).length, afterglow_count: (state.trace.afterglows || []).length },
+        camera: ui.transform ? { k: ui.transform.k, x: ui.transform.x, y: ui.transform.y } : { k: null, x: null, y: null },
+        visible_nameo_labels: visibleNameO,
+        neutral_field: (ui.focusedId ?? null) === null,
+        type_visibility_all_false: Object.values(typeVisibility).length > 0 && Object.values(typeVisibility).every((v) => v === false),
+      };
+    })
+    .catch(() => null);
+  return {
+    viewport: { width: vp.width, height: vp.height },
+    media: { reduced_motion: !!media.reduced_motion, forced_colors: !!media.forced_colors, text_resize: textResizeRatio },
+    active_id: app?.active_id ?? null,
+    focused_id: app?.focused_id ?? null,
+    surface: app?.surface ?? null,
+    reader_subject: app?.reader_subject ?? null,
+    solo: app?.solo ?? { active: false, core_id: null },
+    view: app?.view ?? null,
+    route_length: app?.route_length ?? 0,
+    trace_state: app?.trace_state ?? { wear_edge_count: 0, afterglow_count: 0 },
+    camera: app?.camera ?? { k: null, x: null, y: null },
+    visible_nameo_labels: app?.visible_nameo_labels ?? [],
+    neutral_field: app?.neutral_field ?? null,
+    type_visibility_all_false: app?.type_visibility_all_false ?? false,
+    error_count: getErrorCount(),
+  };
+}
+
+function pathGet(obj, key) {
+  return key === 'viewport' && obj?.viewport ? [obj.viewport.width, obj.viewport.height] : obj?.[key];
+}
+// Predicate evaluator: exact deep-equal by default; {$gte:n}/{$gt:n} for
+// thresholds where an exact count isn't the meaningful assertion (e.g.
+// route-long only needs "collapsed the strip", not one brittle exact
+// number); {$notNull:true} for fields that just need to be present. Nested
+// objects (solo/view/trace_state/media) recurse one level via the same
+// matcher, keyed by the SAME field names captureSemanticState uses.
+function matches(actual, expected) {
+  if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
+    if ('$gte' in expected) return typeof actual === 'number' && actual >= expected.$gte;
+    if ('$gt' in expected) return typeof actual === 'number' && actual > expected.$gt;
+    if ('$notNull' in expected) return expected.$notNull ? actual != null : actual == null;
+    return Object.entries(expected).every(([k, v]) => matches(actual?.[k], v));
+  }
+  return JSON.stringify(actual) === JSON.stringify(expected);
+}
+function evaluateExpect(expect, proof) {
+  if (!expect) return { pass: true, failures: [] };
+  const failures = [];
+  for (const [key, expected] of Object.entries(expect)) {
+    const actual = pathGet(proof, key);
+    if (!matches(actual, expected)) failures.push(`${key}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+  return { pass: failures.length === 0, failures };
+}
+
 function sha256(filePath) {
   return crypto.createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
@@ -91,10 +212,17 @@ async function captureReaderFieldComposition(page) {
   await gotoField(page, { reduced: true });
   await clickNode(page, 'FO.CORPSE');
 }
+// FQ-05: this used to focus FO.CORPSE, which is neither the neutral nor
+// the aperture-default state -- it never actually showed the approved
+// mobile neutral-core framing (5.4/E2's aperture-centered crop,
+// neutralCoreEnvelope()) the artifact is named for. Real product mechanism
+// (window.__bbTest.returnToField(), the same bounded test API
+// tests/e2e/*.spec.js already uses for this), not a second algorithm.
 async function captureMobileField(page) {
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoField(page, { reduced: true });
-  await clickNode(page, 'FO.CORPSE');
+  await page.evaluate(() => window.__bbTest?.returnToField?.());
+  await page.waitForTimeout(900);
 }
 async function captureMobileRead(page) {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -274,11 +402,16 @@ async function captureReducedMotion(page) {
   await gotoField(page, { reduced: true });
   await clickNode(page, 'FO.ODIN');
 }
+// FQ-04: 2 Tabs never reached a graph node -- the 4 rail buttons
+// (Field/View/Index/About) precede any node in tab order, so this capture
+// silently showed keyboard focus resting on a rail button, not on the field
+// object the name promises. Tab past the rail into the graph (5 Tabs
+// reaches the roving-tabindex target, verified live) so the artifact
+// actually shows a real node's visible keyboard-focus ring.
 async function captureKeyboardFocus(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await gotoField(page, { reduced: true });
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Tab');
 }
 async function captureTooltip(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -490,6 +623,12 @@ async function main() {
 
   const supplementary = [];
   const requiredEntries = [];
+  // FQ-04: state-proof/oracle failures are collected, not swallowed --
+  // generation still runs to completion (so one bad capture doesn't hide
+  // information about the rest), but main() fails the whole process at the
+  // end if any oracle actually failed (intake 11.2: "a required action
+  // failure must fail generation").
+  const oracleFailures = [];
 
   try {
     // ── static per-set captures + composite contact sheets ──────────────
@@ -499,9 +638,17 @@ async function main() {
       const shots = [];
       for (const [name, fn] of captures) {
         const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, baseURL: BASE_URL });
+        const getErrorCount = attachErrorCounter(page);
         try {
           await fn(page);
           await page.waitForTimeout(300);
+          const stateProof = await captureSemanticState(page, {
+            getErrorCount,
+            textResizeRatio: name === 'text-resize-200' ? 2 : 1,
+          });
+          const expect = planExpect(setId, name);
+          const oracle = evaluateExpect(expect, stateProof);
+          if (!oracle.pass) oracleFailures.push(`${setId}/${name}: ${oracle.failures.join('; ')}`);
           const outPath = path.join(setDir, `${name}.png`);
           await page.screenshot({ path: outPath });
           shots.push([name, outPath]);
@@ -519,6 +666,8 @@ async function main() {
             candidate_sha: sha,
             artifact_class: 'application-capture',
             pixel_dimensions: [capDims.width, capDims.height],
+            state_proof: stateProof,
+            oracle_pass: oracle.pass,
           });
         } catch (err) {
           console.error(`capture failed: ${setId}/${name}: ${err.message}`);
@@ -546,10 +695,24 @@ async function main() {
         recordVideo: { dir: MOTION_DIR, size: viewport },
       });
       const page = await context.newPage();
+      const getErrorCount = attachErrorCounter(page);
+      // "Start" here is genuinely the pre-navigation state (blank page,
+      // correct viewport/context) -- not a mid-scenario checkpoint. The
+      // intake's own guidance ("do not attempt to encode every video frame
+      // as state; the start/end semantic receipt... is enough") is honored
+      // by NOT asserting an oracle against it (evidence-plan.json only
+      // declares expect_end); it's recorded as a receipt, not a claim.
+      const startStateProof = await captureSemanticState(page, { getErrorCount });
+      let endStateProof = null;
+      let oracle = { pass: false, failures: ['motion scenario did not complete'] };
       try {
         await fn(page);
+        endStateProof = await captureSemanticState(page, { getErrorCount });
+        oracle = evaluateExpect(planExpectEnd(name), endStateProof);
+        if (!oracle.pass) oracleFailures.push(`motion/${name}: ${oracle.failures.join('; ')}`);
       } catch (err) {
         console.error(`motion capture failed: ${name}: ${err.message}`);
+        oracleFailures.push(`motion/${name}: scenario threw: ${err.message}`);
       }
       await page.close();
       const videoPath = await page.video().path();
@@ -564,6 +727,9 @@ async function main() {
           sha256: sha256(finalPath),
           candidate_sha: sha,
           artifact_class: 'motion',
+          start_state_proof: startStateProof,
+          end_state_proof: endStateProof,
+          scenario_oracle_pass: oracle.pass,
         });
       }
     }
@@ -700,6 +866,14 @@ async function main() {
   );
 
   console.log(`evidence generated for ${sha}: ${requiredEntries.length} required entries, ${supplementary.length} supplementary artifacts`);
+
+  // FQ-04: a state-proof/oracle mismatch means an artifact was captured in
+  // the wrong state -- worse than a missing file, since it looks like real
+  // evidence. manifest.json is still written above (for diagnosis) but the
+  // whole run must fail, not silently report success (intake 11.2).
+  if (oracleFailures.length > 0) {
+    throw new Error(`evidence semantic-state oracle failed for ${oracleFailures.length} artifact(s):\n  ${oracleFailures.join('\n  ')}`);
+  }
 }
 
 main().catch((err) => {

@@ -12,6 +12,37 @@ function requiredIds(plan) {
   const { static_application_captures, motion_recordings, machine_reports } = plan.primary_artifacts;
   return new Set([...static_application_captures, ...motion_recordings, ...machine_reports].map((e) => e.id));
 }
+function planEntryById(plan, id) {
+  const { static_application_captures, motion_recordings } = plan.primary_artifacts;
+  return static_application_captures.find((e) => e.id === id) || motion_recordings.find((e) => e.id === id) || null;
+}
+
+// FQ-04: same small predicate matcher as scripts/generate-evidence.mjs
+// (duplicated deliberately, not imported -- the gate must independently
+// recompute the oracle from the recorded state_proof, not just trust a
+// boolean the generator itself wrote, or a compromised/stale generator run
+// could self-report success).
+function pathGet(obj, key) {
+  return key === 'viewport' && obj?.viewport ? [obj.viewport.width, obj.viewport.height] : obj?.[key];
+}
+function matches(actual, expected) {
+  if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
+    if ('$gte' in expected) return typeof actual === 'number' && actual >= expected.$gte;
+    if ('$gt' in expected) return typeof actual === 'number' && actual > expected.$gt;
+    if ('$notNull' in expected) return expected.$notNull ? actual != null : actual == null;
+    return Object.entries(expected).every(([k, v]) => matches(actual?.[k], v));
+  }
+  return JSON.stringify(actual) === JSON.stringify(expected);
+}
+function evaluateExpect(expect, proof) {
+  if (!expect) return { pass: true, failures: [] };
+  const failures = [];
+  for (const [key, expected] of Object.entries(expect)) {
+    const actual = pathGet(proof, key);
+    if (!matches(actual, expected)) failures.push(`${key}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+  return { pass: failures.length === 0, failures };
+}
 
 function sha256(filePath) {
   return crypto.createHash('sha256').update(readFileSync(filePath)).digest('hex');
@@ -95,6 +126,41 @@ function main() {
     if (e.candidate_sha !== head) errors.push('mixed SHA: ' + eid);
     const actual = sha256(p);
     if (e.sha256 !== actual) errors.push('hash mismatch: ' + eid);
+
+    // FQ-04: semantic state identity, independent of file-hash/dimension
+    // checks above -- a screenshot/video called "X" must prove it was
+    // actually captured in state X. Applies only to entries the plan
+    // actually declares expect/expect_end for (machine reports have
+    // neither and are untouched).
+    const planEntry = planEntryById(EVIDENCE_PLAN, eid);
+    if (planEntry?.expect) {
+      if (!e.state_proof) {
+        errors.push('missing required state_proof: ' + eid);
+      } else {
+        const recomputed = evaluateExpect(planEntry.expect, e.state_proof);
+        if (!recomputed.pass) errors.push(`semantic-state oracle failed for ${eid}: ${recomputed.failures.join('; ')}`);
+        if (typeof e.oracle_pass === 'boolean' && e.oracle_pass !== recomputed.pass) {
+          errors.push(`manifest oracle_pass (${e.oracle_pass}) disagrees with gate's independent recomputation (${recomputed.pass}) for ${eid}`);
+        } else if (typeof e.oracle_pass !== 'boolean') {
+          errors.push('missing required oracle_pass: ' + eid);
+        }
+      }
+    }
+    if (planEntry?.expect_end) {
+      if (!e.end_state_proof || !e.start_state_proof) {
+        errors.push('missing required start_state_proof/end_state_proof: ' + eid);
+      } else {
+        const recomputed = evaluateExpect(planEntry.expect_end, e.end_state_proof);
+        if (!recomputed.pass) errors.push(`semantic-state oracle failed for ${eid}: ${recomputed.failures.join('; ')}`);
+        if (typeof e.scenario_oracle_pass === 'boolean' && e.scenario_oracle_pass !== recomputed.pass) {
+          errors.push(
+            `manifest scenario_oracle_pass (${e.scenario_oracle_pass}) disagrees with gate's independent recomputation (${recomputed.pass}) for ${eid}`
+          );
+        } else if (typeof e.scenario_oracle_pass !== 'boolean') {
+          errors.push('missing required scenario_oracle_pass: ' + eid);
+        }
+      }
+    }
 
     const klass = e.artifact_class;
     if (klass === 'application-capture' || klass === 'screenshot') {

@@ -5,55 +5,511 @@
   "required_primary_entry_count": 45,
   "primary_artifacts": {
     "static_application_captures": [
-      { "id": "ARTISTIC-CORE/threshold", "artifact_class": "application-capture" },
-      { "id": "ARTISTIC-CORE/whole-field-1440", "artifact_class": "application-capture" },
-      { "id": "ARTISTIC-CORE/whole-field-1280", "artifact_class": "application-capture" },
-      { "id": "ARTISTIC-CORE/focus-ordinary-1280", "artifact_class": "application-capture" },
-      { "id": "ARTISTIC-CORE/black-bird-aperture", "artifact_class": "application-capture" },
-      { "id": "ARTISTIC-CORE/relo-clearing", "artifact_class": "application-capture" },
-      { "id": "ARTISTIC-CORE/route-wear-afterglow", "artifact_class": "application-capture" },
-      { "id": "ARTISTIC-CORE/reader-field-composition", "artifact_class": "application-capture" },
-      { "id": "ARTISTIC-CORE/mobile-field-390", "artifact_class": "application-capture" },
-      { "id": "ARTISTIC-CORE/mobile-read-390", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/projected-inspection", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/solo-object", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/solo-relo", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/hidden-anchor", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/all-hidden-recovery", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/index-no-results", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/route-long", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/route-cleared-trace-retained", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/trace-cleared-route-retained", "artifact_class": "application-capture" },
-      { "id": "STATE-AND-RECOVERY/about-return", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/compact-1024", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/mobile-430", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/narrow-320", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/landscape-mobile", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/reflow-zoom-equivalent", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/text-resize-200", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/forced-colors", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/reduced-motion", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/keyboard-edge-focus", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/tooltip-edge", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/modal-focus", "artifact_class": "application-capture" }
+      {
+        "id": "ARTISTIC-CORE/threshold",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ]
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/whole-field-1440",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1440,
+            960
+          ],
+          "active_id": null,
+          "neutral_field": true,
+          "surface": "field"
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/whole-field-1280",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": null,
+          "neutral_field": true,
+          "surface": "field"
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/focus-ordinary-1280",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.CORPSE",
+          "neutral_field": false
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/black-bird-aperture",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.BLACK_BIRD_FIELD"
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/relo-clearing",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "RelO.R7080EA25"
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/route-wear-afterglow",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.BURIAL",
+          "route_length": 4
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/reader-field-composition",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1440,
+            960
+          ],
+          "active_id": "FO.CORPSE"
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/mobile-field-390",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            390,
+            844
+          ],
+          "active_id": null,
+          "neutral_field": true,
+          "surface": "field"
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/mobile-read-390",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            390,
+            844
+          ],
+          "active_id": "FO.CORPSE",
+          "surface": "read"
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/projected-inspection",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.CAIN"
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/solo-object",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "solo": {
+            "active": true,
+            "core_id": "FO.CAIN"
+          }
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/solo-relo",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "solo": {
+            "active": true,
+            "core_id": "RelO.R7080EA25"
+          }
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/hidden-anchor",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.CORPSE"
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/all-hidden-recovery",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "type_visibility_all_false": true
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/index-no-results",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.BLACK_BIRD_FIELD"
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/route-long",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "route_length": {
+            "$gte": 6
+          }
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/route-cleared-trace-retained",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "route_length": 0,
+          "trace_state": {
+            "wear_edge_count": {
+              "$gt": 0
+            },
+            "afterglow_count": {
+              "$gt": 0
+            }
+          }
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/trace-cleared-route-retained",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "route_length": {
+            "$gte": 6
+          },
+          "trace_state": {
+            "wear_edge_count": 0,
+            "afterglow_count": 0
+          }
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/about-return",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.BURIAL"
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/compact-1024",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1024,
+            640
+          ],
+          "active_id": "FO.CORPSE"
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/mobile-430",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            430,
+            932
+          ],
+          "active_id": "FO.CORPSE"
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/narrow-320",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            320,
+            640
+          ],
+          "active_id": "FO.CORPSE"
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/landscape-mobile",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            844,
+            390
+          ],
+          "active_id": "FO.CORPSE"
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/reflow-zoom-equivalent",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            640,
+            400
+          ],
+          "active_id": "FO.CORPSE"
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/text-resize-200",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "RNO.GHURAB_BURIAL__424A0ECF",
+          "media": {
+            "text_resize": 2
+          }
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/forced-colors",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.CORPSE",
+          "media": {
+            "forced_colors": true
+          }
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/reduced-motion",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.ODIN",
+          "media": {
+            "reduced_motion": true
+          }
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/keyboard-edge-focus",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.BLACK_BIRD_FIELD",
+          "focused_id": {
+            "$notNull": true
+          }
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/tooltip-edge",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.BLACK_BIRD_FIELD"
+        }
+      },
+      {
+        "id": "RESPONSIVE-ACCESS/modal-focus",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.BLACK_BIRD_FIELD"
+        }
+      }
     ],
     "motion_recordings": [
-      { "id": "motion/entry-and-interruption", "artifact_class": "motion" },
-      { "id": "motion/rapid-latest-action", "artifact_class": "motion" },
-      { "id": "motion/preview-and-projected-inspection", "artifact_class": "motion" },
-      { "id": "motion/relation-and-solo", "artifact_class": "motion" },
-      { "id": "motion/temporal-truth-and-clears", "artifact_class": "motion" },
-      { "id": "motion/mobile-complete-path", "artifact_class": "motion" },
-      { "id": "motion/reduced-motion-parity", "artifact_class": "motion" }
+      {
+        "id": "motion/entry-and-interruption",
+        "artifact_class": "motion",
+        "expect_end": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.CORPSE"
+        }
+      },
+      {
+        "id": "motion/rapid-latest-action",
+        "artifact_class": "motion",
+        "expect_end": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.ALLAH"
+        }
+      },
+      {
+        "id": "motion/preview-and-projected-inspection",
+        "artifact_class": "motion",
+        "expect_end": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.CAIN"
+        }
+      },
+      {
+        "id": "motion/relation-and-solo",
+        "artifact_class": "motion",
+        "expect_end": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "solo": {
+            "active": true,
+            "core_id": "FO.CAIN"
+          }
+        }
+      },
+      {
+        "id": "motion/temporal-truth-and-clears",
+        "artifact_class": "motion",
+        "expect_end": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "route_length": {
+            "$gte": 6
+          },
+          "trace_state": {
+            "wear_edge_count": 0,
+            "afterglow_count": 0
+          }
+        }
+      },
+      {
+        "id": "motion/mobile-complete-path",
+        "artifact_class": "motion",
+        "expect_end": {
+          "viewport": [
+            390,
+            844
+          ],
+          "active_id": "FO.CORPSE",
+          "surface": "field"
+        }
+      },
+      {
+        "id": "motion/reduced-motion-parity",
+        "artifact_class": "motion",
+        "expect_end": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "FO.CAIN",
+          "media": {
+            "reduced_motion": true
+          }
+        }
+      }
     ],
     "machine_reports": [
-      { "id": "machine/state.json", "artifact_class": "derived-report" },
-      { "id": "machine/event.json", "artifact_class": "derived-report" },
-      { "id": "machine/geometry.json", "artifact_class": "derived-report" },
-      { "id": "machine/design.json", "artifact_class": "derived-report" },
-      { "id": "machine/accessibility.json", "artifact_class": "derived-report" },
-      { "id": "machine/coverage-report.json", "artifact_class": "derived-report" },
-      { "id": "machine/build-manifest.json", "artifact_class": "derived-report" }
+      {
+        "id": "machine/state.json",
+        "artifact_class": "derived-report"
+      },
+      {
+        "id": "machine/event.json",
+        "artifact_class": "derived-report"
+      },
+      {
+        "id": "machine/geometry.json",
+        "artifact_class": "derived-report"
+      },
+      {
+        "id": "machine/design.json",
+        "artifact_class": "derived-report"
+      },
+      {
+        "id": "machine/accessibility.json",
+        "artifact_class": "derived-report"
+      },
+      {
+        "id": "machine/coverage-report.json",
+        "artifact_class": "derived-report"
+      },
+      {
+        "id": "machine/build-manifest.json",
+        "artifact_class": "derived-report"
+      }
     ]
   },
   "supplementary_contact_sheets": [
