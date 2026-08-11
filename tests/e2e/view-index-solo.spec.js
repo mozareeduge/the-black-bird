@@ -1,6 +1,6 @@
 'use strict';
 const { test, expect } = require('@playwright/test');
-const { gotoField, clickNode, appState } = require('../bb-helpers.cjs');
+const { gotoField, clickNode, appState, tagNodes } = require('../bb-helpers.cjs');
 
 const UI_COPY = {
   states: {
@@ -411,6 +411,40 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     await page.locator('[data-view="sourceNames"]').first().click();
     await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(false);
     await expect.poll(nameOLabelDisplay).toBe('none');
+  });
+
+  test('Source Names toggle actually renders a NameO label from the real default whole-field state, not only when a NameO is already focused (P-SCN-052 regression)', async ({
+    page,
+  }) => {
+    // Unlike the test above (which pre-focuses NameO.AR.GHURAB before
+    // toggling, so it always wins the label budget at tier 1), this exercises
+    // the toggle exactly as a typical reader would reach for it: fresh field,
+    // nothing focused, default zoom. updateLabelVisibility ranks label
+    // candidates by priority tier and only renders the first N (a budget);
+    // all 4 NameO nodes previously ranked below every ordinary FO node, so
+    // they never won a budget slot here and the toggle visibly did nothing.
+    await gotoField(page, { reduced: true });
+    await tagNodes(page); // no clickNode() in this test to tag g.node elements implicitly
+    const defaultActiveId = (await appState(page)).activeId; // FO.BLACK_BIRD_FIELD, the aperture -- not a NameO
+    const visibleNameOLabelCount = () =>
+      page.evaluate(
+        () =>
+          [...document.querySelectorAll('g.node[data-bb-test-id^="NameO."] text.node-label')].filter(
+            (el) => el.getAttribute('display') !== 'none'
+          ).length
+      );
+    expect(await visibleNameOLabelCount()).toBe(0);
+
+    await page.locator('.rail-btn[data-action="view"]').click();
+    await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+    await page.locator('[data-view="sourceNames"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(true);
+    await expect.poll(visibleNameOLabelCount).toBeGreaterThan(0);
+    expect((await appState(page)).activeId).toBe(defaultActiveId); // no incidental focus change caused this
+
+    await page.locator('[data-view="sourceNames"]').first().click();
+    await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(false);
+    await expect.poll(visibleNameOLabelCount).toBe(0);
   });
 
   test('Solo survives a resize with membership and Route/trace untouched (P-SCN-056)', async ({ page }) => {

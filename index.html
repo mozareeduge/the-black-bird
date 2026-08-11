@@ -4106,13 +4106,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   }
   function labelPriorityTier(d, isActive, isFocusMember, isRelParticipant) {
     if (isActive) return 1;
-    if (isRelParticipant || isFocusMember) return 2;
-    if (d.id === "FO.BLACK_BIRD_FIELD") return 3;
-    if (d.type === "RNO" || d.type === "MNO") return 4;
-    if (d.type === "NameO" && isFocusMember) return 5;
+    if (d.type === "NameO") return 2;
+    if (isRelParticipant || isFocusMember) return 3;
+    if (d.id === "FO.BLACK_BIRD_FIELD") return 4;
+    if (d.type === "RNO" || d.type === "MNO") return 5;
     if (d.type === "FO") return 6;
-    if (d.type === "NameO") return 7;
-    return 8;
+    return 7;
   }
   function labelBudget(k, hasFocus) {
     const mobile = isMobile();

@@ -1398,13 +1398,21 @@ function labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor) {
 }
 function labelPriorityTier(d, isActive, isFocusMember, isRelParticipant) {
   if (isActive) return 1;
-  if (isRelParticipant || isFocusMember) return 2;
-  if (d.id === "FO.BLACK_BIRD_FIELD") return 3;
-  if (d.type === "RNO" || d.type === "MNO") return 4;
-  if (d.type === "NameO" && isFocusMember) return 5;
+  // NameO only ever reaches this ranking when state.view.sourceNames is on
+  // (updateLabelVisibility filters it out entirely otherwise) -- an explicit
+  // opt-in the reader just took. It must rank above the generic
+  // isFocusMember/isRelParticipant tier below, not just above plain FO: the
+  // default/aperture focus set alone already contains 25+ tier-2 members, so
+  // NameO lost the stable-sort tie-break within that tier and the budget cut
+  // it before ever reaching a slot -- the toggle visibly did nothing even
+  // though state flipped correctly. Only 4 NameO nodes exist total, so
+  // guaranteeing them a slot can cost at most 4 lower-tier labels.
+  if (d.type === "NameO") return 2;
+  if (isRelParticipant || isFocusMember) return 3;
+  if (d.id === "FO.BLACK_BIRD_FIELD") return 4;
+  if (d.type === "RNO" || d.type === "MNO") return 5;
   if (d.type === "FO") return 6;
-  if (d.type === "NameO") return 7;
-  return 8; // RefO, RelO
+  return 7; // RefO, RelO
 }
 function labelBudget(k, hasFocus) {
   const mobile = isMobile();
