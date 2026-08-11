@@ -2,6 +2,74 @@
 
 This file is the canonical project log. Keep it in the repository root. Update it after every Claude Code round.
 
+## 2026-08-11 — Independent audit + final completion round (FQ-01–FQ-10) — CANDIDATE_READY_FOR_ARTISTIC_REVIEW
+
+Branch: `claude/black-bird-system-recomposition-9hpoia`
+PR: #9 (draft)
+Base: `bdef0087ed8234a55357a602085ce786f2bc5388` (this round) /
+`283ce5bf5d17600f1d35457d4f84786187abe446` (the audit round below it)
+
+Two connected rounds, run back to back in fresh sessions with no memory of
+each other's context: first an independent audit of the full recomposition
+(`283ce5b..bdef0087`), then a final completion intake that picked up its
+open items and drove them to closure. Superseding note: the R8/F11-F12
+freeze recorded below (`3391ab4`) predates both and is no longer the live
+freeze -- see `TESTING.md`'s "Candidate freeze history."
+
+**Independent audit** (owner-requested, no prior session context):
+verified every change in `283ce5b..HEAD` against what was actually asked,
+round by round, and swept every View-drawer/Index/Solo/Route/tooltip
+affordance for a specific failure class the owner flagged: a toggle
+that dispatches its command and the reducer state updates fine, but
+nothing observable happens in the state a real reader is in. Found and
+fixed three real defects, all independently verified live (Playwright +
+real rendering, not state-only assertions), not just found and reported:
+
+- **Source Names toggle never rendered anything in the real default
+  state.** `updateLabelVisibility()`'s (`src/app.js`) label priority/
+  budget system ranked NameO below the app's default-focus (aperture)
+  participant tier, which alone already fills the budget with 25+ items --
+  NameO lost the tie-break and never won a slot, even though the toggle's
+  own state flipped correctly. Fixed by giving NameO its own tier above
+  the generic focus-member tier.
+- **NameO Reader-panel label silently mirrored under a blanket
+  `dir="rtl"`.** Introduced during the earlier recomposition round
+  (`283ce5b..5972b2b`), not the original monolith: `dir="rtl"` on the
+  *whole* mixed-script label reordered the Latin run and separator around
+  the Arabic one, so "ghurāb / غراب" silently rendered backwards as a
+  mirror of the title above it. Fixed using the same correctly-scoped
+  per-run wrapping already used elsewhere in the same file.
+- **NameO body design (owner-directed follow-up).** The Source Names fix
+  above revealed a second, related gap: the "NameO (4)" Object-groups
+  toggle was *also* inert in the default state, for a different reason --
+  NameO had no visible geometric body at all, only a label gated behind
+  Source Names. The owner asked for a concrete, ontology-coherent visual
+  resolution rather than leaving it flagged: NameO now has the smallest,
+  quietest body in the six-type morphology set (a plain filled circle,
+  `coreR=outerR=3.0`, shared `--bb-node-fill`, `.bb-nameo-mark{fill-
+  opacity:.7}`) -- no new shape family or hue. Object Groups now controls
+  the mark; Source Names continues to control only the label text,
+  independently.
+
+**Final completion round** (`bdef0087..HEAD`, a later intake superseding
+this file's and `TESTING.md`'s own prior terminal claims where they
+conflicted): see `TESTING.md`'s "FQ-01–FQ-10: final completion round"
+section for the full technical record. Summary: removed a remaining
+duplicate NameO Reader label (FQ-01); closed Source Names/NameO proof
+gaps across mobile, the Labels/Source-Names combination, and the RelO
+worst-case crowding state (FQ-02); replaced a mislabeled "200%-zoom"
+viewport reflow test with both an honestly-named reflow test and a real
+computed-font-size-doubling stress proof (FQ-03); built a semantic
+evidence-state contract so candidate evidence proves it was captured in
+the state it's named for, not just that a plausible file exists (FQ-04),
+which surfaced and fixed two more real "wrong state captured" bugs in the
+evidence generator itself (a keyboard-focus capture that never reached a
+graph node; a mobile-field capture that never showed the real neutral
+composition, FQ-05); adversarially falsified latest-action-wins under a
+real camera/Reader/trace race and found no defect (FQ-06); audited the
+full scoped diff against authorized tasks and re-ran the full baseline-
+preservation suite clean (FQ-07); this documentation pass (FQ-08).
+
 ## 2026-08-08 — Head-driver correction (v4), R6–R8: responsive closure, evidence/CI truth, candidate freeze — CANDIDATE_READY_FOR_ARTISTIC_REVIEW
 
 Branch: `claude/black-bird-system-recomposition-9hpoia`

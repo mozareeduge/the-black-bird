@@ -88,21 +88,24 @@ independently of the still-live application:
   environment discloses it cannot close locally (Firefox/WebKit binaries
   unavailable to fetch).
 - **Evidence identity: one committed, declarative source of truth
-  (F09/R7).** `tests/contracts/evidence-plan.json` names all 44 primary
+  (F09/R7).** `tests/contracts/evidence-plan.json` names all primary
   artifacts `final-closure-contract.json`'s `required_evidence_ids`/
-  `required_primary_entry_count` declare (30 individually-named static
-  captures, 7 motion recordings, 7 machine reports), replacing an untracked
+  `required_primary_entry_count` declare (originally 30 individually-named
+  static captures, 7 motion recordings, 7 machine reports = 44; a later
+  completion round, FQ-03 below, split one ambiguously-named entry into two
+  truthfully-named ones, so this is now 31/7/7 = 45), replacing an untracked
   `.bb-authority/contracts/evidence-plan.json` overlay that `scripts/
   generate-evidence.mjs` used to read when present, falling back to a
   separately hand-maintained, easy-to-drift duplicate list when absent (the
   normal case in a fresh checkout). `scripts/generate-evidence.mjs`'s
-  `manifest.json` now lists all 44 as primary, gate-required `entries[]`;
+  `manifest.json` lists all of them as primary, gate-required `entries[]`;
   the 3 grouped contact-sheet composites move to `supplementary_evidence[]`
   (`final-closure-contract.json` itself: "Contact sheets are supplementary
   review aids only" -- they had it backwards). `scripts/ci-evidence-gate
-  .mjs` now asserts `entries[]` is exactly the plan's 44 ids, no fewer and
+  .mjs` asserts `entries[]` is exactly the plan's ids, no fewer and
   no more, in addition to its existing per-entry hash/dimension/duration/
-  duplicate-bytes checks.
+  duplicate-bytes checks (and, since FQ-04 below, per-entry semantic state
+  identity).
 
 ## Legacy released-behavior harness
 
@@ -355,34 +358,122 @@ commit:
 
 ## Candidate-bound review
 
-Real, candidate-bound evidence (44 individually-named primary artifacts --
-30 static captures, 7 motion recordings, 7 machine reports, per
+Real, candidate-bound evidence (45 individually-named primary artifacts --
+31 static captures, 7 motion recordings, 7 machine reports, per
 `tests/contracts/evidence-plan.json` -- plus 3 supplementary contact-sheet
 composites) is generated fresh from the exact frozen candidate SHA by
 `npm run evidence:generate`, gated both locally and in CI by
 `scripts/ci-evidence-gate.mjs` (F09/R7: no longer dependent on the
-untracked `.bb-authority/` overlay), and uploaded as a CI build artifact
-(`candidate-evidence/` itself is gitignored, not committed to the tree).
-Zero NaN/Infinity SVG geometry has been observed across any capture.
-`candidate-evidence/human-review.json` leaves all 10 review dimensions
-`pending_user_review` — no agent self-attests artistic acceptance. This
-candidate does not self-attest `SUBJECTIVE_ACCEPTED` or
-`RELEASE_AUTHORIZED`, and the PR remains a draft.
+untracked `.bb-authority/` overlay; FQ-04: also gated on per-entry semantic
+state identity, not just file identity -- see the FQ-01–FQ-10 section
+below), and uploaded as a CI build artifact (`candidate-evidence/` itself
+is gitignored, not committed to the tree). Zero NaN/Infinity SVG geometry
+has been observed across any capture. `candidate-evidence/human-review
+.json` leaves all 10 review dimensions `pending_user_review` — no agent
+self-attests artistic acceptance. This candidate does not self-attest
+`SUBJECTIVE_ACCEPTED` or `RELEASE_AUTHORIZED`, and the PR remains a draft.
 
-**Candidate freeze (R8/F11-F12):** functional verification (build, full
-local suite, candidate-bound evidence generation) ran at
-`3391ab461d7b3b70335039e3a4417348f89421e5`. Two clean, consecutive
-`npm run verify:closure:local` passes with no interim changes (16/17
-checks, 1 non-blocking skip each time); exact-SHA CI green across all 7
-checks (`Verify`, `Black Bird Candidate Validation`, `Exact-Head Verify`,
-`Cross-Browser Matrix` ×3, `Final Candidate Gate`); candidate-bound
-evidence independently regenerated and gated locally (44/44 required
-entries, zero duplicate bytes) at that SHA. Every commit since is
-documentation-only (this file, the changelog, and
-`candidate-review-packet.json` itself) with zero `src/`/`tests/`/
-`scripts/` changes, each independently re-verified green in CI --
-`candidate-review-packet.json`'s `verified_functional_sha`/`candidate_sha`
-fields record this precisely rather than collapsing it to one number.
-`candidate-review-packet.json` (repo root) is the machine-readable record
-of this verification for the reviewer -- real command/CI output, not a
-narrated summary.
+**Candidate freeze history.** An earlier freeze (R8/F11-F12) ran at
+`3391ab461d7b3b70335039e3a4417348f89421e5` and was recorded as terminal at
+the time. A later, independent completion run (the FQ-01–FQ-10 section
+below) found and fixed real remaining defects and proof gaps after that
+freeze -- so that freeze is superseded, not current. The present, actual
+freeze SHA/CI record is in `candidate-review-packet.json` (repo root),
+kept current with whichever freeze is now live rather than preserved as a
+historical artifact.
+
+## FQ-01–FQ-10: final completion round (owner-directed, post-audit)
+
+A separate, later intake (`BLACK_BIRD_CLAUDE_CODE_FINAL_COMPLETION_INTAKE`)
+picked up after the independent audit above (Source Names label-priority
+fix, NameO Reader-panel bidi-reversal fix, NameO body design) and drove the
+remaining confirmed defects and proof gaps to closure, explicitly
+superseding this file's and the changelog's own prior terminal claims where
+they conflicted. Base for this round: `bdef0087ed8234a55357a602085ce786f2bc5388`
+(the commit right after the NameO body design's own CI confirmation).
+
+- **FQ-01 — removed the remaining duplicate NameO Reader label.** The
+  earlier bidi-reversal fix (audit round) left `buildNameoContent()`
+  (`src/presentation/reader-renderer.js`) rendering the full mixed-script
+  label a *second* time, directionally correct now but still a plain
+  repeat of what the title already showed. Removed the redundant
+  paragraph entirely; `metaBlock()`'s title is the sole canonical
+  rendering. Removed the now-dead `isArabicScript()`/`ARABIC_TEST` helper.
+  New regression test (`tests/e2e/reader.spec.js`) asserts exactly one
+  leaf element carries the complete label; proven to fail against the
+  pre-fix duplicate.
+- **FQ-02 — closed Source Names/NameO proof gaps across representative
+  states.** The Source Names label-priority fix (audit round) was real,
+  but never proven on mobile (`labelBudget()` halves for `isMobile()`, a
+  genuinely distinct code path), never proven against the global Labels
+  toggle in combination (Labels off must dominate Source Names, through a
+  real UI sequence, not two isolated toggles), and never checked for
+  label overlap at the state where NameO gets its highest priority tier
+  (a focused RelO, the real worst case for crowding). Added all three;
+  every new assertion proven to fail against the pre-fix tier ordering.
+- **FQ-03 — separated the reflow proof from a real 200% text-resize
+  proof.** `RESPONSIVE-ACCESS/text-zoom-200` was only ever a smaller CSS
+  viewport (renamed `reflow-zoom-equivalent`, same real reflow capture,
+  honestly named) -- it never proved any rendered text doubled in size.
+  Confirmed directly: every `font-size` in `src/index.template.html` is
+  an absolute px value (no `em`/`rem`/`%` anywhere), so
+  `document.documentElement.style.fontSize='200%'` genuinely has zero
+  effect in this codebase (verified live). Built a test-only stress
+  harness instead (`tests/e2e/text-resize-stress.spec.js`,
+  `RESPONSIVE-ACCESS/text-resize-200`): measures each representative
+  surface's own baseline computed font-size, forces it to exactly 2x that
+  baseline, proves the precondition (≥1.9x for every surface), then
+  proves real usability under the stress (no overflow, non-degenerate
+  drawer/control boxes, Reader stays scrollable, controls stay operable,
+  roving tabindex still resolves). Does not touch production typography.
+- **FQ-04 — semantic evidence-state contract + gate.** The evidence
+  system already proved file identity (hash/dimensions/duration/
+  duplicate-bytes/SHA/completeness); it never proved a screenshot/video
+  named "X" was actually captured in state X. Added a compact semantic
+  snapshot (`captureSemanticState()`, reads only through the same bounded
+  `window.__bbTest` surface every e2e spec uses), a real `expect`/
+  `expect_end` predicate for every one of the 31 static + 7 motion
+  entries (derived from each capture function's actual behavior, several
+  verified empirically live before being written), and independent
+  recomputation in `scripts/ci-evidence-gate.mjs` (not just trusting the
+  generator's own claimed pass/fail). Writing real predicates surfaced
+  two genuine, pre-existing "captured the wrong state" bugs in the
+  generator itself: `keyboard-edge-focus` pressed Tab only twice, landing
+  on a rail button (4 rail buttons precede any graph node in tab order),
+  never showing a node's keyboard-focus ring at all; fixed to 5 Tabs.
+  Verified end to end: a real `evidence:generate` run produced all 45
+  entries with zero oracle failures; the gate independently re-verified
+  the same manifest clean; a manual negative-proof test (corrupted state
+  + a lied-about pass flag, in the gitignored evidence output, never
+  committed) confirmed the gate rejects both.
+- **FQ-05 — fixed the mobile-field-390 evidence state.** The other
+  bug FQ-04's predicates surfaced: `captureMobileField()` focused
+  `FO.CORPSE`, neither the neutral nor the aperture-default state -- the
+  artifact never actually showed the approved mobile neutral-core framing
+  (aperture-centered crop) it's named for. Fixed to use the real product
+  restore mechanism (`window.__bbTest.returnToField()`); verified live
+  that `active_id` becomes `null`, matching the new `neutral_field`
+  oracle predicate exactly.
+- **FQ-06 — falsified latest-action-wins under a real race; no defect
+  found.** Existing coverage (the `[commit, commit, stale-callback]`
+  critical triple, P-SCN-100, P-SCN-126) each proved a partial slice of
+  "a second rapid commit supersedes the first." Added one adversarial
+  test proving all six surfaces converge on the latest commit
+  simultaneously under a real, unreduced-motion race (semantic focus,
+  rendered focus, Reader subject, camera re-targeting, Route, trace).
+  Result: passed cleanly, stable across repeated runs. No product defect
+  -- the existing dispatcher/transaction/cancellation mechanism already
+  handles this correctly. Architecture left unchanged, per the intake's
+  own instruction not to refactor absent a real failure.
+- **FQ-07 — final scoped diff audit.** Every file changed since the
+  `bdef0087` base maps cleanly to FQ-01–FQ-06 or a generated build
+  artifact (`index.html`) -- no unexplained changes. Full baseline-
+  preservation suite (`test:data`, `test:baseline`, `test:route-solo`,
+  `test:world-camera`, `test:mobile`, `test:accessibility`,
+  `test:design`) re-run clean; no canonical DATA, poetry, citation, or
+  world-layout drift.
+- **FQ-08 (this section) — truthful final documentation.** Removed stale
+  candidate/freeze claims from this file's "Candidate-bound review"
+  section (a later completion round, not the R8/F11-F12 freeze, is now
+  the live one) and updated the evidence-count references (44/30 → 45/31)
+  this round's own FQ-03 work changed.
