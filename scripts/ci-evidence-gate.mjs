@@ -65,7 +65,7 @@ function main() {
 
   const entries = manifest.entries || [];
 
-  // F09/R7: entries[] must be exactly the 44 declarative primary artifacts
+  // F09/R7: entries[] must be exactly the 45 declarative primary artifacts
   // named in tests/contracts/evidence-plan.json (which mirrors
   // final-closure-contract.json's required_evidence_ids/
   // required_primary_entry_count) -- no fewer (a missing artifact) and no
@@ -107,7 +107,7 @@ function main() {
       // F09/R7: a fixed portrait-shaped floor (previously 320x480) rejects
       // legitimate landscape/short captures the evidence plan actually
       // requires -- RESPONSIVE-ACCESS/landscape-mobile is captured at
-      // 844x390 and RESPONSIVE-ACCESS/text-zoom-200 at 640x400, both real,
+      // 844x390 and RESPONSIVE-ACCESS/reflow-zoom-equivalent at 640x400, both real,
       // intentional viewport sizes, both under a 480px height floor. A
       // symmetric, lower per-axis floor still catches genuinely broken/
       // degenerate captures (near-zero dimensions) without assuming every

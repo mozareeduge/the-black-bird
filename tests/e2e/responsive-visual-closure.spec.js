@@ -247,7 +247,13 @@ test.describe('Responsive/visual closure (F08/R6): no sheet leak, label collisio
     await noHorizontalOverflow(page);
   });
 
-  test('200%-zoom-equivalent viewport (640x360): no horizontal overflow, bottom-nav stays in frame', async ({ page }) => {
+  // FQ-03: renamed from "200%-zoom-equivalent" -- this is a genuinely useful
+  // small-viewport reflow proof, but it never claimed or measured any actual
+  // text-size doubling; that real proof now lives in
+  // tests/e2e/text-resize-stress.spec.js. RESPONSIVE-ACCESS/reflow-zoom-
+  // equivalent (evidence-plan.json) is the same real, intentional viewport
+  // this test exercises.
+  test('reflow-zoom-equivalent viewport (640x360): no horizontal overflow, bottom-nav stays in frame', async ({ page }) => {
     await page.setViewportSize({ width: 640, height: 360 });
     await gotoField(page, { mobile: true, reduced: true });
     await noHorizontalOverflow(page);

@@ -295,6 +295,24 @@ async function captureModalFocus(page) {
   await page.locator('.rail-btn[data-action="about"]').click();
   await page.locator('#aboutPanel').waitFor({ state: 'visible' });
 }
+// FQ-03: 'text-zoom-200' (now 'reflow-zoom-equivalent') was only ever a
+// smaller CSS viewport -- real coverage, but not proof any rendered text
+// doubled. Every font-size in src/index.template.html is an absolute px
+// value (verified: no em/rem/%), so a root fontSize='200%' override has
+// zero effect here. This capture instead forces the Reader title's own
+// measured computed font-size to 2x itself with a test-only style
+// override -- the same representative-element stress technique as
+// tests/e2e/text-resize-stress.spec.js -- so the artifact is honestly a
+// text-resize capture, not a relabeled reflow screenshot.
+async function captureTextResize200(page) {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await gotoField(page, { reduced: true });
+  await tagNodes(page);
+  await clickNode(page, 'RNO.GHURAB_BURIAL__424A0ECF');
+  const baseline = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('#reader .title')).fontSize));
+  await page.addStyleTag({ content: `#reader .title{font-size:${baseline * 2}px !important;}` });
+  await page.waitForTimeout(150);
+}
 
 const STATIC_SETS = {
   'ARTISTIC-CORE': [
@@ -326,7 +344,8 @@ const STATIC_SETS = {
     ['mobile-430', (p) => captureViewport(p, 430, 932)],
     ['narrow-320', (p) => captureViewport(p, 320, 640)],
     ['landscape-mobile', (p) => captureViewport(p, 844, 390)],
-    ['text-zoom-200', (p) => captureViewport(p, 640, 400)],
+    ['reflow-zoom-equivalent', (p) => captureViewport(p, 640, 400)],
+    ['text-resize-200', (p) => captureTextResize200(p)],
     ['forced-colors', (p) => captureForcedColors(p)],
     ['reduced-motion', (p) => captureReducedMotion(p)],
     ['keyboard-edge-focus', (p) => captureKeyboardFocus(p)],
@@ -488,7 +507,7 @@ async function main() {
           shots.push([name, outPath]);
           const capDims = pngDimensions(outPath);
           // Individual static captures are primary, gate-required evidence
-          // (F09/R7): tests/contracts/evidence-plan.json declares all 30 by
+          // (F09/R7): tests/contracts/evidence-plan.json declares all 31 by
           // name, matching final-closure-contract.json's
           // required_evidence_ids -- not the 3 grouped contact sheets below,
           // which the contract itself calls "supplementary review aids
@@ -662,7 +681,7 @@ async function main() {
     JSON.stringify({ candidate_sha: sha, note: 'Artistic acceptance is a user/GPT decision; no dimension below is agent-attested.', dimensions }, null, 2)
   );
 
-  // ── manifest.json: all 44 declarative primary artifacts + disclosed supplementary evidence ──
+  // ── manifest.json: all 45 declarative primary artifacts + disclosed supplementary evidence ──
   writeFileSync(
     path.join(OUT, 'manifest.json'),
     JSON.stringify(
@@ -673,7 +692,7 @@ async function main() {
         entries: requiredEntries,
         supplementary_evidence: supplementary,
         note:
-          'entries[] contains exactly the 44 primary artifacts declared in tests/contracts/evidence-plan.json (the 30 individually-named static captures, 7 motion recordings, and 7 machine reports required_evidence_ids/required_primary_entry_count in tests/contracts/final-closure-contract.json also name) -- scripts/ci-evidence-gate.mjs verifies entries[] is exactly this set, no more and no fewer. supplementary_evidence[] holds the 3 grouped contact-sheet composites, which final-closure-contract.json itself calls "supplementary review aids only", not mechanically gated evidence.',
+          'entries[] contains exactly the 45 primary artifacts declared in tests/contracts/evidence-plan.json (the 31 individually-named static captures, 7 motion recordings, and 7 machine reports required_evidence_ids/required_primary_entry_count in tests/contracts/final-closure-contract.json also name) -- scripts/ci-evidence-gate.mjs verifies entries[] is exactly this set, no more and no fewer. supplementary_evidence[] holds the 3 grouped contact-sheet composites, which final-closure-contract.json itself calls "supplementary review aids only", not mechanically gated evidence.',
       },
       null,
       2

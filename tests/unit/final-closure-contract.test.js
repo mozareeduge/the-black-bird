@@ -32,14 +32,19 @@ test('closure contract required scenario count is exactly 115', () => {
   assert.equal(contract.required_scenario_count, 115);
 });
 
-test('closure contract required evidence IDs total exactly 44 primary entries', () => {
+test('closure contract required evidence IDs total exactly 45 primary entries', () => {
+  // FQ-03: RESPONSIVE-ACCESS/text-zoom-200 (a mislabeled viewport reflow
+  // capture) split into two truthfully-named entries -- reflow-zoom-
+  // equivalent (the same reflow capture, honestly named) and text-resize-200
+  // (a new, real computed-font-size-doubling proof) -- so static count grew
+  // by one, 30 -> 31.
   const { static_application_captures, motion_recordings, machine_reports } = contract.required_evidence_ids;
-  assert.equal(static_application_captures.length, 30);
+  assert.equal(static_application_captures.length, 31);
   assert.equal(motion_recordings.length, 7);
   assert.equal(machine_reports.length, 7);
   const total = static_application_captures.length + motion_recordings.length + machine_reports.length;
   assert.equal(total, contract.required_primary_entry_count);
-  assert.equal(total, 44);
+  assert.equal(total, 45);
 });
 
 test('closure contract required evidence IDs are unique', () => {

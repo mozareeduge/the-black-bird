@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "source": "tests/contracts/final-closure-contract.json's required_evidence_ids + required_primary_entry_count (F09/R7)",
   "notes": "Canonical, committed, single source of truth for candidate-bound evidence identity, used by both scripts/generate-evidence.mjs (to build manifest.json's required entries[]) and scripts/ci-evidence-gate.mjs (to verify entries[] is exactly this set, no more, no fewer). Previously this list existed only in an untracked .bb-authority/contracts/evidence-plan.json overlay, with a hardcoded, independently-maintained fallback duplicate inside generate-evidence.mjs for CI checkouts where the overlay is absent -- two copies of the same list, one of them invisible to review. This file replaces both: it is always present, in both local and CI checkouts, and is the only copy.",
-  "required_primary_entry_count": 44,
+  "required_primary_entry_count": 45,
   "primary_artifacts": {
     "static_application_captures": [
       { "id": "ARTISTIC-CORE/threshold", "artifact_class": "application-capture" },
@@ -29,7 +29,8 @@
       { "id": "RESPONSIVE-ACCESS/mobile-430", "artifact_class": "application-capture" },
       { "id": "RESPONSIVE-ACCESS/narrow-320", "artifact_class": "application-capture" },
       { "id": "RESPONSIVE-ACCESS/landscape-mobile", "artifact_class": "application-capture" },
-      { "id": "RESPONSIVE-ACCESS/text-zoom-200", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/reflow-zoom-equivalent", "artifact_class": "application-capture" },
+      { "id": "RESPONSIVE-ACCESS/text-resize-200", "artifact_class": "application-capture" },
       { "id": "RESPONSIVE-ACCESS/forced-colors", "artifact_class": "application-capture" },
       { "id": "RESPONSIVE-ACCESS/reduced-motion", "artifact_class": "application-capture" },
       { "id": "RESPONSIVE-ACCESS/keyboard-edge-focus", "artifact_class": "application-capture" },

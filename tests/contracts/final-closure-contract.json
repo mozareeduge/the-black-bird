@@ -85,7 +85,8 @@
       "RESPONSIVE-ACCESS/mobile-430",
       "RESPONSIVE-ACCESS/narrow-320",
       "RESPONSIVE-ACCESS/landscape-mobile",
-      "RESPONSIVE-ACCESS/text-zoom-200",
+      "RESPONSIVE-ACCESS/reflow-zoom-equivalent",
+      "RESPONSIVE-ACCESS/text-resize-200",
       "RESPONSIVE-ACCESS/forced-colors",
       "RESPONSIVE-ACCESS/reduced-motion",
       "RESPONSIVE-ACCESS/keyboard-edge-focus",
@@ -111,7 +112,7 @@
       "machine/build-manifest.json"
     ]
   },
-  "required_primary_entry_count": 44,
+  "required_primary_entry_count": 45,
   "responsive_viewport_matrix": [
     { "label": "1440x960", "width": 1440, "height": 960 },
     { "label": "1280x800", "width": 1280, "height": 800 },
