@@ -2297,10 +2297,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
 
   // src/presentation/reader-renderer.js
   var ARABIC_RUN = /[؀-ۿ]+/g;
-  var ARABIC_TEST = /[؀-ۿ]/;
-  function isArabicScript(s) {
-    return ARABIC_TEST.test(s || "");
-  }
   function shortLabelOf(id, nodesById) {
     const n = nodesById[id];
     return n ? n.shortLabel || n.label : id;
@@ -2413,12 +2409,6 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function buildNameoContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
-    if (isArabicScript(vm.node.label)) {
-      const label = doc.createElement("p");
-      label.className = "bb-arabic-label";
-      appendArabicWrapped(label, vm.node.label, doc);
-      root2.appendChild(label);
-    }
     const prose = el(doc, "div", "prose");
     const layer = doc.createElement("p");
     appendArabicWrapped(layer, vm.sourceLayer, doc);
@@ -3871,13 +3861,13 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     return d.shortLabel || d.label;
   }
-  function isArabicScript2(s) {
+  function isArabicScript(s) {
     return /[؀-ۿ]/.test(s || "");
   }
   nodeSel.append("text").attr(
     "class",
-    (d) => "node-label" + (d.type === "NameO" && isArabicScript2(graphLabelFor(d)) ? " bb-arabic" : "")
-  ).attr("text-anchor", "middle").attr("y", (d) => nodeMetrics(d).labelOffset).attr("lang", (d) => d.type === "NameO" && isArabicScript2(graphLabelFor(d)) ? "ar" : null).attr("dir", (d) => d.type === "NameO" && isArabicScript2(graphLabelFor(d)) ? "rtl" : null).text((d) => graphLabelFor(d));
+    (d) => "node-label" + (d.type === "NameO" && isArabicScript(graphLabelFor(d)) ? " bb-arabic" : "")
+  ).attr("text-anchor", "middle").attr("y", (d) => nodeMetrics(d).labelOffset).attr("lang", (d) => d.type === "NameO" && isArabicScript(graphLabelFor(d)) ? "ar" : null).attr("dir", (d) => d.type === "NameO" && isArabicScript(graphLabelFor(d)) ? "rtl" : null).text((d) => graphLabelFor(d));
   nodeSel.append("title").text(
     (d) => d.type === "NameO" && d.shortLabel !== d.label ? `${d.shortLabel} \u2014 ${d.label}` : d.label
   );
