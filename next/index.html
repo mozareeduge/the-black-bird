@@ -457,6 +457,10 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .bb-clearing-field{pointer-events:none;}
 .bb-wear,.bb-afterglow{pointer-events:none;}
 .bb-body,.bb-rno-ring{transition:opacity .35s ease,fill .35s ease,stroke-opacity .35s ease;}
+/* NameO's mark: the smallest, quietest body in the morphology set (a name is
+   a script-surface, not a full field object) -- same shared --bb-node-fill
+   as FO/RNO/MNO, echoing .node-label.quiet's restraint rather than a new hue. */
+.bb-nameo-mark{fill-opacity:.7;}
 .bb-cold-rest{filter:blur(var(--bb-dof-max));}
 .bb-arabic{font-family:var(--bb-arabic);}
 .node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;transition:fill .35s ease;}
@@ -2104,7 +2108,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       case "MNO":
         return radiiOf("mno", 7.4, 7.4);
       case "NameO":
-        return radiiOf("nameo", 0, 5);
+        return radiiOf("nameo", 3, 3);
       case "RefO":
         return radiiOf("refo", 4.5, 4.5 * Math.SQRT2);
       case "RelO":
@@ -3781,6 +3785,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     } else if (d.type === "MNO") {
       g.append("path").attr("class", "bb-body").attr("d", irregularCirclePath(d.id, m.coreR, 14)).attr("fill", "var(--bb-node-fill)");
     } else if (d.type === "NameO") {
+      g.append("circle").attr("class", "bb-body bb-nameo-mark").attr("r", m.coreR).attr("fill", "var(--bb-node-fill)");
     } else if (d.type === "RefO") {
       const side = m.coreR * 2;
       g.append("rect").attr("class", "bb-body").attr("width", side).attr("height", side).attr("x", -side / 2).attr("y", -side / 2).attr("transform", "rotate(45)").attr("fill", "var(--bb-refo-fill)");
