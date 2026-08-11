@@ -826,3 +826,9 @@ block), full local suite re-verified clean. This closes the one
 genuinely open engineering item from the prior checkpoint — E2 now has
 no remaining objective defects, only the two explicitly aesthetic items
 already on record as the user's own call.
+
+**Confirmed in real CI, not just locally:** all 8 checks green at
+`fa70536` (`validate`, `build-and-test`, `cross-browser` ×3,
+`exact-head-verify`, `final-candidate-evidence`, `publish`).
+`/next/` now reflects this fix. Nothing left open in the ledger except
+the two aesthetic judgment calls already on record.
