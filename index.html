@@ -1263,6 +1263,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function areaOutsideSafeRect(rect, safeRect) {
     return Math.max(0, rect.width * rect.height - overlapArea(rect, safeRect));
   }
+  function isFullyContained(rect, safeRect) {
+    return !safeRect || areaOutsideSafeRect(rect, safeRect) === 0;
+  }
   function scoreLabelCandidate(rect, side, ctx = {}) {
     const {
       placedRects = [],
@@ -1299,10 +1302,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       );
       scored.sort((a, b) => a.cost - b.cost || CANDIDATE_SIDES.indexOf(a.side) - CANDIDATE_SIDES.indexOf(b.side));
       const zeroOverlap = scored.filter((s) => !s.hasOverlap);
+      const mustContain = !item.isActive;
+      const usable = mustContain ? zeroOverlap.filter((s) => isFullyContained(s.rect, ctx.safeRect)) : zeroOverlap;
       let chosen = null;
       let suppressed = false;
-      if (zeroOverlap.length > 0) {
-        chosen = zeroOverlap[0];
+      if (usable.length > 0) {
+        chosen = usable[0];
       } else if (item.isActive) {
         chosen = scored[0];
       } else {

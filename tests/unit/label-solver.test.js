@@ -129,6 +129,63 @@ test('a non-required label with no valid placement is suppressed, not rendered o
   assert.equal(ordinary.rect, null);
 });
 
+test('a non-required, non-active label with a zero-overlap candidate outside the safe rect is suppressed, not rendered clipped', () => {
+  const anchor = { x: 780, y: 400 }; // near the right edge of a 0..800 safe rect
+  const safeRect = { x: 0, y: 0, width: 800, height: 600 };
+  const items = [{ id: 'edge-node', isRequired: false, isActive: false, anchor }];
+  // Every one of the 8 candidates (offset 15, width 60) around this anchor
+  // extends past x=800 on the right-anchored sides and is itself
+  // off-safe-rect-adjacent enough that none land fully inside -- exercise
+  // via a synthetic candidate set that is deliberately all outside.
+  const build = () =>
+    CANDIDATE_SIDES.map((side) => ({ side, rect: { x: 810, y: 400, width: 60, height: 16 } }));
+  const results = solveLabels(items, build, { safeRect });
+  const r = results[0];
+  assert.equal(r.suppressed, true, 'a zero-overlap candidate outside the safe rect must not be chosen');
+  assert.equal(r.rect, null);
+});
+
+test('a non-required, non-active label with at least one contained zero-overlap candidate is placed there, not suppressed', () => {
+  const safeRect = { x: 0, y: 0, width: 800, height: 600 };
+  const items = [{ id: 'edge-node', isRequired: false, isActive: false }];
+  const build = () => [
+    { side: 'below', rect: { x: 810, y: 400, width: 60, height: 16 } }, // outside
+    { side: 'above', rect: { x: 400, y: 300, width: 60, height: 16 } }, // inside
+  ];
+  const results = solveLabels(items, build, { safeRect });
+  const r = results[0];
+  assert.equal(r.suppressed, false);
+  assert.equal(r.side, 'above');
+});
+
+test('containment applies to required (non-active) labels too: their prior guarantee was priority in the overlap contest, never a pass on containment', () => {
+  const safeRect = { x: 0, y: 0, width: 800, height: 600 };
+  const outsideRect = { x: 810, y: 400, width: 60, height: 16 };
+  const buildOutside = () => CANDIDATE_SIDES.map((side) => ({ side, rect: outsideRect }));
+
+  const requiredResults = solveLabels(
+    [{ id: 'required-node', isRequired: true, isActive: false }],
+    buildOutside,
+    { safeRect }
+  );
+  assert.equal(requiredResults[0].suppressed, true, 'a required, non-active label with only uncontained zero-overlap candidates is suppressed, same as a low-priority one');
+  assert.equal(requiredResults[0].rect, null);
+});
+
+test('only the active label keeps the T-REQ-020 containment-independent guarantee: never suppressed, even fully outside the safe rect', () => {
+  const safeRect = { x: 0, y: 0, width: 800, height: 600 };
+  const outsideRect = { x: 810, y: 400, width: 60, height: 16 };
+  const buildOutside = () => CANDIDATE_SIDES.map((side) => ({ side, rect: outsideRect }));
+
+  const activeResults = solveLabels(
+    [{ id: 'active-node', isRequired: false, isActive: true }],
+    buildOutside,
+    { safeRect }
+  );
+  assert.equal(activeResults[0].suppressed, false, 'the active label is never suppressed, containment or not');
+  assert.deepEqual(activeResults[0].rect, outsideRect);
+});
+
 test('suppression is deterministic: identical input produces identical output across runs', () => {
   const anchor = { x: 500, y: 500 };
   const items = [

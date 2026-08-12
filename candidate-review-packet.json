@@ -116,7 +116,7 @@
     "fq10_push_and_ci": "done -- see verification.exact_sha_ci above"
   },
   "known_disclosed_limitations": [
-    "Label placement: bounded residual overlap (observed 1-2) in the densest desktop RelO cluster (1280x800) -- src/layout/label-solver.js is real cost-minimizing selection across all 8 candidates, not a full zero-overlap-everywhere guarantee. Bounded and asserted by tests/black-bird-world-camera.spec.js.",
+    "Current protected densest-RelO tests require zero rendered label overlaps at 1440x960, 1280x800, and 1024x640 (tests/black-bird-world-camera.spec.js). This is an exact guarantee for those tested states, not a universal mathematical claim for every arbitrary transient user-created pan/zoom configuration. (Supersedes an earlier round's disclosed 1-2-overlap measurement, which was made against a wrong, inflated safe rect since fixed -- see TESTING.md's E2 camera/safe-rect entries.)",
     "This sandboxed session cannot fetch Firefox/WebKit browser binaries or install ffmpeg locally (package-mirror access is restricted). Both gaps are independently closed and verified green in CI (see verification.exact_sha_ci and verification.evidence.ci_gate_result above), not left as unverified code.",
     "This session's own direct GitHub API / gh CLI access is blocked at the session level; all CI status above was verified through the GitHub MCP tools this session does have working access through."
   ],

@@ -325,18 +325,24 @@ commit:
 
 ## Known limits
 
-- **Label placement: bounded residual overlap in the densest cluster.**
-  `recomputeLabelPlacements()` in `src/app.js` (spec §4.6) now delegates to
+- **Label placement: zero overlap at the tested densest-cluster states, not
+  a universal guarantee for every arbitrary transient configuration.**
+  `recomputeLabelPlacements()` in `src/app.js` (spec §4.6) delegates to
   `src/layout/label-solver.js`'s `solveLabels()` (R2/R4), which scores all 8
   candidate positions (four orthogonal + four diagonal) per label against
   overlap/safe-area/edge-crossing/distance/stability weights and picks the
   cheapest zero-overlap candidate (or, for the always-shown active label, the
   least-bad candidate if none are overlap-free) — real cost-minimization, not
-  first-valid selection. In the densest canonical RelO cluster this still
-  leaves a small, timing-dependent number of residual overlaps (observed 1-2
-  across repeated runs) — bounded and asserted by
-  `tests/black-bird-world-camera.spec.js`, not a full "zero overlaps
-  everywhere" guarantee. Ordinary (non-densest) clusters are collision-free.
+  first-valid selection. An earlier round disclosed a bounded 1-2 residual
+  overlaps in the densest canonical RelO cluster; that measurement was made
+  against a wrong, inflated safe rect (a `.main` `min-height` bug, since
+  fixed — see the E2 camera/safe-rect entries below). Re-measured after the
+  fix: 0 label overlaps at that same RelO cluster, at all 3 desktop
+  viewports (1440×960/1280×800/1024×640), across repeated runs. Current
+  protected tests require `overlapCount === 0` there (sealed exact zero, not
+  a tolerance) — see `tests/black-bird-world-camera.spec.js`. This is an
+  exact guarantee for those tested states, not a universal mathematical
+  claim for every arbitrary transient user-created pan/zoom configuration.
 - **Cross-browser Firefox/WebKit** verified only on Chromium in every
   sandboxed session run so far, for the environment reasons described
   above; the same spec runs unmodified wherever those binaries are
@@ -477,3 +483,57 @@ they conflicted. Base for this round: `bdef0087ed8234a55357a602085ce786f2bc5388`
   section (a later completion round, not the R8/F11-F12 freeze, is now
   the live one) and updated the evidence-count references (44/30 → 45/31)
   this round's own FQ-03 work changed.
+
+## FR-01/FR-02: bounded final correction (owner-directed, post-FQ-10)
+
+A third, still later owner note reviewed the FQ-01–FQ-10 candidate's own
+attached mobile-390x844 neutral-Field evidence directly and found one real
+remaining rendering defect the semantic-oracle work above never checked
+for (it proves state correctness, not per-label screen geometry), plus one
+more stale documentation claim this round's own re-measurement work had
+already superseded but never removed from every surface it appeared on.
+Explicitly scoped as a bounded correction, not a further design/audit
+round -- the visual system, mobile neutral-core camera, world coordinates,
+Source Names behavior, NameO body, Reader, Route/trace/wear/afterglow, and
+accessibility are all unchanged.
+
+- **FR-01 — mobile Field label clipping.** The mobile neutral-core camera
+  deliberately crops the world reference envelope on extreme aspect
+  ratios (a decided, kept design) -- but `solveLabels()`
+  (`src/layout/label-solver.js`) only ever screened a candidate placement
+  for label/body/contour overlap, never for whether the resulting screen
+  rect actually landed inside the Field's safe rectangle. An off-core,
+  low-priority node's label (e.g. "American Crows",
+  `RNO.AMERICAN_CROWS_CORPSE__9FFB70D1`) could have zero overlap with
+  anything else and still be chosen while sitting off the visible edge --
+  rendered clipped rather than suppressed. Fixed: every label except the
+  single active one now also requires a fully-safe-rect-contained
+  zero-overlap candidate to be chosen; with none, it is suppressed (same
+  fallback the overlap path already used for low-priority labels). This
+  intentionally also applies to required-but-not-active labels (RelO
+  participants, NameO, structural anchors) -- their prior guarantee was
+  priority in the overlap contest, never a pass on containment, so they
+  could already be suppressed by overlap alone; containment is simply a
+  second, consistent suppression trigger. Only the single active label
+  keeps its separate, pre-existing T-REQ-020 exemption (never suppressed,
+  containment is the camera-reconciliation caller's job). New regression
+  coverage: `tests/unit/label-solver.test.js` (solver-level, proven to
+  fail pre-fix) and a real rendered-geometry regression in
+  `tests/e2e/responsive-visual-closure.spec.js` at all four protected
+  mobile viewports (430x932/390x844/320x640/844x390), each exercising
+  neutral/restored Field, an ordinary focused object, a dense RelO state,
+  and Source Names on with NameO participating -- proven to fail against
+  the pre-fix solver at all four viewports before the fix, clean after.
+  `ARTISTIC-CORE/mobile-field-390` evidence regenerated from the fixed
+  build and visually confirmed clipping-free.
+- **FR-02 — obsolete residual-overlap documentation.** An earlier round's
+  disclosed "1-2 residual overlaps" limitation (made against a
+  now-fixed, wrongly-inflated safe rect) had already been superseded by a
+  re-measured, sealed `overlapCount === 0` contract
+  (`tests/black-bird-world-camera.spec.js`) -- but the stale claim was
+  still presented as current truth in this file's "Known limits" and in
+  `candidate-review-packet.json`'s disclosed-limitations list. Corrected
+  both to state the current, exact guarantee (zero overlap at the three
+  tested densest-RelO viewports, not a universal claim for every
+  transient configuration) and its provenance, without touching the
+  already-sealed executable test.

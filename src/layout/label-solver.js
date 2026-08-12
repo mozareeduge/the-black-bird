@@ -39,6 +39,10 @@ function areaOutsideSafeRect(rect, safeRect) {
   return Math.max(0, rect.width * rect.height - overlapArea(rect, safeRect));
 }
 
+function isFullyContained(rect, safeRect) {
+  return !safeRect || areaOutsideSafeRect(rect, safeRect) === 0;
+}
+
 // `bodyRects` is node bodies *and* authored chrome obstacles combined (the
 // contract has one nodeBodyOverlapArea weight covering both; merging chrome
 // into bodyRects at the call site keeps this module's weight vocabulary
@@ -99,11 +103,26 @@ export function solveLabels(items, buildCandidates, ctx = {}) {
     scored.sort((a, b) => a.cost - b.cost || CANDIDATE_SIDES.indexOf(a.side) - CANDIDATE_SIDES.indexOf(b.side));
 
     const zeroOverlap = scored.filter((s) => !s.hasOverlap);
+    // Every label gets one extra bar beyond overlap-freedom: even a
+    // zero-overlap candidate is unusable if it lands outside the safe rect
+    // (mobile's cropped extreme-aspect Field being the case that surfaces
+    // this) -- rendering it there means a clipped label, which is worse
+    // than not rendering it. This applies to required (non-active) labels
+    // too (RelO participants, NameO, structural anchors): their existing
+    // guarantee was priority in the overlap contest, never a pass on
+    // containment -- they could already be suppressed by overlap alone, so
+    // adding "or uncontained" as a second suppression trigger changes
+    // nothing about that guarantee. Only the single active label keeps its
+    // separate, pre-existing T-REQ-020 exemption below: containment for
+    // *that* one is the camera-reconciliation caller's job, not this
+    // solver's, since it may never be suppressed at all.
+    const mustContain = !item.isActive;
+    const usable = mustContain ? zeroOverlap.filter((s) => isFullyContained(s.rect, ctx.safeRect)) : zeroOverlap;
     let chosen = null;
     let suppressed = false;
 
-    if (zeroOverlap.length > 0) {
-      chosen = zeroOverlap[0];
+    if (usable.length > 0) {
+      chosen = usable[0];
     } else if (item.isActive) {
       // T-REQ-020: the active label may never be suppressed; place at the
       // least-bad candidate even if that means some overlap remains --

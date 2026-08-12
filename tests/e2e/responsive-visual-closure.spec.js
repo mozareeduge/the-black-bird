@@ -208,6 +208,101 @@ test.describe('Responsive/visual closure (F08/R6): no sheet leak, label collisio
     await checkSourceNamesOnState(page, { focusId: 'RelO.R4CB4A8D8', mobile: true });
   });
 
+  // FR-01: a real rendered-geometry containment regression. The mobile
+  // neutral-core camera deliberately crops the world reference envelope on
+  // extreme aspect ratios (decided/kept as-is) -- but an off-core node's
+  // label could still be *chosen* by the label solver even when its own
+  // final screen rect fell outside the mobile Field's safe rectangle,
+  // rendering it visibly clipped at the viewport edge (observed: "American
+  // Crows" cut off at the right edge of the 390x844 neutral Field). Fixed
+  // in src/layout/label-solver.js: a non-required, non-active label's
+  // zero-overlap candidates must also be fully contained in the safe rect
+  // to be chosen; with none, the label is suppressed (not rendered
+  // clipped), same as the existing overlap-suppression path. Active/
+  // required labels are unchanged (T-REQ-020 keeps its prior guarantee --
+  // containment there is the camera-reconciliation caller's job).
+  function getClippedLabels() {
+    const safe = window.__bbTest.computeFieldSafeRect();
+    const t = window.__bbTest.getUiRuntime().transform;
+    const TOL = 2; // matches the existing containment tests' tolerance
+    return [...document.querySelectorAll('text.node-label')]
+      .filter((el) => getComputedStyle(el).display !== 'none')
+      .map((el) => {
+        const g = el.closest('g.node');
+        const n = g && g.__data__;
+        if (!n) return null;
+        const bbox = el.getBBox();
+        const ox = +el.getAttribute('x') || 0,
+          oy = +el.getAttribute('y') || 0;
+        const anchor = el.getAttribute('text-anchor');
+        const cx = n.x + ox,
+          cy = n.y + oy;
+        let rx1, rx2;
+        if (anchor === 'start') {
+          rx1 = cx;
+          rx2 = cx + bbox.width;
+        } else if (anchor === 'end') {
+          rx1 = cx - bbox.width;
+          rx2 = cx;
+        } else {
+          rx1 = cx - bbox.width / 2;
+          rx2 = cx + bbox.width / 2;
+        }
+        const ry1 = cy - bbox.height * 0.8,
+          ry2 = cy + bbox.height * 0.3;
+        const sx1 = t.applyX(rx1),
+          sx2 = t.applyX(rx2),
+          sy1 = t.applyY(ry1),
+          sy2 = t.applyY(ry2);
+        const x1 = Math.min(sx1, sx2),
+          x2 = Math.max(sx1, sx2),
+          y1 = Math.min(sy1, sy2),
+          y2 = Math.max(sy1, sy2);
+        const contained = x1 >= safe.left - TOL && x2 <= safe.right + TOL && y1 >= safe.top - TOL && y2 <= safe.bottom + TOL;
+        return contained ? null : { id: n.id, rect: { x1, x2, y1, y2 }, safe };
+      })
+      .filter(Boolean);
+  }
+
+  async function assertNoClippedLabels(page, label) {
+    const clipped = await page.evaluate(getClippedLabels);
+    expect(clipped, `${label}: label(s) rendered outside the Field safe rect: ${JSON.stringify(clipped)}`).toEqual([]);
+  }
+
+  for (const vp of [
+    { w: 430, h: 932, name: '430x932' },
+    { w: 390, h: 844, name: '390x844' },
+    { w: 320, h: 640, name: '320x640' },
+    { w: 844, h: 390, name: '844x390' },
+  ]) {
+    test(`mobile ${vp.name}: no rendered label ever sits outside the Field safe rect, across neutral/focused/RelO-dense/Source-Names-on states`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: vp.w, height: vp.h });
+      await gotoField(page, { mobile: true, reduced: true });
+
+      await page.evaluate(() => window.__bbTest.returnToField({ source: 'test' }));
+      await page.waitForTimeout(900);
+      await assertNoClippedLabels(page, 'neutral/restored mobile Field');
+
+      await clickNode(page, 'FO.CORPSE');
+      await page.waitForTimeout(700);
+      await assertNoClippedLabels(page, 'ordinary focused object (FO.CORPSE)');
+
+      await clickNode(page, 'RelO.R4CB4A8D8');
+      await page.waitForTimeout(1600);
+      await assertNoClippedLabels(page, 'RelO/dense state (RelO.R4CB4A8D8)');
+
+      await page.locator('.bottom-nav [data-mobile="view"]').click();
+      await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
+      await page.locator('[data-view="sourceNames"]').first().click();
+      await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(true);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(900);
+      await assertNoClippedLabels(page, 'RelO/dense state with Source Names on (NameO participates)');
+    });
+  }
+
   test('320px reflow (WCAG baseline) on the live page: no horizontal overflow, Index drawer opens cleanly', async ({
     page,
   }) => {
