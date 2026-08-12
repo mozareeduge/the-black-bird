@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0.1",
   "terminal_state": "CANDIDATE_READY_FOR_ARTISTIC_REVIEW",
-  "candidate_sha": "244672ccf4f2aa6f893bfc898a934d886d0286ec",
-  "verified_functional_sha": "8d48398b2b7280197a5977229a520ce425f4b095",
-  "sha_note": "verified_functional_sha is the commit the verify_closure_local/exact_sha_ci/evidence sections below were actually run against -- the FQ-09 two-pass freeze target (build, tests, evidence generation, and CI). candidate_sha is this file's own commit -- necessarily one commit later, since a file cannot record its own hash before being committed; the placeholder above is replaced with the real hash immediately after that commit, and re-verified in CI (see verification.final_commit_ci). This supersedes the prior freeze recorded at d28c54c/3391ab4: a later, independent completion round (FQ-01-FQ-10, TESTING.md/BLACK_BIRD_DECISIONS_CHANGELOG.md have the full record) found and fixed real remaining defects and proof gaps after that freeze, so it was never actually terminal.",
+  "candidate_sha": "PENDING_NEXT_COMMIT",
+  "verified_functional_sha": "8e3e5d938aad7a90b2a3956423b768675e2733d9",
+  "sha_note": "verified_functional_sha is the commit the verify_closure_local/exact_sha_ci/evidence sections below were actually run against -- the FR-01/FR-02 two-pass freeze target (build, tests, evidence generation, and CI). candidate_sha is this file's own commit -- necessarily one commit later, since a file cannot record its own hash before being committed; the placeholder above is replaced with the real hash immediately after that commit, and re-verified in CI (see verification.final_commit_ci). This supersedes the prior freeze recorded at 244672c/9ce104e (the FQ-01-FQ-10 completion round): a further owner note, reviewing that round's own attached mobile-390x844 evidence directly, found one real remaining rendering defect (a clipped off-core label) the FQ-04 semantic oracle never checked for -- it proves state correctness, not per-label screen geometry -- plus one more stale documentation claim. TESTING.md's FR-01/FR-02 section and BLACK_BIRD_DECISIONS_CHANGELOG.md have the full record.",
   "branch": "claude/black-bird-system-recomposition-9hpoia",
   "pull_request": 9,
   "base_branch": "main",
   "base_sha": "5972b2b2e4a70b2b2f457b6345f84894af95ef2a",
-  "generated_at": "2026-08-11T23:15:00.000Z",
+  "generated_at": "2026-08-12T15:50:00.000Z",
   "verification": {
     "verify_closure_local": {
       "passes_run": 2,
@@ -30,11 +30,11 @@
         { "id": "contract_coherence", "label": "Canonical types + Route contract fields agree across contracts (R0)", "conclusion": "success" },
         { "id": "production_ownership", "label": "Transitive production ownership: reachable, non-zero bundle bytes, allowed importers (R0/R2)", "conclusion": "success" },
         { "id": "semantic_duplication", "label": "No parallel legacy semantic store or duplicate authority in src/app.js (R1)", "conclusion": "success" },
-        { "id": "unit_tests", "label": "Unit tests (node:test cases, 138)", "conclusion": "success" },
+        { "id": "unit_tests", "label": "Unit tests (node:test cases, 142, incl. 4 new FR-01 label-solver containment tests)", "conclusion": "success" },
         { "id": "traceability", "label": "Requirement traceability contract", "conclusion": "success" },
         { "id": "scenario_coverage", "label": "115/115 declared scenario coverage, zero gap/excluded (F06)", "conclusion": "success" },
         { "id": "generated_combinations", "label": "Generated pairwise/critical-triple coverage (Chromium)", "conclusion": "success" },
-        { "id": "chromium_e2e", "label": "Chromium E2E (tests/e2e), incl. FQ-01-FQ-06 additions", "conclusion": "success" },
+        { "id": "chromium_e2e", "label": "Chromium E2E (tests/e2e), incl. FR-01 mobile label-containment regression", "conclusion": "success" },
         { "id": "chromium_legacy_suite", "label": "Chromium legacy Playwright suites (baseline/route-solo/world-camera/mobile/design/visual)", "conclusion": "success" },
         { "id": "accessibility", "label": "Accessibility: axe-core zero serious/critical, zero exclusions", "conclusion": "success" },
         { "id": "documentation_truth", "label": "Documentation truth contract", "conclusion": "success" },
@@ -42,11 +42,11 @@
       ]
     },
     "exact_sha_ci": {
-      "checked_at": "2026-08-11T22:40:13Z",
-      "source": "GitHub Actions check runs + job logs for the exact verified_functional_sha (8d48398) via mcp__github__pull_request_read.get_check_runs and mcp__github__get_job_logs -- real log content inspected, not just the green check badge (per the intake's own instruction not to trust a wrapper).",
+      "checked_at": "2026-08-12T15:49:00Z",
+      "source": "GitHub Actions check runs + job logs for the exact verified_functional_sha (8e3e5d9) via mcp__github__pull_request_read.get_check_runs and mcp__github__get_job_logs -- real log content inspected, not just the green check badge.",
       "all_green": true,
       "exact_head_verify_log_confirms": "=== verify:closure:ci: SUCCESS (17/17 passed, 0 skipped) === -- the complete closure command, all 17 checks including the 3-browser cross_browser_smoke this sandboxed session cannot run locally.",
-      "final_candidate_gate_log_confirms": "evidence generated for 8d48398...: 45 required entries, 3 supplementary artifacts; ci-evidence-gate.mjs: {\"valid\":true,\"errors\":[],\"entries_checked\":45} -- zero errors, including the semantic-state oracle checks (FQ-04): ffmpeg is installed in CI, closing the local ffprobe gap entirely, not just the file-identity checks.",
+      "final_candidate_gate_log_confirms": "evidence generated for 8e3e5d938aad7a90b2a3956423b768675e2733d9: 45 required entries, 3 supplementary artifacts; ci-evidence-gate.mjs: {\"valid\":true,\"errors\":[],\"candidate_sha\":\"8e3e5d938aad7a90b2a3956423b768675e2733d9\",\"entries_checked\":45} -- zero errors.",
       "workflows": [
         { "name": "Verify", "job": "build-and-test", "conclusion": "success" },
         { "name": "Black Bird Candidate Validation", "job": "validate", "conclusion": "success" },
@@ -59,32 +59,21 @@
       ]
     },
     "final_commit_ci": {
-      "checked_at": "2026-08-11T23:24:00Z",
-      "source": "GitHub Actions check runs + job logs for candidate_sha (244672c) itself via mcp__github__pull_request_read.get_check_runs and mcp__github__get_job_logs -- real log content inspected, not just the green check badge.",
-      "all_green": true,
-      "exact_head_verify_log_confirms": "=== verify:closure:ci: SUCCESS (17/17 passed, 0 skipped) ===",
-      "final_candidate_gate_log_confirms": "evidence generated for 244672ccf4f2aa6f893bfc898a934d886d0286ec: 45 required entries, 3 supplementary artifacts; ci-evidence-gate.mjs: {\"valid\":true,\"errors\":[],\"candidate_sha\":\"244672ccf4f2aa6f893bfc898a934d886d0286ec\",\"entries_checked\":45}",
-      "workflows": [
-        { "name": "Verify", "job": "build-and-test", "conclusion": "success" },
-        { "name": "Black Bird Candidate Validation", "job": "validate", "conclusion": "success" },
-        { "name": "Exact-Head Verify", "job": "exact-head-verify", "conclusion": "success" },
-        { "name": "Cross-Browser Matrix", "job": "cross-browser (chromium)", "conclusion": "success" },
-        { "name": "Cross-Browser Matrix", "job": "cross-browser (firefox)", "conclusion": "success" },
-        { "name": "Cross-Browser Matrix", "job": "cross-browser (webkit)", "conclusion": "success" },
-        { "name": "Final Candidate Gate", "job": "final-candidate-evidence", "conclusion": "success" },
-        { "name": "Publish /next/ Preview", "job": "publish", "conclusion": "success" }
-      ],
-      "note": "This is the last commit this packet accounts for. It is documentation-only (no production/test code changed vs verified_functional_sha), and its own CI independently regenerated and gated evidence at its own SHA -- confirming the freeze holds under a real, unmodified re-run, not just at the original 8d48398 commit."
+      "checked_at": "PENDING",
+      "source": "To be filled in after this commit (candidate_sha) is pushed and its own CI is confirmed green, following the same two-SHA convention as verified_functional_sha above.",
+      "all_green": null,
+      "workflows": []
     },
     "evidence": {
       "manifest_schema_version": "2.0.0",
-      "manifest_candidate_sha": "8d48398b2b7280197a5977229a520ce425f4b095",
+      "manifest_candidate_sha": "8e3e5d938aad7a90b2a3956423b768675e2733d9",
       "manifest_candidate_sha_matches_frozen_sha": true,
       "required_entries": 45,
       "required_entries_expected": 45,
       "supplementary_entries": 3,
       "duplicate_screenshot_bytes_found": 0,
-      "semantic_state_oracle": "FQ-04: every one of the 45 entries carries a state_proof (static) or start_state_proof/end_state_proof (motion), checked against a real expect/expect_end predicate in tests/contracts/evidence-plan.json derived from each capture's actual behavior. Zero oracle failures locally or in CI. A manual negative-proof test (corrupted state + a lied-about pass flag, in the gitignored evidence output, never committed) confirmed scripts/ci-evidence-gate.mjs independently recomputes and rejects both rather than trusting the manifest's own claimed result.",
+      "semantic_state_oracle": "FQ-04 (prior round): every one of the 45 entries carries a state_proof (static) or start_state_proof/end_state_proof (motion), checked against a real expect/expect_end predicate in tests/contracts/evidence-plan.json. Zero oracle failures locally or in CI at this SHA.",
+      "artistic_core_mobile_field_390": "Regenerated from this frozen SHA and visually inspected directly (not just gate-checked): the previously clipped off-core label (\"American Crows\") is now cleanly suppressed rather than rendered cut off at the viewport edge; the rest of the composition is undisturbed.",
       "local_gate_result": "valid:false locally, but only on the 7 disclosed unprobeable-video (missing ffprobe) findings -- every hash/candidate-SHA/dimension/duplicate-bytes/completeness/semantic-state check passed",
       "ci_gate_result": "valid:true, zero errors (ffmpeg installed explicitly in .github/workflows/final-candidate-gate.yml, closing the local gap) -- confirmed via real job log content, not just the check conclusion",
       "human_review_dimensions_pending": [
@@ -103,21 +92,15 @@
     }
   },
   "final_completion_round_summary": {
-    "note": "FQ-01-FQ-10 (this file's own round). Full technical record in TESTING.md's 'FQ-01-FQ-10: final completion round' section and BLACK_BIRD_DECISIONS_CHANGELOG.md's 2026-08-11 entry -- summarized here for the reviewer.",
-    "fq01_nameo_reader_duplicate": "fixed -- removed the remaining redundant NameO Reader label paragraph",
-    "fq02_source_names_proof_gaps": "closed -- mobile, Labels-dominance, and RelO worst-case-crowding states now proven",
-    "fq03_text_resize_proof": "fixed -- reflow test kept and truthfully renamed; a real computed-font-size-doubling stress proof added",
-    "fq04_semantic_evidence_contract": "built -- every evidence artifact now proves it was captured in its named state, not just that a plausible file exists",
-    "fq05_mobile_field_evidence": "fixed -- now shows the real neutral/restored mobile-core composition, not an incidental object focus",
-    "fq06_latest_action_falsification": "tested, no defect found -- architecture correctly left unchanged",
-    "fq07_scoped_diff_audit": "clean -- all 12 changed files map to FQ-01-FQ-06 or a generated build artifact; baseline-preservation suite re-run clean",
-    "fq08_documentation": "done -- this file, TESTING.md, and the changelog updated truthfully",
-    "fq09_two_pass_freeze": "done -- two consecutive clean verify:closure:local passes at 8d48398, zero interim tracked changes",
-    "fq10_push_and_ci": "done -- see verification.exact_sha_ci above"
+    "note": "FQ-01-FQ-10 was this file's prior round (full record in TESTING.md and BLACK_BIRD_DECISIONS_CHANGELOG.md). This round is a bounded, owner-directed final correction (FR-01/FR-02) on top of it, not a further design/audit pass -- summarized here for the reviewer.",
+    "fr01_mobile_label_clipping": "fixed -- src/layout/label-solver.js's solveLabels() now also requires a label's chosen zero-overlap candidate to be fully contained in the Field safe rect (all labels except the single always-shown active one); with none, it is suppressed instead of rendered clipped. New regression: tests/unit/label-solver.test.js (solver-level) + tests/e2e/responsive-visual-closure.spec.js (real rendered-geometry check at all 4 protected mobile viewports x 4 states), proven to fail pre-fix at all 4 viewports.",
+    "fr02_residual_overlap_documentation": "fixed -- removed the obsolete '1-2 residual overlaps' claim from TESTING.md and this file (already superseded by the current sealed overlapCount===0 contract in tests/black-bird-world-camera.spec.js, but still presented as current truth in both places); replaced with the current, exact guarantee and its provenance.",
+    "fr_visual_verification": "ARTISTIC-CORE/mobile-field-390 regenerated and visually inspected at this SHA; the live /next/ preview itself could not be visually inspected from this sandboxed session (its own outbound network policy denies the external domain, same restriction class as the already-disclosed browser-binary/ffmpeg gaps) -- substituted with the local deterministic build, which CI's own build_verify check already proves byte-identical to what publish-next-preview.yml copied to /next/ (confirmed: main's publish commit is titled 'Publish /next/ preview from 8e3e5d938aad', this exact SHA)."
   },
   "known_disclosed_limitations": [
     "Current protected densest-RelO tests require zero rendered label overlaps at 1440x960, 1280x800, and 1024x640 (tests/black-bird-world-camera.spec.js). This is an exact guarantee for those tested states, not a universal mathematical claim for every arbitrary transient user-created pan/zoom configuration. (Supersedes an earlier round's disclosed 1-2-overlap measurement, which was made against a wrong, inflated safe rect since fixed -- see TESTING.md's E2 camera/safe-rect entries.)",
     "This sandboxed session cannot fetch Firefox/WebKit browser binaries or install ffmpeg locally (package-mirror access is restricted). Both gaps are independently closed and verified green in CI (see verification.exact_sha_ci and verification.evidence.ci_gate_result above), not left as unverified code.",
+    "This sandboxed session's outbound network policy also denies reaching the live https://poem.theblackbirdfield.com/next/ preview directly, so FR-01's visual re-check used the local, deterministically-built candidate instead (see final_completion_round_summary.fr_visual_verification) rather than the live URL.",
     "This session's own direct GitHub API / gh CLI access is blocked at the session level; all CI status above was verified through the GitHub MCP tools this session does have working access through."
   ],
   "self_attestation": {
