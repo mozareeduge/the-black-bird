@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "source": "tests/contracts/final-closure-contract.json's required_evidence_ids + required_primary_entry_count (F09/R7)",
   "notes": "Canonical, committed, single source of truth for candidate-bound evidence identity, used by both scripts/generate-evidence.mjs (to build manifest.json's required entries[]) and scripts/ci-evidence-gate.mjs (to verify entries[] is exactly this set, no more, no fewer). Previously this list existed only in an untracked .bb-authority/contracts/evidence-plan.json overlay, with a hardcoded, independently-maintained fallback duplicate inside generate-evidence.mjs for CI checkouts where the overlay is absent -- two copies of the same list, one of them invisible to review. This file replaces both: it is always present, in both local and CI checkouts, and is the only copy.",
-  "required_primary_entry_count": 45,
+  "required_primary_entry_count": 49,
   "primary_artifacts": {
     "static_application_captures": [
       {
@@ -124,6 +124,32 @@
         }
       },
       {
+        "id": "ARTISTIC-CORE/relo-reader-caption",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "RelO.R4CB4A8D8",
+          "reader_subject": "RelO.R4CB4A8D8"
+        }
+      },
+      {
+        "id": "ARTISTIC-CORE/nameo-active-inscription",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": "NameO.AR.GHURAB",
+          "view": {
+            "sourceNames": false
+          }
+        }
+      },
+      {
         "id": "STATE-AND-RECOVERY/projected-inspection",
         "artifact_class": "application-capture",
         "expect": {
@@ -170,7 +196,9 @@
             1280,
             800
           ],
-          "active_id": "FO.CORPSE"
+          "active_id": null,
+          "reader_subject": "FO.CORPSE",
+          "neutral_field": true
         }
       },
       {
@@ -253,6 +281,19 @@
             800
           ],
           "active_id": "FO.BURIAL"
+        }
+      },
+      {
+        "id": "STATE-AND-RECOVERY/reader-actions-hide-show",
+        "artifact_class": "application-capture",
+        "expect": {
+          "viewport": [
+            1280,
+            800
+          ],
+          "active_id": null,
+          "reader_subject": "FO.CORPSE",
+          "neutral_field": true
         }
       },
       {
@@ -477,6 +518,21 @@
           "active_id": "FO.CAIN",
           "media": {
             "reduced_motion": true
+          }
+        }
+      },
+      {
+        "id": "motion/reader-context-actions-mobile",
+        "artifact_class": "motion",
+        "expect_end": {
+          "viewport": [
+            390,
+            844
+          ],
+          "active_id": "FO.CORPSE",
+          "surface": "read",
+          "solo": {
+            "active": false
           }
         }
       }

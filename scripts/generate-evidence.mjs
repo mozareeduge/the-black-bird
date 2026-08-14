@@ -268,6 +268,13 @@ async function captureSolo(page, id) {
   await soloBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
   if (await soloBtn.count()) await soloBtn.click();
 }
+// ADJ-01: hiding the currently-anchored object through the Index eye-toggle
+// now correctly neutralizes presentation focus (uiRuntime.focusedId, hence
+// state_proof.active_id) via the shared reconcileHiddenPresentationFocus()
+// -- previously the disclosed, deliberately-unfixed gap left it stale at
+// "FO.CORPSE" (the evidence-plan.json oracle below is updated to match the
+// corrected behavior, not the old bug). The reading anchor/Reader subject
+// (reader_subject) are untouched either way, per P-RULE-015.
 async function captureHiddenAnchor(page) {
   await page.setViewportSize({ width: 1280, height: 800 });
   await gotoField(page, { reduced: true });
@@ -447,6 +454,32 @@ async function captureTextResize200(page) {
   await page.waitForTimeout(150);
 }
 
+// MICRO-01: focused RelO with a mixed-script NameO participant (the same
+// representative relation the intake names -- RelO.R4CB4A8D8 -- confirmed
+// against canonical DATA in reader-relation-caption.spec.js's RLC-01).
+async function captureRelOReaderCaption(page) {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await gotoField(page, { reduced: true });
+  await clickNode(page, 'RelO.R4CB4A8D8');
+}
+// MICRO-03: Source Names OFF (the default) is the deliberate state here --
+// proves the active NameO's inscription is eligible independent of the
+// global background-label preference (8.4).
+async function captureNameOActiveInscription(page) {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await gotoField(page, { reduced: true });
+  await clickNode(page, 'NameO.AR.GHURAB');
+}
+// MICRO-02/ADJ-01: captures the Reader HIDE action's after-state -- object
+// visibility false, Field attention neutral, Reader/anchor untouched, the
+// same state reader-context-actions.spec.js's RCA-07 exercises live.
+async function captureReaderActionsHideShow(page) {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await gotoField(page, { reduced: true });
+  await clickNode(page, 'FO.CORPSE');
+  await page.locator('[data-reader-action="visibility"]').click();
+}
+
 const STATIC_SETS = {
   'ARTISTIC-CORE': [
     ['threshold', (p) => captureThreshold(p)],
@@ -459,6 +492,8 @@ const STATIC_SETS = {
     ['reader-field-composition', (p) => captureReaderFieldComposition(p)],
     ['mobile-field-390', (p) => captureMobileField(p)],
     ['mobile-read-390', (p) => captureMobileRead(p)],
+    ['relo-reader-caption', (p) => captureRelOReaderCaption(p)],
+    ['nameo-active-inscription', (p) => captureNameOActiveInscription(p)],
   ],
   'STATE-AND-RECOVERY': [
     ['projected-inspection', (p) => captureProjectedInspection(p)],
@@ -471,6 +506,7 @@ const STATIC_SETS = {
     ['route-cleared-trace-retained', (p) => captureRouteClearedTraceRetained(p)],
     ['trace-cleared-route-retained', (p) => captureTraceClearedRouteRetained(p)],
     ['about-return', (p) => captureAboutReturn(p)],
+    ['reader-actions-hide-show', (p) => captureReaderActionsHideShow(p)],
   ],
   'RESPONSIVE-ACCESS': [
     ['compact-1024', (p) => captureViewport(p, 1024, 640)],
@@ -589,6 +625,23 @@ const MOTION_RECORDINGS = [
     await clickNode(page, 'FO.CORPSE');
     await clickNode(page, 'FO.CAIN');
     await page.waitForTimeout(7000);
+  }],
+  // MICRO-02: commit -> Read -> Reader SOLO (surface auto-switches to
+  // Field, per commitFocus's own surface option) -> back to Read -> Reader
+  // EXIT SOLO -- the same sequence reader-context-actions.spec.js's RCA-06
+  // exercises live, recorded for perceptible chamber-transition motion.
+  ['reader-context-actions-mobile', MOBILE_VIEWPORT, async (page) => {
+    await gotoField(page, { reduced: true });
+    await clickNode(page, 'FO.CORPSE');
+    await page.waitForTimeout(800);
+    await page.locator('[data-mobile="read"]').click();
+    await page.waitForTimeout(1200);
+    await page.locator('[data-reader-action="solo"]').click();
+    await page.waitForTimeout(2000);
+    await page.locator('[data-mobile="read"]').click();
+    await page.waitForTimeout(1200);
+    await page.locator('[data-reader-action="solo"]').click();
+    await page.waitForTimeout(2000);
   }],
 ];
 
@@ -858,7 +911,7 @@ async function main() {
         entries: requiredEntries,
         supplementary_evidence: supplementary,
         note:
-          'entries[] contains exactly the 45 primary artifacts declared in tests/contracts/evidence-plan.json (the 31 individually-named static captures, 7 motion recordings, and 7 machine reports required_evidence_ids/required_primary_entry_count in tests/contracts/final-closure-contract.json also name) -- scripts/ci-evidence-gate.mjs verifies entries[] is exactly this set, no more and no fewer. supplementary_evidence[] holds the 3 grouped contact-sheet composites, which final-closure-contract.json itself calls "supplementary review aids only", not mechanically gated evidence.',
+          'entries[] contains exactly the 49 primary artifacts declared in tests/contracts/evidence-plan.json (the 34 individually-named static captures, 8 motion recordings, and 7 machine reports required_evidence_ids/required_primary_entry_count in tests/contracts/final-closure-contract.json also name) -- scripts/ci-evidence-gate.mjs verifies entries[] is exactly this set, no more and no fewer. supplementary_evidence[] holds the 3 grouped contact-sheet composites, which final-closure-contract.json itself calls "supplementary review aids only", not mechanically gated evidence.',
       },
       null,
       2

@@ -96,7 +96,7 @@ function main() {
 
   const entries = manifest.entries || [];
 
-  // F09/R7: entries[] must be exactly the 45 declarative primary artifacts
+  // F09/R7: entries[] must be exactly the 49 declarative primary artifacts
   // named in tests/contracts/evidence-plan.json (which mirrors
   // final-closure-contract.json's required_evidence_ids/
   // required_primary_entry_count) -- no fewer (a missing artifact) and no

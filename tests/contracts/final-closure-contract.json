@@ -71,6 +71,8 @@
       "ARTISTIC-CORE/reader-field-composition",
       "ARTISTIC-CORE/mobile-field-390",
       "ARTISTIC-CORE/mobile-read-390",
+      "ARTISTIC-CORE/relo-reader-caption",
+      "ARTISTIC-CORE/nameo-active-inscription",
       "STATE-AND-RECOVERY/projected-inspection",
       "STATE-AND-RECOVERY/solo-object",
       "STATE-AND-RECOVERY/solo-relo",
@@ -81,6 +83,7 @@
       "STATE-AND-RECOVERY/route-cleared-trace-retained",
       "STATE-AND-RECOVERY/trace-cleared-route-retained",
       "STATE-AND-RECOVERY/about-return",
+      "STATE-AND-RECOVERY/reader-actions-hide-show",
       "RESPONSIVE-ACCESS/compact-1024",
       "RESPONSIVE-ACCESS/mobile-430",
       "RESPONSIVE-ACCESS/narrow-320",
@@ -100,7 +103,8 @@
       "motion/relation-and-solo",
       "motion/temporal-truth-and-clears",
       "motion/mobile-complete-path",
-      "motion/reduced-motion-parity"
+      "motion/reduced-motion-parity",
+      "motion/reader-context-actions-mobile"
     ],
     "machine_reports": [
       "machine/state.json",
@@ -112,7 +116,7 @@
       "machine/build-manifest.json"
     ]
   },
-  "required_primary_entry_count": 45,
+  "required_primary_entry_count": 49,
   "responsive_viewport_matrix": [
     { "label": "1440x960", "width": 1440, "height": 960 },
     { "label": "1280x800", "width": 1280, "height": 800 },
