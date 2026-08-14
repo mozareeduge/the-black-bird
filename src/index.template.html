@@ -97,6 +97,11 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .poem > span{display:block}
 .fl{color:inherit;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#6b6256;text-underline-offset:5px;cursor:pointer;transition:.18s;}
 .fl:hover,.fl.active{color:var(--amber2);text-decoration-color:var(--amber2)}
+.reader-object-actions{display:flex;flex-wrap:wrap;gap:8px;margin:-12px 0 28px;}
+.reader-object-action{min-height:30px;padding:8px 10px;border:1px solid var(--line2);background:transparent;color:var(--muted);font-family:var(--mono);font-size:9px;line-height:1;letter-spacing:.10em;text-transform:uppercase;cursor:pointer;}
+.reader-object-action:hover,.reader-object-action:focus-visible{color:var(--bone);border-color:#65594c;}
+.reader-object-action[data-active="true"]{color:var(--amber2);}
+.reader-object-action:disabled{color:var(--ghost);cursor:default;opacity:.65;}
 .section-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:34px 0 14px;}
 .chip-row{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0 24px;}
 .chip{border:1px solid var(--line2);padding:7px 10px;font-family:var(--mono);font-size:11px;color:var(--text);background:#100f0e;cursor:pointer;min-height:30px;}

@@ -2590,6 +2590,157 @@ function bindReaderInteractions(vm) {
   } else {
     bindIndexItems();
   }
+  bindReaderObjectActions(vm);
+}
+
+// ── MICRO-02: Reader-local contextual actions (SOLO / HIDE-SHOW) ───────────
+// ADJ-01: shared presentation-only reconciliation for object-visibility
+// changes. The canonical reducer already neutralizes semantic
+// reading.fieldAttention when the field-attended anchor becomes invisible
+// (domain/visibility.js's reconcileHiddenAnchor); what it cannot reach is the
+// separate presentation-only uiRuntime.focusedId (rendering focus, camera
+// framing, local aperture/clearing, roving tabindex) -- previously left
+// stale here (disclosed gap on the Index eye-toggle path below). This is the
+// one shared fix point for both that existing path and the new Reader HIDE
+// action: presentation reconciliation only -- it never touches Reader DOM,
+// responsive surface, Route, or trace.
+function reconcileHiddenPresentationFocus() {
+  if (state.reading.fieldAttention.kind !== "whole-field") return false;
+  if (!uiRuntime.focusedId) return false;
+  if (nodeVisible(uiRuntime.focusedId)) return false;
+  uiRuntime.focusedId = null;
+  clearLocalAperture();
+  updateRovingTabindex(null);
+  return true;
+}
+
+// Keeps the Reader action row's two labels/disabled-state truthful after any
+// state change that could affect them, without re-rendering the whole
+// Reader (and so without resetting its scroll position) just to update two
+// button labels.
+function syncReaderObjectActions() {
+  const row = document.querySelector("#reader .reader-object-actions");
+  if (!row) return;
+  const id = row.dataset.readerObjectId;
+  const node = byId[id];
+  if (!node) return;
+
+  const soloButton = row.querySelector('[data-reader-action="solo"]');
+  const visibilityButton = row.querySelector('[data-reader-action="visibility"]');
+
+  if (soloButton) {
+    const ownSolo = state.solo.active && state.solo.rootId === id;
+    soloButton.textContent = ownSolo ? "EXIT SOLO" : state.solo.active ? "SOLO THIS" : "SOLO";
+    soloButton.dataset.active = ownSolo ? "true" : "false";
+  }
+
+  if (!visibilityButton) return;
+
+  // MICRO-02 7.6: Solo is a temporary lens with a stored pre-lens View
+  // snapshot -- exposing a persistent-looking visibility control inside it
+  // would be misleading, since Exit Solo restores the snapshot regardless.
+  if (state.solo.active) {
+    visibilityButton.hidden = true;
+    visibilityButton.disabled = false;
+    return;
+  }
+
+  visibilityButton.hidden = false;
+
+  if (state.view.typeVisibility[node.type] === false) {
+    visibilityButton.textContent = "HIDDEN BY VIEW";
+    visibilityButton.disabled = true;
+    return;
+  }
+
+  visibilityButton.disabled = false;
+  visibilityButton.textContent = state.view.objectVisibility[id] === false ? "SHOW IN FIELD" : "HIDE FROM FIELD";
+}
+
+// MICRO-02 7.8: HIDE/SHOW mutate only object visibility plus the necessary
+// presentation reconciliation -- Reader/anchor/Route/trace stay untouched,
+// and SHOW never auto-recommits/refocuses (a later direct commit is the
+// normal path back to spatial focus).
+function setReaderObjectVisibility(id, visible) {
+  dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible });
+  renderFieldViewControls();
+  const neutralized = reconcileHiddenPresentationFocus();
+  updateVisibility();
+  syncReaderObjectActions();
+  if (document.getElementById("objectDrawer")?.classList.contains("open")) renderObjectLists();
+  if (neutralized && (!isMobile() || state.responsive.surface === "field")) {
+    fitVisibleField({ duration: 420 });
+  }
+}
+
+// MICRO-02 7.7: Reader-local Solo uses exactly the canonical Solo semantics
+// already used by the Index Solo path (same ENTER_SOLO/EXIT_SOLO commands,
+// same re-root-preserves-original-snapshot reducer behavior) -- never a
+// second Solo state. Mobile: switches the semantic responsive surface to
+// FIELD via commitFocus's own surface option (P-RULE-033's existing
+// surface/focus mechanism), so the spatial consequence is shown immediately
+// while the Reader subject/anchor and Route/trace are left exactly as they
+// were.
+async function runReaderSoloAction(id, activationEvent) {
+  if (state.solo.active && state.solo.rootId === id) {
+    dispatch({ type: CommandType.EXIT_SOLO });
+    reconcileHiddenPresentationFocus();
+    updateVisibility();
+    syncReaderObjectActions();
+    if (!isMobile() || state.responsive.surface === "field") {
+      fitVisibleField({ duration: 420 });
+    }
+    return;
+  }
+
+  dispatch({ type: CommandType.ENTER_SOLO, id });
+  announceStatus(`Solo: ${byId[id]?.label || id}.`);
+  updateVisibility();
+
+  const result = await commitFocus(id, {
+    source: "reader-solo",
+    routePolicy: "none",
+    tracePolicy: "none",
+    openReader: false,
+    surface: isMobile() ? "field" : state.responsive.surface,
+    lightDuration: 420,
+  });
+  if (!result) return;
+
+  if (isMobile()) {
+    await nextFrame();
+    measureGraph();
+    updatePhaseClass();
+    if (activationEvent?.detail === 0) {
+      updateRovingTabindex(id);
+      focusNodeElement(id);
+    }
+  }
+
+  fitVisibleField({ duration: 760 });
+  drawRouteMemory({ duration: 420 });
+  syncReaderObjectActions();
+}
+
+function bindReaderObjectActions(vm) {
+  if (vm.kind !== "object") return;
+  const row = document.querySelector("#reader .reader-object-actions");
+  if (!row) return;
+  const id = row.dataset.readerObjectId;
+
+  const solo = row.querySelector('[data-reader-action="solo"]');
+  const visibility = row.querySelector('[data-reader-action="visibility"]');
+
+  if (solo) solo.onclick = (event) => runReaderSoloAction(id, event);
+
+  if (visibility)
+    visibility.onclick = () => {
+      if (visibility.disabled || state.solo.active) return;
+      const nextVisible = state.view.objectVisibility[id] === false;
+      setReaderObjectVisibility(id, nextVisible);
+    };
+
+  syncReaderObjectActions();
 }
 function renderNodePanel(id, gen = ++readerGeneration) {
   closeSheet();
@@ -2841,6 +2992,7 @@ function setObjectGroup(type, value) {
   dispatch({ type: CommandType.SET_TYPE_VISIBILITY, objectType: type, visible: value });
   renderFieldViewControls();
   updateVisibility();
+  syncReaderObjectActions();
   if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
   else fitVisibleField();
   if (uiRuntime.focusedId && !nodeVisible(uiRuntime.focusedId)) returnToField({ reason: "active-hidden-by-filter" });
@@ -2865,18 +3017,21 @@ const indexRenderer = createIndexRenderer({
   onToggleVisible: (id, nextVisible) => {
     dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
     renderFieldViewControls();
+    // ADJ-01: field-attention-only presentation neutralization, shared with
+    // the new Reader HIDE action. Deliberately not the full returnToField()
+    // setObjectGroup uses below -- the eye toggle lives inside the open
+    // object drawer itself, and returnToField()'s closeAllDrawers() would
+    // close the very drawer the reader is using, which
+    // tests/generated/ordered-pairs.spec.js's [hide, commit] scenario
+    // confirms must stay open. reconcileHiddenPresentationFocus() only ever
+    // clears the stale presentation focus/aperture -- it never touches
+    // drawers, Reader DOM, responsive surface, Route, or trace.
+    const neutralized = reconcileHiddenPresentationFocus();
     updateVisibility();
-    // P-RULE-015 (field attention neutralizes when the focused object
-    // becomes hidden) is deliberately NOT handled the way setObjectGroup
-    // handles it below (a full returnToField()) — the eye toggle lives
-    // inside the open object drawer itself, and returnToField()'s
-    // closeAllDrawers() would close the very drawer the reader is using,
-    // which tests/generated/ordered-pairs.spec.js's [hide, commit]
-    // scenario confirms must stay open. A correct fix needs a
-    // field-attention-only neutralization that leaves drawers/reader/
-    // camera untouched, which app.js's single uiRuntime.focusedId field (it
-    // conflates anchor and field attention) can't express without
-    // deeper surgery — left as disclosed, separate scope.
+    syncReaderObjectActions();
+    if (neutralized && (!isMobile() || state.responsive.surface === "field")) {
+      fitVisibleField({ duration: 420 });
+    }
   },
   onSolo: async (id) => {
     dispatch({ type: CommandType.ENTER_SOLO, id });
@@ -2936,6 +3091,7 @@ function restoreField() {
   announceStatus("Field restored.");
   renderFieldViewControls();
   updateVisibility();
+  syncReaderObjectActions();
   closeAllDrawers();
   returnToField({ source: "restore-field" });
 }
@@ -2952,6 +3108,7 @@ document.getElementById("showAllObjects").onclick = () => {
   announceStatus("Field restored.");
   renderObjectLists();
   updateVisibility();
+  syncReaderObjectActions();
   closeAllDrawers();
   returnToField({ source: "show-all" });
 };

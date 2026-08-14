@@ -84,9 +84,31 @@ function appendArabicWrapped(parent, text, doc) {
   if (lastIndex < s.length) parent.appendChild(doc.createTextNode(s.slice(lastIndex)));
 }
 
+// MICRO-02: a Reader-local contextual action row for canonical object
+// subjects only (RNO/MNO/FO/NameO/RefO/RelO) -- never orientation or
+// projected-edge inspection. Labels/enabled-state are synchronized live by
+// app.js's syncReaderObjectActions(); this only ever emits the two buttons'
+// static shape and data-reader-action hooks.
+function buildObjectActionRow(nodeId, doc) {
+  const row = el(doc, 'div', 'reader-object-actions');
+  row.dataset.readerObjectId = nodeId;
+
+  const solo = el(doc, 'button', 'reader-object-action', 'SOLO');
+  solo.type = 'button';
+  solo.dataset.readerAction = 'solo';
+
+  const visibility = el(doc, 'button', 'reader-object-action', 'HIDE FROM FIELD');
+  visibility.type = 'button';
+  visibility.dataset.readerAction = 'visibility';
+
+  row.append(solo, visibility);
+  return row;
+}
+
 function buildTextContent(vm, nodesById, doc) {
   const root = doc.createDocumentFragment();
   root.appendChild(metaBlock(vm.node, doc));
+  root.appendChild(buildObjectActionRow(vm.node.id, doc));
 
   if (vm.node.type === 'MNO') {
     // DATA.texts[id].body is trusted canonical content (authored inline
@@ -127,6 +149,7 @@ function buildTextContent(vm, nodesById, doc) {
 function buildFoContent(vm, nodesById, doc) {
   const root = doc.createDocumentFragment();
   root.appendChild(metaBlock(vm.node, doc));
+  root.appendChild(buildObjectActionRow(vm.node.id, doc));
   if (vm.appearsIn.length) {
     root.appendChild(sectionLabel('appears in', doc));
     root.appendChild(indexList(vm.appearsIn, nodesById, doc));
@@ -155,6 +178,7 @@ function buildNameoContent(vm, nodesById, doc) {
   // sourceLayer/gloss paragraphs below still carry real, correctly-scoped
   // lang="ar"/dir="rtl" marking on their own Arabic runs.
   root.appendChild(metaBlock(vm.node, doc));
+  root.appendChild(buildObjectActionRow(vm.node.id, doc));
   const prose = el(doc, 'div', 'prose');
   const layer = doc.createElement('p');
   appendArabicWrapped(layer, vm.sourceLayer, doc);
@@ -170,6 +194,7 @@ function buildNameoContent(vm, nodesById, doc) {
 function buildRefoContent(vm, nodesById, doc) {
   const root = doc.createDocumentFragment();
   root.appendChild(metaBlock(vm.node, doc));
+  root.appendChild(buildObjectActionRow(vm.node.id, doc));
   root.appendChild(el(doc, 'div', 'ref-citation', vm.citation));
 
   if (vm.sources && vm.sources.length) {
@@ -248,6 +273,7 @@ function buildReloContent(vm, nodesById, doc) {
   const root = doc.createDocumentFragment();
   root.appendChild(el(doc, 'div', 'meta', `RelO · ${vm.node.id}`));
   root.appendChild(buildRelationCaption(vm, nodesById, doc));
+  root.appendChild(buildObjectActionRow(vm.node.id, doc));
   root.appendChild(sectionLabel('objects', doc));
   root.appendChild(indexList(vm.participants, nodesById, doc));
   return root;

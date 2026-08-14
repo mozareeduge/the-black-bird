@@ -247,6 +247,11 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .poem > span{display:block}
 .fl{color:inherit;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#6b6256;text-underline-offset:5px;cursor:pointer;transition:.18s;}
 .fl:hover,.fl.active{color:var(--amber2);text-decoration-color:var(--amber2)}
+.reader-object-actions{display:flex;flex-wrap:wrap;gap:8px;margin:-12px 0 28px;}
+.reader-object-action{min-height:30px;padding:8px 10px;border:1px solid var(--line2);background:transparent;color:var(--muted);font-family:var(--mono);font-size:9px;line-height:1;letter-spacing:.10em;text-transform:uppercase;cursor:pointer;}
+.reader-object-action:hover,.reader-object-action:focus-visible{color:var(--bone);border-color:#65594c;}
+.reader-object-action[data-active="true"]{color:var(--amber2);}
+.reader-object-action:disabled{color:var(--ghost);cursor:default;opacity:.65;}
 .section-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:34px 0 14px;}
 .chip-row{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0 24px;}
 .chip{border:1px solid var(--line2);padding:7px 10px;font-family:var(--mono);font-size:11px;color:var(--text);background:#100f0e;cursor:pointer;min-height:30px;}
@@ -2367,9 +2372,22 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     if (lastIndex < s.length) parent.appendChild(doc.createTextNode(s.slice(lastIndex)));
   }
+  function buildObjectActionRow(nodeId, doc) {
+    const row = el(doc, "div", "reader-object-actions");
+    row.dataset.readerObjectId = nodeId;
+    const solo = el(doc, "button", "reader-object-action", "SOLO");
+    solo.type = "button";
+    solo.dataset.readerAction = "solo";
+    const visibility = el(doc, "button", "reader-object-action", "HIDE FROM FIELD");
+    visibility.type = "button";
+    visibility.dataset.readerAction = "visibility";
+    row.append(solo, visibility);
+    return row;
+  }
   function buildTextContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     if (vm.node.type === "MNO") {
       const bodyWrap = doc.createElement("div");
       bodyWrap.style.marginBottom = "8px";
@@ -2404,6 +2422,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function buildFoContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     if (vm.appearsIn.length) {
       root2.appendChild(sectionLabel("appears in", doc));
       root2.appendChild(indexList(vm.appearsIn, nodesById, doc));
@@ -2421,6 +2440,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function buildNameoContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     const prose = el(doc, "div", "prose");
     const layer = doc.createElement("p");
     appendArabicWrapped(layer, vm.sourceLayer, doc);
@@ -2435,6 +2455,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function buildRefoContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     root2.appendChild(el(doc, "div", "ref-citation", vm.citation));
     if (vm.sources && vm.sources.length) {
       for (const s of vm.sources) {
@@ -2497,6 +2518,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const root2 = doc.createDocumentFragment();
     root2.appendChild(el(doc, "div", "meta", `RelO \xB7 ${vm.node.id}`));
     root2.appendChild(buildRelationCaption(vm, nodesById, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     root2.appendChild(sectionLabel("objects", doc));
     root2.appendChild(indexList(vm.participants, nodesById, doc));
     return root2;
@@ -4961,6 +4983,107 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     } else {
       bindIndexItems();
     }
+    bindReaderObjectActions(vm);
+  }
+  function reconcileHiddenPresentationFocus() {
+    if (state.reading.fieldAttention.kind !== "whole-field") return false;
+    if (!uiRuntime.focusedId) return false;
+    if (nodeVisible(uiRuntime.focusedId)) return false;
+    uiRuntime.focusedId = null;
+    clearLocalAperture();
+    updateRovingTabindex(null);
+    return true;
+  }
+  function syncReaderObjectActions() {
+    const row = document.querySelector("#reader .reader-object-actions");
+    if (!row) return;
+    const id = row.dataset.readerObjectId;
+    const node = byId[id];
+    if (!node) return;
+    const soloButton = row.querySelector('[data-reader-action="solo"]');
+    const visibilityButton = row.querySelector('[data-reader-action="visibility"]');
+    if (soloButton) {
+      const ownSolo = state.solo.active && state.solo.rootId === id;
+      soloButton.textContent = ownSolo ? "EXIT SOLO" : state.solo.active ? "SOLO THIS" : "SOLO";
+      soloButton.dataset.active = ownSolo ? "true" : "false";
+    }
+    if (!visibilityButton) return;
+    if (state.solo.active) {
+      visibilityButton.hidden = true;
+      visibilityButton.disabled = false;
+      return;
+    }
+    visibilityButton.hidden = false;
+    if (state.view.typeVisibility[node.type] === false) {
+      visibilityButton.textContent = "HIDDEN BY VIEW";
+      visibilityButton.disabled = true;
+      return;
+    }
+    visibilityButton.disabled = false;
+    visibilityButton.textContent = state.view.objectVisibility[id] === false ? "SHOW IN FIELD" : "HIDE FROM FIELD";
+  }
+  function setReaderObjectVisibility(id, visible) {
+    dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible });
+    renderFieldViewControls();
+    const neutralized = reconcileHiddenPresentationFocus();
+    updateVisibility();
+    syncReaderObjectActions();
+    if (document.getElementById("objectDrawer")?.classList.contains("open")) renderObjectLists();
+    if (neutralized && (!isMobile() || state.responsive.surface === "field")) {
+      fitVisibleField({ duration: 420 });
+    }
+  }
+  async function runReaderSoloAction(id, activationEvent) {
+    if (state.solo.active && state.solo.rootId === id) {
+      dispatch({ type: CommandType.EXIT_SOLO });
+      reconcileHiddenPresentationFocus();
+      updateVisibility();
+      syncReaderObjectActions();
+      if (!isMobile() || state.responsive.surface === "field") {
+        fitVisibleField({ duration: 420 });
+      }
+      return;
+    }
+    dispatch({ type: CommandType.ENTER_SOLO, id });
+    announceStatus(`Solo: ${byId[id]?.label || id}.`);
+    updateVisibility();
+    const result = await commitFocus(id, {
+      source: "reader-solo",
+      routePolicy: "none",
+      tracePolicy: "none",
+      openReader: false,
+      surface: isMobile() ? "field" : state.responsive.surface,
+      lightDuration: 420
+    });
+    if (!result) return;
+    if (isMobile()) {
+      await nextFrame();
+      measureGraph();
+      updatePhaseClass();
+      if (activationEvent?.detail === 0) {
+        updateRovingTabindex(id);
+        focusNodeElement(id);
+      }
+    }
+    fitVisibleField({ duration: 760 });
+    drawRouteMemory({ duration: 420 });
+    syncReaderObjectActions();
+  }
+  function bindReaderObjectActions(vm) {
+    if (vm.kind !== "object") return;
+    const row = document.querySelector("#reader .reader-object-actions");
+    if (!row) return;
+    const id = row.dataset.readerObjectId;
+    const solo = row.querySelector('[data-reader-action="solo"]');
+    const visibility = row.querySelector('[data-reader-action="visibility"]');
+    if (solo) solo.onclick = (event) => runReaderSoloAction(id, event);
+    if (visibility)
+      visibility.onclick = () => {
+        if (visibility.disabled || state.solo.active) return;
+        const nextVisible = state.view.objectVisibility[id] === false;
+        setReaderObjectVisibility(id, nextVisible);
+      };
+    syncReaderObjectActions();
   }
   function renderNodePanel(id, gen = ++readerGeneration) {
     closeSheet();
@@ -5176,6 +5299,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     dispatch({ type: CommandType.SET_TYPE_VISIBILITY, objectType: type, visible: value });
     renderFieldViewControls();
     updateVisibility();
+    syncReaderObjectActions();
     if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
     else fitVisibleField();
     if (uiRuntime.focusedId && !nodeVisible(uiRuntime.focusedId)) returnToField({ reason: "active-hidden-by-filter" });
@@ -5193,7 +5317,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     onToggleVisible: (id, nextVisible) => {
       dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
       renderFieldViewControls();
+      const neutralized = reconcileHiddenPresentationFocus();
       updateVisibility();
+      syncReaderObjectActions();
+      if (neutralized && (!isMobile() || state.responsive.surface === "field")) {
+        fitVisibleField({ duration: 420 });
+      }
     },
     onSolo: async (id) => {
       dispatch({ type: CommandType.ENTER_SOLO, id });
@@ -5246,6 +5375,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     announceStatus("Field restored.");
     renderFieldViewControls();
     updateVisibility();
+    syncReaderObjectActions();
     closeAllDrawers();
     returnToField({ source: "restore-field" });
   }
@@ -5256,6 +5386,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     announceStatus("Field restored.");
     renderObjectLists();
     updateVisibility();
+    syncReaderObjectActions();
     closeAllDrawers();
     returnToField({ source: "show-all" });
   };
