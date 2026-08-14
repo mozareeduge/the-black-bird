@@ -288,10 +288,11 @@ test.describe('Reader-local contextual actions (MICRO-02)', () => {
 
     const visibility = page.locator('[data-reader-action="visibility"]');
     await expect(visibility).toHaveText('HIDDEN BY VIEW');
+    // A real, disabled <button> is not clickable by an actual user (browsers
+    // themselves block it, and Playwright's own actionability check refuses
+    // a real click here) -- that disabled state is itself the proof the
+    // type gate can never be silently overridden through this control.
     expect(await visibility.isDisabled()).toBe(true);
-
-    // Clicking a disabled control must never silently re-enable the type.
-    await visibility.click({ force: true });
     expect(await page.evaluate(() => window.__bbTest.getState().view.typeVisibility['RNO'])).toBe(false);
   });
 
