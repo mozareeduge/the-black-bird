@@ -2,6 +2,103 @@
 
 This file is the canonical project log. Keep it in the repository root. Update it after every Claude Code round.
 
+## 2026-08-14 — Micro-refinement pre-promotion round (PRE-01/TYPO-01/MICRO-01–03/ADJ-01) — RELEASE_CANDIDATE_READY_FOR_OWNER_PROMOTION
+
+Branch: `claude/black-bird-system-recomposition-9hpoia`
+PR: #9 (draft)
+Base: `6afb25874db76e618a72ef5316c0f9fc9930ca79` (the FQ/FR round below)
+
+A final, bounded round on top of the FQ-01–FR-02 candidate, authorizing
+three already-decided product/design refinements plus one narrowly
+necessary adjacent correction. Not a redesign or a new audit: the visual
+system, mobile chamber model, RelO clearing, world coordinates, Route/
+trace/wear/afterglow semantics, and accessibility contracts are all
+protected baseline, unchanged. Full detail (defects, negative-before
+proof, evidence) is in `TESTING.md`'s matching section; this entry is the
+bounded summary.
+
+Goal:
+- Port the independently-verified app-shell containment fix (PRE-01) into
+  this candidate's own source, rather than merging the separate old-root
+  fix PR.
+- Implement MICRO-01 (RelO Reader relational caption), MICRO-02 (Reader-
+  local SOLO/HIDE-SHOW actions), MICRO-03 (active NameO two-line Field
+  inscription), and TYPO-01 (the Reader-title Arabic-wrapping correction
+  MICRO-03 depends on) exactly as already decided -- implementation and
+  proof, not another design pass.
+- ADJ-01: fix the one adjacent presentation/semantic mismatch MICRO-02
+  exposes through a new direct user path (hiding the field-attended
+  object left presentation focus stale) via one shared reconciliation
+  path, reused by the pre-existing Index eye-toggle too.
+
+Files changed:
+- `src/index.template.html` (PRE-01 grid fix; MICRO-01/02/03 CSS)
+- `src/presentation/reader-renderer.js` (MICRO-01 caption; TYPO-01 title
+  wrap; MICRO-02 action row markup)
+- `src/presentation/field-renderer.js` (MICRO-03's pure
+  `splitNameOInscription()`/`isArabicScript()` exports)
+- `src/app.js` (MICRO-02 Solo/visibility actions; ADJ-01 shared
+  reconciliation; MICRO-03 `syncGraphLabelContent()` + label-engine
+  integration)
+- `tests/contracts/evidence-plan.json`, `tests/contracts/final-closure-
+  contract.json`, `scripts/generate-evidence.mjs`,
+  `scripts/ci-evidence-gate.mjs` (49-entry evidence set)
+- `tests/e2e/app-shell-containment.spec.js`,
+  `tests/e2e/reader-relation-caption.spec.js`,
+  `tests/e2e/reader-context-actions.spec.js`,
+  `tests/e2e/nameo-active-inscription.spec.js`,
+  `tests/e2e/cross-feature-composition.spec.js` (new)
+- `tests/e2e/reader.spec.js`, `tests/e2e/view-index-solo.spec.js`
+  (updated for TYPO-01's title structure and MICRO-03's Source Names
+  amendment -- both stale-oracle corrections, not weakenings)
+- `tests/unit/field-renderer.test.js` (new `splitNameOInscription`/
+  `isArabicScript` unit coverage)
+
+Decisions:
+- Every one of MICRO-01/02/03 was implemented as specified, with a
+  negative-before test proven to fail against the pre-change source before
+  the change, then made to pass -- recorded per-round in
+  `.git/blackbird-micro-refinement/logs/` (session-local execution state,
+  not a new tracked control plane, and not committed).
+- MICRO-03's active-label containment already worked correctly with the
+  existing cost-based label solver (`src/layout/label-solver.js`) --
+  confirmed by a real six-viewport x four-NameO rendered-geometry matrix
+  before concluding no solver change was needed, per the intake's own
+  "write the geometry test first" instruction.
+- Two stale oracles were corrected, not weakened, as direct consequences
+  of ADJ-01/MICRO-03's now-correct behavior: `tests/e2e/view-index-
+  solo.spec.js`'s P-SCN-052 assertion (a directly-active NameO no longer
+  hides under Source Names off) and `tests/contracts/evidence-
+  plan.json`'s `STATE-AND-RECOVERY/hidden-anchor` entry (presentation
+  focus now correctly neutralizes after an Index-driven hide, instead of
+  staying stale).
+
+Commands run:
+- `npm run build`, `npm run build:verify`, `npm run test:unit`
+- `npx playwright test tests/e2e tests/generated --project=chromium`
+  (174 tests green) after MICRO-02 and again after MICRO-03
+- `npm run evidence:generate` + `node scripts/ci-evidence-gate.mjs`
+  (dry-run validation; real gate-required evidence regenerated fresh from
+  the frozen functional-freeze SHA per the intake, not from this
+  validation run)
+
+Results:
+- 49/49 required evidence entries declared and dry-run validated with
+  zero oracle failures.
+- Full `tests/e2e` + `tests/generated` suite green (174 tests) after each
+  round; 147/147 unit tests green.
+- PR #9 remains draft, open, unmerged. Root production and `/next/`
+  publish state are untouched by this round's implementation work.
+
+Known risks / next step:
+- `ffprobe`/`ffmpeg` is not installed in this local sandbox (same
+  disclosed limitation as the FQ/FR round); CI's
+  `final-candidate-gate.yml` installs it explicitly.
+- Cross-browser (Firefox/WebKit) verified only via CI's real matrix, not
+  locally, for the same environment reasons as prior rounds.
+- Owner-authorized production promotion/cutover is explicitly out of
+  scope for this round.
+
 ## 2026-08-11 — Independent audit + final completion round (FQ-01–FQ-10) — CANDIDATE_READY_FOR_ARTISTIC_REVIEW
 
 Branch: `claude/black-bird-system-recomposition-9hpoia`

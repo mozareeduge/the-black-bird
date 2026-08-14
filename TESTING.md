@@ -349,7 +349,7 @@ commit:
   present.
 - **`ffprobe`/`ffmpeg`** is not installed in this sandboxed session and
   cannot be fetched here (package-manager mirror access is restricted),
-  so `scripts/ci-evidence-gate.mjs`'s video-duration probe for the 7
+  so `scripts/ci-evidence-gate.mjs`'s video-duration probe for the 8
   motion recordings could not be locally verified end-to-end -- every
   other check on those entries (hash, candidate SHA, duplicate bytes,
   presence) passed. `.github/workflows/final-candidate-gate.yml`
@@ -364,8 +364,8 @@ commit:
 
 ## Candidate-bound review
 
-Real, candidate-bound evidence (45 individually-named primary artifacts --
-31 static captures, 7 motion recordings, 7 machine reports, per
+Real, candidate-bound evidence (49 individually-named primary artifacts --
+34 static captures, 8 motion recordings, 7 machine reports, per
 `tests/contracts/evidence-plan.json` -- plus 3 supplementary contact-sheet
 composites) is generated fresh from the exact frozen candidate SHA by
 `npm run evidence:generate`, gated both locally and in CI by
@@ -537,3 +537,115 @@ accessibility are all unchanged.
   tested densest-RelO viewports, not a universal claim for every
   transient configuration) and its provenance, without touching the
   already-sealed executable test.
+
+## MR-00B/MICRO-01–03/ADJ-01/TYPO-01: micro-refinement round (owner-directed, post-FR-02)
+
+A final, bounded pre-promotion round authorizing three product/design
+refinements plus one narrowly-necessary adjacent correction, on top of the
+FQ-01–FR-02 candidate. Everything else in that candidate is the protected
+baseline; no force simulation, dragging, NameO label-only reversion, wider
+Reader, mobile chamber-model change, stronger RelO clearing, or broad
+typography/color/polish pass was introduced. Every item below follows the
+same negative-before discipline as the FQ round: a scenario test proven to
+fail against the pre-change source, then made to pass by the smallest
+correct change, recorded in `.git/blackbird-micro-refinement/logs/` (session-
+local, not committed, per the intake's own harness constraint).
+
+- **PRE-01 — app-shell containment fix, ported from source.** `.app-frame`
+  (`src/index.template.html`) relied on an implicit `auto`-sized CSS Grid
+  row with no explicit upper bound -- a real, spec-documented unbounded-
+  growth hazard, independently found and root-caused against the old
+  production artifact in a separate PR. Ported the fix
+  (`grid-template-rows:minmax(0,1fr)`) into this candidate's own semantic
+  source rather than merging that PR, per the intake. New regression:
+  `tests/e2e/app-shell-containment.spec.js` at the three protected desktop
+  viewports plus a keyboard-traversal check that roving graph navigation
+  cannot scroll the fixed shell. Negative-before investigation (recorded in
+  `.git/blackbird-micro-refinement/logs/MR-00B-negative-before.md`): no
+  locally-reproducible visible regression was found against this exact
+  candidate's current markup under tested content/viewport/text-resize
+  stress (`.reader{overflow:auto}` already self-contains Reader growth in
+  this codebase's current shape) -- the fix is applied as directed,
+  defensive hardening against a real CSS Grid hazard confirmed by the
+  separate root-fix PR, and the new test is kept as a permanent guard.
+- **TYPO-01 — Reader title Arabic wrapping (MICRO-03 prerequisite).**
+  `metaBlock()`'s title (`src/presentation/reader-renderer.js`) wrote
+  `node.label` as one plain text node; a mixed-script NameO title needs its
+  Arabic run wrapped in the same `lang="ar"`/`dir="rtl"` span the rest of
+  the Reader already uses, without reintroducing the earlier-removed
+  duplicate NameO label paragraph (FQ-01). Fixed via the existing
+  `appendArabicWrapped()` helper; the FQ-01 regression test was updated for
+  the now-non-leaf `.title` structure while keeping its no-duplicate-
+  paragraph guard. No new font asset; Scheherazade New remains the single
+  self-hosted Arabic family (`--bb-arabic`), unchanged.
+- **MICRO-01 — RelO Reader relational caption.** Added one restrained,
+  derived `.relation-caption` between the RelO Reader's opaque meta
+  identity and its existing full participant Objects list -- canonical
+  participant-array order, first three participants (NameO full label,
+  every other type's `shortLabel`/`label`), `+N` for the remainder, no
+  interpretive prose. `tests/e2e/reader-relation-caption.spec.js`
+  (RLC-01–07); 5/7 proven to fail pre-change (the other 2 assert absence
+  and correctly hold either way).
+- **MICRO-02/ADJ-01 — Reader-local SOLO/HIDE-SHOW actions + shared
+  presentation reconciliation.** Added a two-button contextual action row
+  to every canonical object Reader (never orientation/projected-edge),
+  reusing the exact canonical `ENTER_SOLO`/`EXIT_SOLO`/
+  `SET_OBJECT_VISIBILITY` commands and re-root/snapshot semantics Index
+  already used -- no second Solo state. ADJ-01 fixes a previously
+  disclosed, deliberately-unfixed gap (the Index eye-toggle handler's own
+  comment): the canonical reducer already neutralizes semantic
+  `reading.fieldAttention` when the field-attended anchor becomes
+  invisible, but the separate presentation-only `uiRuntime.focusedId`
+  (camera framing, local aperture/clearing, roving tabindex) stayed stale.
+  `reconcileHiddenPresentationFocus()` is the one shared fix, reused by
+  both the existing Index path and the new Reader HIDE action; it never
+  closes the Index drawer or touches Route/trace/responsive surface.
+  `tests/e2e/reader-context-actions.spec.js` (RCA-01–13); 10/11 proven to
+  fail pre-change. This same fix corrected a stale oracle in
+  `tests/contracts/evidence-plan.json`'s `STATE-AND-RECOVERY/hidden-anchor`
+  entry, which had been asserting the old bug (`active_id` staying
+  `"FO.CORPSE"`) as if it were correct -- updated to the fixed behavior
+  (`active_id: null`).
+- **MICRO-03 — active NameO linguistic inscription.** A directly committed,
+  Field-attention-holding NameO now unfolds its ordinary single-line label
+  into a compact two-line inscription (primary 14 screen px, secondary 9.5
+  screen px, both screen-stable under zoom) around the unchanged 3px body --
+  derived purely from canonical `node.label` (split once on the literal
+  `" / "` separator, Arabic side primary when exactly one side is) via
+  `splitNameOInscription()`/`isArabicScript()`, new pure exports in
+  `src/presentation/field-renderer.js` with direct unit coverage against
+  all four canonical NameOs. The one Source Names amendment: the active
+  NameO stays eligible even when Source Names is off (direct commitment is
+  a stronger act than the global background-label preference); every other
+  NameO keeps the existing gate exactly. `syncGraphLabelContent()`
+  (`src/app.js`) is the one place that rewrites label text content, called
+  only from the three `uiRuntime.focusedId` assignment sites -- never from
+  hover/preview/roving-focus-before-commit, preserving the preview-vs-
+  commit distinction. No label-solver change was needed: the existing
+  cost-based candidate scoring already prefers a contained zero-overlap
+  candidate for the active label whenever one exists, confirmed by a real
+  rendered-geometry containment matrix (`getBBox()`/`getScreenCTM()`) for
+  all four NameOs at all six protected viewports (three desktop, four
+  mobile/landscape). `tests/e2e/nameo-active-inscription.spec.js`
+  (NAI-01–10); 9/10 proven to fail pre-change. Fixed one stale P-SCN-052
+  assertion in `tests/e2e/view-index-solo.spec.js` that expected a
+  directly-active NameO's label to still hide under Source Names off --
+  exactly the behavior this amendment changes -- while preserving its
+  "labels toggle hides everything" and "Source Names gates ordinary NameO
+  labels" coverage.
+- **Cross-feature composition (MR-04).** `tests/e2e/cross-feature-
+  composition.spec.js` exercises RelO+caption+Solo, RelO+hide+clearing, and
+  mobile NameO+Reader-action combinations not already covered end-to-end by
+  the per-feature specs above (NameO+Solo/hide/Source-Names are already in
+  NAI-01/02/09/10). No product changes were required; every combination
+  already behaves correctly given the shared reconciliation/Solo/caption
+  paths built above.
+- **Evidence (MR-05).** Added 4 new required primary entries (45 → 49):
+  `ARTISTIC-CORE/relo-reader-caption`, `ARTISTIC-CORE/nameo-active-
+  inscription`, `STATE-AND-RECOVERY/reader-actions-hide-show`, `motion/
+  reader-context-actions-mobile`, in `tests/contracts/evidence-plan.json`
+  and `tests/contracts/final-closure-contract.json` in lockstep, with
+  matching capture functions in `scripts/generate-evidence.mjs`.
+  `scripts/ci-evidence-gate.mjs` needed no functional change (ids/count are
+  already read dynamically from the plan). Validated via a dry
+  `evidence:generate` run: 49/49 entries, zero oracle failures.
