@@ -193,7 +193,7 @@
 html,body{margin:0;height:100%;overflow:hidden;background:#070706;color:var(--text);font-family:var(--serif);-webkit-font-smoothing:antialiased;}
 button,input{font:inherit}
 #app{position:fixed;inset:0;background:var(--bg);overflow:hidden;}
-.app-frame{position:absolute;inset:0;display:grid;grid-template-columns:56px minmax(0,1fr);}
+.app-frame{position:absolute;inset:0;display:grid;grid-template-columns:56px minmax(0,1fr);grid-template-rows:minmax(0,1fr);}
 .rail{border-right:1px solid var(--line);background:#080807;display:flex;flex-direction:column;align-items:stretch;padding:28px 7px;gap:8px;z-index:15}
 .rail-btn{height:42px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;display:flex;align-items:center;justify-content:center;transition:.18s;}
 .rail-btn:hover,.rail-btn.active{border-color:var(--line2);color:var(--text);background:#100f0d}
