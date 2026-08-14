@@ -1,7 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeNodeMetrics, morphologyOf, CANONICAL_MORPHOLOGIES } from '../../src/presentation/field-renderer.js';
+import {
+  computeNodeMetrics,
+  morphologyOf,
+  CANONICAL_MORPHOLOGIES,
+  isArabicScript,
+  splitNameOInscription,
+} from '../../src/presentation/field-renderer.js';
 import { readContract } from '../contracts/load.mjs';
+import { DATA } from '../../src/data/canonical-data.js';
 
 // NameO body design decision (owner-directed, see .blackbird-v6/PROGRESS.md
 // "NameO body design decision"): the smallest, quietest body in the
@@ -40,4 +47,52 @@ test('computeNodeMetrics: NameO hit/collide/label-offset follow the same shared 
 test('CANONICAL_MORPHOLOGIES still lists nameo (unchanged by giving it a real body)', () => {
   assert.ok(CANONICAL_MORPHOLOGIES.includes('nameo'));
   assert.equal(morphologyOf({ id: 'NameO.AR.GHURAB', type: 'NameO' }), 'nameo');
+});
+
+// MICRO-03: splitNameOInscription derives the active NameO's two-line Field
+// inscription from canonical node.label alone -- every current canonical
+// NameO label, exercised directly from DATA (no invented content).
+test('splitNameOInscription: Arabic-script side is primary when exactly one side is Arabic (canonical NameO.AR.GHURAB)', () => {
+  const label = DATA.nodes.find((n) => n.id === 'NameO.AR.GHURAB').label;
+  assert.equal(label, 'ghurāb / غراب');
+  const { primary, secondary } = splitNameOInscription(label);
+  assert.equal(primary, 'غراب');
+  assert.equal(secondary, 'ghurāb');
+});
+
+test('splitNameOInscription: left/right order is preserved verbatim when neither side is Arabic', () => {
+  const cases = [
+    ['hrafn / hrafnar', 'hrafn', 'hrafnar'],
+    ['scald-crow / ennach', 'scald-crow', 'ennach'],
+    ['American crow / Corvus brachyrhynchos', 'American crow', 'Corvus brachyrhynchos'],
+  ];
+  for (const [label, primary, secondary] of cases) {
+    const result = splitNameOInscription(label);
+    assert.equal(result.primary, primary);
+    assert.equal(result.secondary, secondary);
+  }
+});
+
+test('splitNameOInscription: every current canonical NameO label derives a valid inscription with no invented content (NAI-03)', () => {
+  const nameos = DATA.nodes.filter((n) => n.type === 'NameO');
+  assert.equal(nameos.length, 4);
+  for (const node of nameos) {
+    const { primary, secondary } = splitNameOInscription(node.label);
+    assert.ok(primary.length > 0, `${node.id} must derive a non-empty primary line`);
+    assert.ok(node.label.includes(primary), `${node.id} primary must come from canonical label, not invented text`);
+    if (secondary) assert.ok(node.label.includes(secondary), `${node.id} secondary must come from canonical label, not invented text`);
+  }
+});
+
+test('splitNameOInscription: a label with no " / " separator becomes the whole primary line with no secondary', () => {
+  const result = splitNameOInscription('SingleWord');
+  assert.equal(result.primary, 'SingleWord');
+  assert.equal(result.secondary, '');
+});
+
+test('isArabicScript: detects the Arabic block and rejects Latin-only text', () => {
+  assert.equal(isArabicScript('غراب'), true);
+  assert.equal(isArabicScript('ghurāb'), false);
+  assert.equal(isArabicScript(''), false);
+  assert.equal(isArabicScript(undefined), false);
 });

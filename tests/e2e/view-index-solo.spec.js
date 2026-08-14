@@ -368,7 +368,7 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     expect(await countVisibleProj()).toBe(visibleBefore);
   });
 
-  test('toggling labels off hides every node label; toggling source names hides/shows only NameO labels (P-SCN-052)', async ({
+  test('toggling labels off hides every node label; toggling source names hides/shows only non-active NameO labels (P-SCN-052)', async ({
     page,
   }) => {
     await gotoField(page, { reduced: true });
@@ -390,27 +390,34 @@ test.describe('View, Index, hide/show, all-hidden recovery, and Solo surfaces (T
     expect(await visibleLabelCount()).toBe(visibleBefore);
     await page.locator('[data-close="fieldViewDrawer"]').first().click();
 
-    // sourceNames gates only NameO labels, independent of the labels toggle
-    // above -- and unconditionally, even for a focused/active NameO node (the
-    // filter in updateLabelVisibility excludes NameO before priority/budget
-    // is ever considered when sourceNames is off). Focusing a NameO node
-    // directly, rather than counting the whole field, avoids any dependency
-    // on the label budget/priority interaction with other node types.
+    // sourceNames gates ordinary NameO labels (proven from a neutral
+    // whole-field state, with no active NameO, by the dedicated regression
+    // test directly below) -- except one directly-committed, currently
+    // active NameO (MICRO-03 8.4: its active inscription is a stronger,
+    // explicit act than the global background preference, so it stays
+    // eligible regardless of Source Names). Focusing a NameO node directly,
+    // rather than counting the whole field, avoids any dependency on the
+    // label budget/priority interaction with other node types.
     await clickNode(page, 'NameO.AR.GHURAB');
     expect((await appState(page)).activeId).toBe('NameO.AR.GHURAB');
-    const nameOLabelDisplay = () =>
+    const activeLabelDisplay = () =>
       page.evaluate(() => document.querySelector('g.node[data-bb-test-id="NameO.AR.GHURAB"] text.node-label')?.getAttribute('display'));
-    expect(await nameOLabelDisplay()).toBe('none');
+
+    expect(await page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(false);
+    // Source Names is off (the default), yet the active NameO is already
+    // visible -- direct commitment alone is enough, per MICRO-03.
+    expect(await activeLabelDisplay()).not.toBe('none');
 
     await page.locator('.rail-btn[data-action="view"]').click();
     await expect(page.locator('#fieldViewDrawer')).toHaveClass(/open/);
     await page.locator('[data-view="sourceNames"]').first().click();
     await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(true);
-    await expect.poll(nameOLabelDisplay).not.toBe('none');
+    expect(await activeLabelDisplay()).not.toBe('none');
 
     await page.locator('[data-view="sourceNames"]').first().click();
     await expect.poll(() => page.evaluate(() => window.__bbTest.getState().view.sourceNames)).toBe(false);
-    await expect.poll(nameOLabelDisplay).toBe('none');
+    // The active NameO's visibility never depended on the toggle either way.
+    expect(await activeLabelDisplay()).not.toBe('none');
   });
 
   test('Source Names toggle actually renders a NameO label from the real default whole-field state, not only when a NameO is already focused (P-SCN-052 regression)', async ({

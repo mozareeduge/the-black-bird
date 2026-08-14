@@ -55,6 +55,33 @@ function radiiOf(role, coreR, outerR) {
 // so a caller (or a test) can assert every one is accounted for exactly.
 export const CANONICAL_MORPHOLOGIES = Object.freeze(['fo', 'rno', 'mno', 'nameo', 'refo', 'relo', 'aperture']);
 
+export function isArabicScript(s) {
+  return /[؀-ۿ]/.test(s || '');
+}
+
+// MICRO-03: derives the active NameO's compact two-line Field inscription
+// from the canonical label alone -- no new canonical data. Splits once on
+// the literal " / " canonical separator; whichever side is source-script
+// (Arabic) becomes the primary line when exactly one side is, since that's
+// the linguistic material the inscription exists to surface. Canonical
+// casing is preserved verbatim; if a future label lacks the separator, the
+// whole label is the primary line with no secondary.
+export function splitNameOInscription(label) {
+  const raw = label || '';
+  const parts = raw.split(' / ');
+  if (parts.length < 2) return { primary: raw, secondary: '' };
+
+  const left = parts[0];
+  const right = parts.slice(1).join(' / ');
+  const leftArabic = isArabicScript(left);
+  const rightArabic = isArabicScript(right);
+
+  if (leftArabic !== rightArabic) {
+    return leftArabic ? { primary: left, secondary: right } : { primary: right, secondary: left };
+  }
+  return { primary: left, secondary: right };
+}
+
 // A D3-shaped factory (duck-typed: `container` needs append/attr/selectAll/
 // data/join, matching a real d3.Selection). Builds the same per-node body
 // structure as the live nodeShape(): a route-halo ring, a focus ring, a

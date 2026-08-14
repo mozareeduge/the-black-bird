@@ -476,6 +476,17 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;transition:fill .35s ease;}
 .node-label.quiet{fill:#92887a}
 .node-label.bb-arabic{font-family:var(--bb-arabic);}
+/* MICRO-03: the active NameO's compact two-line Field inscription. Both
+   tspans live inside the same text.node-label the solver already measures
+   as one combined bbox (Piece 09) -- no new label element, no box/background/
+   badge/glow. .node-label's own reduced-motion rule below already
+   neutralizes this opacity transition (data-bb-nameo-inscription is just an
+   attribute on the same .node-label element). */
+text.node-label[data-bb-nameo-inscription="active"]{transition:opacity .2s ease;}
+.bb-nameo-inscription-primary{fill:var(--bb-bone);}
+.bb-nameo-inscription-primary.bb-arabic{font-family:var(--bb-arabic);}
+.bb-nameo-inscription-primary:not(.bb-arabic){font-family:var(--bb-serif);}
+.bb-nameo-inscription-secondary{font-family:var(--bb-mono);font-size:.678571em;fill:var(--bb-muted);letter-spacing:.08em;}
 /* F07/R5: cold recession is conveyed to node-label text by hue (this rule)
    plus the existing tiered size/weight/blur/density cues on the node body --
    never by opacity, since a WCAG AA text contrast floor must hold regardless
@@ -2145,6 +2156,22 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     };
   }
   var CANONICAL_MORPHOLOGIES = Object.freeze(["fo", "rno", "mno", "nameo", "refo", "relo", "aperture"]);
+  function isArabicScript(s) {
+    return /[؀-ۿ]/.test(s || "");
+  }
+  function splitNameOInscription(label) {
+    const raw = label || "";
+    const parts = raw.split(" / ");
+    if (parts.length < 2) return { primary: raw, secondary: "" };
+    const left = parts[0];
+    const right = parts.slice(1).join(" / ");
+    const leftArabic = isArabicScript(left);
+    const rightArabic = isArabicScript(right);
+    if (leftArabic !== rightArabic) {
+      return leftArabic ? { primary: left, secondary: right } : { primary: right, secondary: left };
+    }
+    return { primary: left, secondary: right };
+  }
 
   // src/accessibility/announcement-manager.js
   function createAnnouncementManager({ coalesceMs = 150, publish }) {
@@ -3910,8 +3937,25 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     return d.shortLabel || d.label;
   }
-  function isArabicScript(s) {
-    return /[؀-ۿ]/.test(s || "");
+  function syncGraphLabelContent() {
+    nodeSel.selectAll("text.node-label").each(function(d) {
+      const text = d3.select(this);
+      const activeNameO = d.type === "NameO" && d.id === uiRuntime.focusedId;
+      text.selectAll("tspan").remove();
+      if (!activeNameO) {
+        const label = graphLabelFor(d);
+        const arabic = d.type === "NameO" && isArabicScript(label);
+        text.attr("data-bb-nameo-inscription", null).classed("bb-arabic", arabic).attr("lang", arabic ? "ar" : null).attr("dir", arabic ? "rtl" : null).text(label);
+        return;
+      }
+      const { primary, secondary } = splitNameOInscription(d.label);
+      const primaryArabic = isArabicScript(primary);
+      text.attr("data-bb-nameo-inscription", "active").classed("bb-arabic", false).attr("lang", null).attr("dir", null).text(null);
+      text.append("tspan").attr("class", `bb-nameo-inscription-primary${primaryArabic ? " bb-arabic" : ""}`).attr("x", +(text.attr("x") || 0)).attr("dy", 0).attr("lang", primaryArabic ? "ar" : null).attr("dir", primaryArabic ? "rtl" : null).text(primary);
+      if (secondary) {
+        text.append("tspan").attr("class", "bb-nameo-inscription-secondary").attr("x", +(text.attr("x") || 0)).attr("dy", "1.25em").text(secondary);
+      }
+    });
   }
   nodeSel.append("text").attr(
     "class",
@@ -4068,7 +4112,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
         continue;
       }
       const cand = candidatesById.get(r.id).find((c) => c.side === r.side);
-      d3.select(entry.el).attr("display", null).attr("text-anchor", cand.anchor).attr("x", cand.ox).attr("y", cand.oy);
+      const label = d3.select(entry.el);
+      label.attr("display", null).attr("text-anchor", cand.anchor).attr("x", cand.ox).attr("y", cand.oy);
+      label.selectAll("tspan").attr("x", cand.ox);
       labelPlacementChoice.set(r.id, r.side);
     }
   }
@@ -4173,7 +4219,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const ranked = simNodes.filter((d) => {
       if (!state.view.labels) return false;
       if (!nodeVisible(d.id)) return false;
-      if (d.type === "NameO" && !state.view.sourceNames) return false;
+      if (d.type === "NameO" && !state.view.sourceNames && d.id !== uiRuntime.focusedId) return false;
       if ((d.type === "RefO" || d.type === "RelO") && d.id !== uiRuntime.focusedId) {
         if (isMobile() || k < 1.6) return false;
       }
@@ -4183,11 +4229,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       const isFocusMember = !!(focusIds && focusIds.has(d.id));
       const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
       const isStructuralAnchor = d.type === "RNO" || d.type === "MNO" || d.id === "FO.BLACK_BIRD_FIELD";
+      const desired = d.type === "NameO" && isActive ? 14 : labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor);
       return {
         d,
         isActive,
         isFocusMember,
-        desired: labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor),
+        desired,
         tier: labelPriorityTier(d, isActive, isFocusMember, isRelParticipant)
       };
     }).sort((a, b) => a.tier - b.tier);
@@ -4769,6 +4816,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const isSameId = previousId === id;
     syncSurfaceCanonical(surface || (isMobile() && openReader !== false ? "read" : state.responsive.surface));
     uiRuntime.focusedId = id;
+    syncGraphLabelContent();
     dispatch({ type: CommandType.CLEAR_INSPECTION });
     updatePhaseClass();
     closeAllDrawers();
@@ -4826,6 +4874,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     dispatch({ type: CommandType.CLEAR_INSPECTION });
     syncSurfaceCanonical("field");
     uiRuntime.focusedId = null;
+    syncGraphLabelContent();
     closeAllDrawers();
     closeSheet();
     hidePreview();
@@ -4990,6 +5039,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     if (!uiRuntime.focusedId) return false;
     if (nodeVisible(uiRuntime.focusedId)) return false;
     uiRuntime.focusedId = null;
+    syncGraphLabelContent();
     clearLocalAperture();
     updateRovingTabindex(null);
     return true;

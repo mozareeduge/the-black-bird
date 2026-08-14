@@ -326,6 +326,17 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;transition:fill .35s ease;}
 .node-label.quiet{fill:#92887a}
 .node-label.bb-arabic{font-family:var(--bb-arabic);}
+/* MICRO-03: the active NameO's compact two-line Field inscription. Both
+   tspans live inside the same text.node-label the solver already measures
+   as one combined bbox (Piece 09) -- no new label element, no box/background/
+   badge/glow. .node-label's own reduced-motion rule below already
+   neutralizes this opacity transition (data-bb-nameo-inscription is just an
+   attribute on the same .node-label element). */
+text.node-label[data-bb-nameo-inscription="active"]{transition:opacity .2s ease;}
+.bb-nameo-inscription-primary{fill:var(--bb-bone);}
+.bb-nameo-inscription-primary.bb-arabic{font-family:var(--bb-arabic);}
+.bb-nameo-inscription-primary:not(.bb-arabic){font-family:var(--bb-serif);}
+.bb-nameo-inscription-secondary{font-family:var(--bb-mono);font-size:.678571em;fill:var(--bb-muted);letter-spacing:.08em;}
 /* F07/R5: cold recession is conveyed to node-label text by hue (this rule)
    plus the existing tiered size/weight/blur/density cues on the node body --
    never by opacity, since a WCAG AA text contrast floor must hold regardless

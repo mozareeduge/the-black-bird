@@ -14,7 +14,7 @@ import { createTransactionController } from './application/transaction-controlle
 import { createDispatcher } from './application/dispatcher.js';
 import { validateBootstrap } from './bootstrap.js';
 import { renderBootstrapFailure } from './presentation/bootstrap-renderer.js';
-import { isApertureNode, morphologyOf, computeNodeMetrics } from './presentation/field-renderer.js';
+import { isApertureNode, morphologyOf, computeNodeMetrics, isArabicScript, splitNameOInscription } from './presentation/field-renderer.js';
 import { createStatusRenderer } from './presentation/status-renderer.js';
 import { createFocusManager } from './accessibility/focus-manager.js';
 import { isNodeVisible } from './domain/visibility.js';
@@ -1009,8 +1009,60 @@ function graphLabelFor(d) {
   }
   return d.shortLabel || d.label;
 }
-function isArabicScript(s) {
-  return /[؀-ۿ]/.test(s || "");
+// MICRO-03: the only place that rewrites a node-label's *content*. Every
+// other label mechanism (updateLabelVisibility/recomputeLabelPlacements)
+// only ever changes size/position/display -- content itself is static per
+// node except here, and only for NameO, and only across an active-focus
+// transition (never on hover/preview/roving-focus-before-commit, since
+// this is called exclusively from the three uiRuntime.focusedId
+// assignment sites, never from touchObject/preview paths).
+function syncGraphLabelContent() {
+  nodeSel.selectAll("text.node-label").each(function (d) {
+    const text = d3.select(this);
+    const activeNameO = d.type === "NameO" && d.id === uiRuntime.focusedId;
+
+    text.selectAll("tspan").remove();
+
+    if (!activeNameO) {
+      const label = graphLabelFor(d);
+      const arabic = d.type === "NameO" && isArabicScript(label);
+      text
+        .attr("data-bb-nameo-inscription", null)
+        .classed("bb-arabic", arabic)
+        .attr("lang", arabic ? "ar" : null)
+        .attr("dir", arabic ? "rtl" : null)
+        .text(label);
+      return;
+    }
+
+    const { primary, secondary } = splitNameOInscription(d.label);
+    const primaryArabic = isArabicScript(primary);
+
+    text
+      .attr("data-bb-nameo-inscription", "active")
+      .classed("bb-arabic", false)
+      .attr("lang", null)
+      .attr("dir", null)
+      .text(null);
+
+    text
+      .append("tspan")
+      .attr("class", `bb-nameo-inscription-primary${primaryArabic ? " bb-arabic" : ""}`)
+      .attr("x", +(text.attr("x") || 0))
+      .attr("dy", 0)
+      .attr("lang", primaryArabic ? "ar" : null)
+      .attr("dir", primaryArabic ? "rtl" : null)
+      .text(primary);
+
+    if (secondary) {
+      text
+        .append("tspan")
+        .attr("class", "bb-nameo-inscription-secondary")
+        .attr("x", +(text.attr("x") || 0))
+        .attr("dy", "1.25em")
+        .text(secondary);
+    }
+  });
 }
 nodeSel
   .append("text")
@@ -1270,11 +1322,15 @@ function recomputeLabelPlacements() {
       continue;
     }
     const cand = candidatesById.get(r.id).find((c) => c.side === r.side);
-    d3.select(entry.el)
-      .attr("display", null)
-      .attr("text-anchor", cand.anchor)
-      .attr("x", cand.ox)
-      .attr("y", cand.oy);
+    const label = d3.select(entry.el);
+    label.attr("display", null).attr("text-anchor", cand.anchor).attr("x", cand.ox).attr("y", cand.oy);
+    // MICRO-03: the active NameO inscription's secondary-line tspan carries
+    // its own explicit x (set when the content was written) that must track
+    // the parent label's chosen x too -- getBBox() above already measured
+    // the combined two-line geometry as one solver item, so this is purely
+    // keeping the second line visually under the first, never a second
+    // independent placement.
+    label.selectAll("tspan").attr("x", cand.ox);
     labelPlacementChoice.set(r.id, r.side);
   }
 }
@@ -1440,7 +1496,11 @@ function updateLabelVisibility(context = {}) {
     .filter((d) => {
       if (!state.view.labels) return false;
       if (!nodeVisible(d.id)) return false;
-      if (d.type === "NameO" && !state.view.sourceNames) return false;
+      // MICRO-03 8.4: a directly committed active NameO's inscription is a
+      // stronger, explicit act than the global Source Names background
+      // preference, so it stays eligible even when Source Names is off.
+      // Every other (non-active) NameO label keeps the existing gate.
+      if (d.type === "NameO" && !state.view.sourceNames && d.id !== uiRuntime.focusedId) return false;
       // Inactive RelO/RefO identity stays opaque/hidden below k=1.6 (4.6).
       if ((d.type === "RefO" || d.type === "RelO") && d.id !== uiRuntime.focusedId) {
         if (isMobile() || k < 1.6) return false;
@@ -1452,11 +1512,17 @@ function updateLabelVisibility(context = {}) {
       const isFocusMember = !!(focusIds && focusIds.has(d.id));
       const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
       const isStructuralAnchor = d.type === "RNO" || d.type === "MNO" || d.id === "FO.BLACK_BIRD_FIELD";
+      // MICRO-03 5A.3: the active NameO's two-line inscription has its own
+      // fixed 14 screen-px primary target, distinct from the generic
+      // 11.5px active-label size (which stays exactly as before for every
+      // other active object type).
+      const desired =
+        d.type === "NameO" && isActive ? 14 : labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor);
       return {
         d,
         isActive,
         isFocusMember,
-        desired: labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor),
+        desired,
         tier: labelPriorityTier(d, isActive, isFocusMember, isRelParticipant),
       };
     })
@@ -2311,6 +2377,7 @@ async function commitFocus(id, opts = {}) {
   const isSameId = previousId === id;
   syncSurfaceCanonical(surface || (isMobile() && openReader !== false ? "read" : state.responsive.surface));
   uiRuntime.focusedId = id;
+  syncGraphLabelContent();
   dispatch({ type: CommandType.CLEAR_INSPECTION });
   updatePhaseClass();
   closeAllDrawers();
@@ -2377,6 +2444,7 @@ async function returnToField(opts = {}) {
   dispatch({ type: CommandType.CLEAR_INSPECTION });
   syncSurfaceCanonical("field");
   uiRuntime.focusedId = null;
+  syncGraphLabelContent();
   closeAllDrawers();
   closeSheet();
   hidePreview();
@@ -2609,6 +2677,7 @@ function reconcileHiddenPresentationFocus() {
   if (!uiRuntime.focusedId) return false;
   if (nodeVisible(uiRuntime.focusedId)) return false;
   uiRuntime.focusedId = null;
+  syncGraphLabelContent();
   clearLocalAperture();
   updateRovingTabindex(null);
   return true;
