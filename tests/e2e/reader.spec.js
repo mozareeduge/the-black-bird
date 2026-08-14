@@ -248,31 +248,44 @@ test.describe('Reader subject view models and renderer (T18)', () => {
     const reader = page.locator('#reader');
     const fullLabel = 'ghurāb / غراب';
 
-    // Exactly one element whose ENTIRE text is the complete canonical
-    // label -- the title. (The gloss prose legitimately starts with the
-    // same words as its own real content -- "ghurāb / غراب. A
-    // source-language..." -- so a raw substring count over the whole
-    // panel's text would conflate that genuine content with a duplicated
-    // standalone label; this checks structure, not a substring.)
+    // TYPO-01: metaBlock() now wraps the title's Arabic run with the same
+    // per-run lang="ar"/dir="rtl" span the rest of the Reader uses, instead
+    // of writing node.label as one plain text node -- so the title is no
+    // longer a leaf, but its own combined text is still exactly the full
+    // canonical label, rendered exactly once.
     const title = reader.locator('.title');
     await expect(title).toHaveText(fullLabel);
+
+    const titleArabic = title.locator('.bb-arabic');
+    await expect(titleArabic).toHaveCount(1);
+    await expect(titleArabic).toHaveText('غراب');
+    expect(await titleArabic.getAttribute('lang')).toBe('ar');
+    expect(await titleArabic.getAttribute('dir')).toBe('rtl');
+
     const bodyText = await reader.textContent();
+
+    // No OTHER leaf element repeats the full label as a duplicate paragraph.
+    // (The gloss prose legitimately starts with the same words as its own
+    // real content -- "ghurāb / غراب. A source-language..." -- so a raw
+    // substring count over the whole panel's text would conflate that
+    // genuine content with a duplicated standalone label; this checks
+    // structure, not a substring.)
     const standaloneLabelElements = await reader
       .locator('*')
       .evaluateAll((els, label) => els.filter((el) => el.children.length === 0 && el.textContent.trim() === label).length, fullLabel);
     expect(
       standaloneLabelElements,
-      'expected exactly one leaf element whose entire text is the full label (the title) -- a second one means a duplicate label paragraph survived'
-    ).toBe(1);
+      'expected no leaf element whose entire text is the full label outside the title -- one would mean a duplicate label paragraph survived'
+    ).toBe(0);
 
     // No redundant label paragraph of any kind survives.
     await expect(reader.locator('.bb-arabic-label')).toHaveCount(0);
 
-    // Arabic runs in the remaining content (gloss/sourceLayer) still get
-    // correct per-run lang="ar"/dir="rtl" -- appendArabicWrapped's pattern,
-    // untouched by this change.
+    // Arabic runs in the title and remaining content (gloss/sourceLayer)
+    // still get correct per-run lang="ar"/dir="rtl" -- appendArabicWrapped's
+    // pattern, untouched by this change.
     const arabicRuns = await reader.locator('.bb-arabic').all();
-    expect(arabicRuns.length, 'expected at least one Arabic-script span in the remaining NameO content').toBeGreaterThan(0);
+    expect(arabicRuns.length, 'expected Arabic-script spans in the title and remaining NameO content').toBeGreaterThan(1);
     for (const run of arabicRuns) {
       expect(await run.getAttribute('lang')).toBe('ar');
       expect(await run.getAttribute('dir')).toBe('rtl');

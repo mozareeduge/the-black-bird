@@ -58,7 +58,9 @@ function indexList(ids, nodesById, doc) {
 function metaBlock(node, doc) {
   const wrap = doc.createDocumentFragment();
   wrap.appendChild(el(doc, 'div', 'meta', `${node.type} · ${node.id}`));
-  wrap.appendChild(el(doc, 'div', 'title', node.label));
+  const title = el(doc, 'div', 'title');
+  appendArabicWrapped(title, node.label, doc);
+  wrap.appendChild(title);
   return wrap;
 }
 
@@ -215,9 +217,37 @@ function buildRefoContent(vm, nodesById, doc) {
   return root;
 }
 
+// MICRO-01: a restrained, non-interpretive derived caption -- canonical
+// participant-array order, first three participants, "+N" for the rest.
+// NameO participants use their full canonical (mixed-script) label since
+// that's the reading-facing form; every other type uses its compact
+// shortLabel (falling back to label). This never introduces a new sort or
+// any relation prose ("means"/"connects because"/etc.) -- it only names
+// what the canonical relation already holds.
+function buildRelationCaption(vm, nodesById, doc) {
+  const caption = el(doc, 'div', 'relation-caption');
+  const ids = vm.participants || [];
+
+  ids.slice(0, 3).forEach((id, index) => {
+    if (index) caption.appendChild(doc.createTextNode(' · '));
+
+    const node = nodesById[id];
+    const label = node?.type === 'NameO' ? node.label || id : node?.shortLabel || node?.label || id;
+
+    appendArabicWrapped(caption, label, doc);
+  });
+
+  if (ids.length > 3) {
+    caption.appendChild(doc.createTextNode(` +${ids.length - 3}`));
+  }
+
+  return caption;
+}
+
 function buildReloContent(vm, nodesById, doc) {
   const root = doc.createDocumentFragment();
   root.appendChild(el(doc, 'div', 'meta', `RelO · ${vm.node.id}`));
+  root.appendChild(buildRelationCaption(vm, nodesById, doc));
   root.appendChild(sectionLabel('objects', doc));
   root.appendChild(indexList(vm.participants, nodesById, doc));
   return root;

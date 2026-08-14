@@ -84,8 +84,12 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .reader{flex:1;overflow:auto;padding:42px 52px 80px;scrollbar-color:#655d53 transparent;}
 .meta{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--muted);margin-bottom:22px;}
 .title{font-family:var(--mono);font-size:15px;letter-spacing:.28em;text-transform:uppercase;color:var(--text);margin-bottom:28px;line-height:1.55;}
+.title .bb-arabic{font-family:var(--bb-arabic);font-size:1em;line-height:inherit;letter-spacing:0;text-transform:none;vertical-align:-.06em;}
 .prose{font-size:18px;line-height:1.78;max-width:680px;color:var(--text);}
 .prose p{margin:0 0 1.15em}
+.prose .bb-arabic,.relation-caption .bb-arabic{font-family:var(--bb-arabic);font-size:1em;line-height:inherit;}
+.relation-caption .bb-arabic{vertical-align:-.04em;}
+.relation-caption{font-family:var(--serif);font-size:15px;line-height:1.48;color:var(--text2);max-width:34ch;margin:-6px 0 24px;overflow-wrap:break-word;}
 .about-body .prose a{color:var(--amber2);text-decoration:underline;text-decoration-color:rgba(196,154,69,.55);text-underline-offset:4px;}
 .about-body .prose a:visited{color:var(--amber2);}
 .about-body .prose a:hover,.about-body .prose a:focus-visible{color:var(--bone);text-decoration-color:var(--bone);outline:none;}
@@ -190,6 +194,7 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
   .reader{padding:26px 22px 86px;}
   .title{font-size:13px;letter-spacing:.22em}
   .prose{font-size:17px;line-height:1.74}
+  .relation-caption{font-size:14px;max-width:none;margin-bottom:20px;}
   .poem{font-size:20px;line-height:1.82;max-width:340px}
   .drawer{left:0;width:100vw;max-width:none;bottom:56px;transform:translateX(-100%);transition:transform .28s cubic-bezier(.22,.8,.36,1),visibility 0s linear .28s;}
   .drawer.open{transform:translateX(0);visibility:visible;pointer-events:auto;transition:transform .28s cubic-bezier(.22,.8,.36,1),visibility 0s;}
