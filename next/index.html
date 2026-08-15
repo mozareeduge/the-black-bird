@@ -193,7 +193,7 @@
 html,body{margin:0;height:100%;overflow:hidden;background:#070706;color:var(--text);font-family:var(--serif);-webkit-font-smoothing:antialiased;}
 button,input{font:inherit}
 #app{position:fixed;inset:0;background:var(--bg);overflow:hidden;}
-.app-frame{position:absolute;inset:0;display:grid;grid-template-columns:56px minmax(0,1fr);}
+.app-frame{position:absolute;inset:0;display:grid;grid-template-columns:56px minmax(0,1fr);grid-template-rows:minmax(0,1fr);}
 .rail{border-right:1px solid var(--line);background:#080807;display:flex;flex-direction:column;align-items:stretch;padding:28px 7px;gap:8px;z-index:15}
 .rail-btn{height:42px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.08em;display:flex;align-items:center;justify-content:center;transition:.18s;}
 .rail-btn:hover,.rail-btn.active{border-color:var(--line2);color:var(--text);background:#100f0d}
@@ -234,8 +234,12 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .reader{flex:1;overflow:auto;padding:42px 52px 80px;scrollbar-color:#655d53 transparent;}
 .meta{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--muted);margin-bottom:22px;}
 .title{font-family:var(--mono);font-size:15px;letter-spacing:.28em;text-transform:uppercase;color:var(--text);margin-bottom:28px;line-height:1.55;}
+.title .bb-arabic{font-family:var(--bb-arabic);font-size:1em;line-height:inherit;letter-spacing:0;text-transform:none;vertical-align:-.06em;}
 .prose{font-size:18px;line-height:1.78;max-width:680px;color:var(--text);}
 .prose p{margin:0 0 1.15em}
+.prose .bb-arabic,.relation-caption .bb-arabic{font-family:var(--bb-arabic);font-size:1em;line-height:inherit;}
+.relation-caption .bb-arabic{vertical-align:-.04em;}
+.relation-caption{font-family:var(--serif);font-size:15px;line-height:1.48;color:var(--text2);max-width:34ch;margin:-6px 0 24px;overflow-wrap:break-word;}
 .about-body .prose a{color:var(--amber2);text-decoration:underline;text-decoration-color:rgba(196,154,69,.55);text-underline-offset:4px;}
 .about-body .prose a:visited{color:var(--amber2);}
 .about-body .prose a:hover,.about-body .prose a:focus-visible{color:var(--bone);text-decoration-color:var(--bone);outline:none;}
@@ -243,6 +247,11 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .poem > span{display:block}
 .fl{color:inherit;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#6b6256;text-underline-offset:5px;cursor:pointer;transition:.18s;}
 .fl:hover,.fl.active{color:var(--amber2);text-decoration-color:var(--amber2)}
+.reader-object-actions{display:flex;flex-wrap:wrap;gap:8px;margin:-12px 0 28px;}
+.reader-object-action{min-height:30px;padding:8px 10px;border:1px solid var(--line2);background:transparent;color:var(--muted);font-family:var(--mono);font-size:9px;line-height:1;letter-spacing:.10em;text-transform:uppercase;cursor:pointer;}
+.reader-object-action:hover,.reader-object-action:focus-visible{color:var(--bone);border-color:#65594c;}
+.reader-object-action[data-active="true"]{color:var(--amber2);}
+.reader-object-action:disabled{color:var(--ghost);cursor:default;opacity:.65;}
 .section-label{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:34px 0 14px;}
 .chip-row{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0 24px;}
 .chip{border:1px solid var(--line2);padding:7px 10px;font-family:var(--mono);font-size:11px;color:var(--text);background:#100f0e;cursor:pointer;min-height:30px;}
@@ -340,6 +349,7 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
   .reader{padding:26px 22px 86px;}
   .title{font-size:13px;letter-spacing:.22em}
   .prose{font-size:17px;line-height:1.74}
+  .relation-caption{font-size:14px;max-width:none;margin-bottom:20px;}
   .poem{font-size:20px;line-height:1.82;max-width:340px}
   .drawer{left:0;width:100vw;max-width:none;bottom:56px;transform:translateX(-100%);transition:transform .28s cubic-bezier(.22,.8,.36,1),visibility 0s linear .28s;}
   .drawer.open{transform:translateX(0);visibility:visible;pointer-events:auto;transition:transform .28s cubic-bezier(.22,.8,.36,1),visibility 0s;}
@@ -466,6 +476,17 @@ g.node:focus-visible .node-focus-ring{stroke:var(--amber2,#e2bc69);stroke-opacit
 .node-label{font-family:var(--bb-mono);paint-order:stroke;stroke:#050505;stroke-linejoin:round;pointer-events:none;fill:#d7d0c3;transition:fill .35s ease;}
 .node-label.quiet{fill:#92887a}
 .node-label.bb-arabic{font-family:var(--bb-arabic);}
+/* MICRO-03: the active NameO's compact two-line Field inscription. Both
+   tspans live inside the same text.node-label the solver already measures
+   as one combined bbox (Piece 09) -- no new label element, no box/background/
+   badge/glow. .node-label's own reduced-motion rule below already
+   neutralizes this opacity transition (data-bb-nameo-inscription is just an
+   attribute on the same .node-label element). */
+text.node-label[data-bb-nameo-inscription="active"]{transition:opacity .2s ease;}
+.bb-nameo-inscription-primary{fill:var(--bb-bone);}
+.bb-nameo-inscription-primary.bb-arabic{font-family:var(--bb-arabic);}
+.bb-nameo-inscription-primary:not(.bb-arabic){font-family:var(--bb-serif);}
+.bb-nameo-inscription-secondary{font-family:var(--bb-mono);font-size:.678571em;fill:var(--bb-muted);letter-spacing:.08em;}
 /* F07/R5: cold recession is conveyed to node-label text by hue (this rule)
    plus the existing tiered size/weight/blur/density cues on the node body --
    never by opacity, since a WCAG AA text contrast floor must hold regardless
@@ -2135,6 +2156,22 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     };
   }
   var CANONICAL_MORPHOLOGIES = Object.freeze(["fo", "rno", "mno", "nameo", "refo", "relo", "aperture"]);
+  function isArabicScript(s) {
+    return /[؀-ۿ]/.test(s || "");
+  }
+  function splitNameOInscription(label) {
+    const raw = label || "";
+    const parts = raw.split(" / ");
+    if (parts.length < 2) return { primary: raw, secondary: "" };
+    const left = parts[0];
+    const right = parts.slice(1).join(" / ");
+    const leftArabic = isArabicScript(left);
+    const rightArabic = isArabicScript(right);
+    if (leftArabic !== rightArabic) {
+      return leftArabic ? { primary: left, secondary: right } : { primary: right, secondary: left };
+    }
+    return { primary: left, secondary: right };
+  }
 
   // src/accessibility/announcement-manager.js
   function createAnnouncementManager({ coalesceMs = 150, publish }) {
@@ -2342,7 +2379,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function metaBlock(node, doc) {
     const wrap = doc.createDocumentFragment();
     wrap.appendChild(el(doc, "div", "meta", `${node.type} \xB7 ${node.id}`));
-    wrap.appendChild(el(doc, "div", "title", node.label));
+    const title = el(doc, "div", "title");
+    appendArabicWrapped(title, node.label, doc);
+    wrap.appendChild(title);
     return wrap;
   }
   function appendArabicWrapped(parent, text, doc) {
@@ -2360,9 +2399,22 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     if (lastIndex < s.length) parent.appendChild(doc.createTextNode(s.slice(lastIndex)));
   }
+  function buildObjectActionRow(nodeId, doc) {
+    const row = el(doc, "div", "reader-object-actions");
+    row.dataset.readerObjectId = nodeId;
+    const solo = el(doc, "button", "reader-object-action", "SOLO");
+    solo.type = "button";
+    solo.dataset.readerAction = "solo";
+    const visibility = el(doc, "button", "reader-object-action", "HIDE FROM FIELD");
+    visibility.type = "button";
+    visibility.dataset.readerAction = "visibility";
+    row.append(solo, visibility);
+    return row;
+  }
   function buildTextContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     if (vm.node.type === "MNO") {
       const bodyWrap = doc.createElement("div");
       bodyWrap.style.marginBottom = "8px";
@@ -2397,6 +2449,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function buildFoContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     if (vm.appearsIn.length) {
       root2.appendChild(sectionLabel("appears in", doc));
       root2.appendChild(indexList(vm.appearsIn, nodesById, doc));
@@ -2414,6 +2467,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function buildNameoContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     const prose = el(doc, "div", "prose");
     const layer = doc.createElement("p");
     appendArabicWrapped(layer, vm.sourceLayer, doc);
@@ -2428,6 +2482,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
   function buildRefoContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(metaBlock(vm.node, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     root2.appendChild(el(doc, "div", "ref-citation", vm.citation));
     if (vm.sources && vm.sources.length) {
       for (const s of vm.sources) {
@@ -2472,9 +2527,25 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     return root2;
   }
+  function buildRelationCaption(vm, nodesById, doc) {
+    const caption = el(doc, "div", "relation-caption");
+    const ids = vm.participants || [];
+    ids.slice(0, 3).forEach((id, index) => {
+      if (index) caption.appendChild(doc.createTextNode(" \xB7 "));
+      const node = nodesById[id];
+      const label = node?.type === "NameO" ? node.label || id : node?.shortLabel || node?.label || id;
+      appendArabicWrapped(caption, label, doc);
+    });
+    if (ids.length > 3) {
+      caption.appendChild(doc.createTextNode(` +${ids.length - 3}`));
+    }
+    return caption;
+  }
   function buildReloContent(vm, nodesById, doc) {
     const root2 = doc.createDocumentFragment();
     root2.appendChild(el(doc, "div", "meta", `RelO \xB7 ${vm.node.id}`));
+    root2.appendChild(buildRelationCaption(vm, nodesById, doc));
+    root2.appendChild(buildObjectActionRow(vm.node.id, doc));
     root2.appendChild(sectionLabel("objects", doc));
     root2.appendChild(indexList(vm.participants, nodesById, doc));
     return root2;
@@ -3866,8 +3937,25 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     }
     return d.shortLabel || d.label;
   }
-  function isArabicScript(s) {
-    return /[؀-ۿ]/.test(s || "");
+  function syncGraphLabelContent() {
+    nodeSel.selectAll("text.node-label").each(function(d) {
+      const text = d3.select(this);
+      const activeNameO = d.type === "NameO" && d.id === uiRuntime.focusedId;
+      text.selectAll("tspan").remove();
+      if (!activeNameO) {
+        const label = graphLabelFor(d);
+        const arabic = d.type === "NameO" && isArabicScript(label);
+        text.attr("data-bb-nameo-inscription", null).classed("bb-arabic", arabic).attr("lang", arabic ? "ar" : null).attr("dir", arabic ? "rtl" : null).text(label);
+        return;
+      }
+      const { primary, secondary } = splitNameOInscription(d.label);
+      const primaryArabic = isArabicScript(primary);
+      text.attr("data-bb-nameo-inscription", "active").classed("bb-arabic", false).attr("lang", null).attr("dir", null).text(null);
+      text.append("tspan").attr("class", `bb-nameo-inscription-primary${primaryArabic ? " bb-arabic" : ""}`).attr("x", +(text.attr("x") || 0)).attr("dy", 0).attr("lang", primaryArabic ? "ar" : null).attr("dir", primaryArabic ? "rtl" : null).text(primary);
+      if (secondary) {
+        text.append("tspan").attr("class", "bb-nameo-inscription-secondary").attr("x", +(text.attr("x") || 0)).attr("dy", "1.25em").text(secondary);
+      }
+    });
   }
   nodeSel.append("text").attr(
     "class",
@@ -4024,7 +4112,9 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
         continue;
       }
       const cand = candidatesById.get(r.id).find((c) => c.side === r.side);
-      d3.select(entry.el).attr("display", null).attr("text-anchor", cand.anchor).attr("x", cand.ox).attr("y", cand.oy);
+      const label = d3.select(entry.el);
+      label.attr("display", null).attr("text-anchor", cand.anchor).attr("x", cand.ox).attr("y", cand.oy);
+      label.selectAll("tspan").attr("x", cand.ox);
       labelPlacementChoice.set(r.id, r.side);
     }
   }
@@ -4129,7 +4219,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const ranked = simNodes.filter((d) => {
       if (!state.view.labels) return false;
       if (!nodeVisible(d.id)) return false;
-      if (d.type === "NameO" && !state.view.sourceNames) return false;
+      if (d.type === "NameO" && !state.view.sourceNames && d.id !== uiRuntime.focusedId) return false;
       if ((d.type === "RefO" || d.type === "RelO") && d.id !== uiRuntime.focusedId) {
         if (isMobile() || k < 1.6) return false;
       }
@@ -4139,11 +4229,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
       const isFocusMember = !!(focusIds && focusIds.has(d.id));
       const isRelParticipant = !!(relParticipants && relParticipants.has(d.id));
       const isStructuralAnchor = d.type === "RNO" || d.type === "MNO" || d.id === "FO.BLACK_BIRD_FIELD";
+      const desired = d.type === "NameO" && isActive ? 14 : labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor);
       return {
         d,
         isActive,
         isFocusMember,
-        desired: labelDesiredScreenPx(isActive, isFocusMember, isStructuralAnchor),
+        desired,
         tier: labelPriorityTier(d, isActive, isFocusMember, isRelParticipant)
       };
     }).sort((a, b) => a.tier - b.tier);
@@ -4725,6 +4816,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     const isSameId = previousId === id;
     syncSurfaceCanonical(surface || (isMobile() && openReader !== false ? "read" : state.responsive.surface));
     uiRuntime.focusedId = id;
+    syncGraphLabelContent();
     dispatch({ type: CommandType.CLEAR_INSPECTION });
     updatePhaseClass();
     closeAllDrawers();
@@ -4782,6 +4874,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     dispatch({ type: CommandType.CLEAR_INSPECTION });
     syncSurfaceCanonical("field");
     uiRuntime.focusedId = null;
+    syncGraphLabelContent();
     closeAllDrawers();
     closeSheet();
     hidePreview();
@@ -4939,6 +5032,108 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     } else {
       bindIndexItems();
     }
+    bindReaderObjectActions(vm);
+  }
+  function reconcileHiddenPresentationFocus() {
+    if (state.reading.fieldAttention.kind !== "whole-field") return false;
+    if (!uiRuntime.focusedId) return false;
+    if (nodeVisible(uiRuntime.focusedId)) return false;
+    uiRuntime.focusedId = null;
+    syncGraphLabelContent();
+    clearLocalAperture();
+    updateRovingTabindex(null);
+    return true;
+  }
+  function syncReaderObjectActions() {
+    const row = document.querySelector("#reader .reader-object-actions");
+    if (!row) return;
+    const id = row.dataset.readerObjectId;
+    const node = byId[id];
+    if (!node) return;
+    const soloButton = row.querySelector('[data-reader-action="solo"]');
+    const visibilityButton = row.querySelector('[data-reader-action="visibility"]');
+    if (soloButton) {
+      const ownSolo = state.solo.active && state.solo.rootId === id;
+      soloButton.textContent = ownSolo ? "EXIT SOLO" : state.solo.active ? "SOLO THIS" : "SOLO";
+      soloButton.dataset.active = ownSolo ? "true" : "false";
+    }
+    if (!visibilityButton) return;
+    if (state.solo.active) {
+      visibilityButton.hidden = true;
+      visibilityButton.disabled = false;
+      return;
+    }
+    visibilityButton.hidden = false;
+    if (state.view.typeVisibility[node.type] === false) {
+      visibilityButton.textContent = "HIDDEN BY VIEW";
+      visibilityButton.disabled = true;
+      return;
+    }
+    visibilityButton.disabled = false;
+    visibilityButton.textContent = state.view.objectVisibility[id] === false ? "SHOW IN FIELD" : "HIDE FROM FIELD";
+  }
+  function setReaderObjectVisibility(id, visible) {
+    dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible });
+    renderFieldViewControls();
+    const neutralized = reconcileHiddenPresentationFocus();
+    updateVisibility();
+    syncReaderObjectActions();
+    if (document.getElementById("objectDrawer")?.classList.contains("open")) renderObjectLists();
+    if (neutralized && (!isMobile() || state.responsive.surface === "field")) {
+      fitVisibleField({ duration: 420 });
+    }
+  }
+  async function runReaderSoloAction(id, activationEvent) {
+    if (state.solo.active && state.solo.rootId === id) {
+      dispatch({ type: CommandType.EXIT_SOLO });
+      reconcileHiddenPresentationFocus();
+      updateVisibility();
+      syncReaderObjectActions();
+      if (!isMobile() || state.responsive.surface === "field") {
+        fitVisibleField({ duration: 420 });
+      }
+      return;
+    }
+    dispatch({ type: CommandType.ENTER_SOLO, id });
+    announceStatus(`Solo: ${byId[id]?.label || id}.`);
+    updateVisibility();
+    const result = await commitFocus(id, {
+      source: "reader-solo",
+      routePolicy: "none",
+      tracePolicy: "none",
+      openReader: false,
+      surface: isMobile() ? "field" : state.responsive.surface,
+      lightDuration: 420
+    });
+    if (!result) return;
+    if (isMobile()) {
+      await nextFrame();
+      measureGraph();
+      updatePhaseClass();
+      if (activationEvent?.detail === 0) {
+        updateRovingTabindex(id);
+        focusNodeElement(id);
+      }
+    }
+    fitVisibleField({ duration: 760 });
+    drawRouteMemory({ duration: 420 });
+    syncReaderObjectActions();
+  }
+  function bindReaderObjectActions(vm) {
+    if (vm.kind !== "object") return;
+    const row = document.querySelector("#reader .reader-object-actions");
+    if (!row) return;
+    const id = row.dataset.readerObjectId;
+    const solo = row.querySelector('[data-reader-action="solo"]');
+    const visibility = row.querySelector('[data-reader-action="visibility"]');
+    if (solo) solo.onclick = (event) => runReaderSoloAction(id, event);
+    if (visibility)
+      visibility.onclick = () => {
+        if (visibility.disabled || state.solo.active) return;
+        const nextVisible = state.view.objectVisibility[id] === false;
+        setReaderObjectVisibility(id, nextVisible);
+      };
+    syncReaderObjectActions();
   }
   function renderNodePanel(id, gen = ++readerGeneration) {
     closeSheet();
@@ -5154,6 +5349,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     dispatch({ type: CommandType.SET_TYPE_VISIBILITY, objectType: type, visible: value });
     renderFieldViewControls();
     updateVisibility();
+    syncReaderObjectActions();
     if (uiRuntime.focusedId) fitFocusFrame(buildFocusSet(uiRuntime.focusedId));
     else fitVisibleField();
     if (uiRuntime.focusedId && !nodeVisible(uiRuntime.focusedId)) returnToField({ reason: "active-hidden-by-filter" });
@@ -5171,7 +5367,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     onToggleVisible: (id, nextVisible) => {
       dispatch({ type: CommandType.SET_OBJECT_VISIBILITY, id, visible: nextVisible });
       renderFieldViewControls();
+      const neutralized = reconcileHiddenPresentationFocus();
       updateVisibility();
+      syncReaderObjectActions();
+      if (neutralized && (!isMobile() || state.responsive.surface === "field")) {
+        fitVisibleField({ duration: 420 });
+      }
     },
     onSolo: async (id) => {
       dispatch({ type: CommandType.ENTER_SOLO, id });
@@ -5224,6 +5425,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     announceStatus("Field restored.");
     renderFieldViewControls();
     updateVisibility();
+    syncReaderObjectActions();
     closeAllDrawers();
     returnToField({ source: "restore-field" });
   }
@@ -5234,6 +5436,7 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     announceStatus("Field restored.");
     renderObjectLists();
     updateVisibility();
+    syncReaderObjectActions();
     closeAllDrawers();
     returnToField({ source: "show-all" });
   };
