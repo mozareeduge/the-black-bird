@@ -2,6 +2,55 @@
 
 This file is the canonical project log. Keep it in the repository root. Update it after every Claude Code round.
 
+## 2026-08-15 — FIX-01: Reader hover-preview mispositioned right after the Reader panel first opens — RELEASE_CANDIDATE_READY_FOR_OWNER_PROMOTION
+
+Branch: `claude/black-bird-system-recomposition-9hpoia`
+PR: #9 (draft)
+Base: `4c4b556` (the micro-refinement round below)
+
+Owner-reported (screenshot): hovering an object shows its preview
+("micro-preview" tooltip) rendered far from the object itself, at what
+looked like an arbitrary point overlapping the Reader panel.
+
+**Root cause.** `graphPointToScreen()` (`src/app.js`) converted a node's
+world position to a screen point by hand: apply the camera's pan/zoom
+transform, then add `mapWrap`'s `getBoundingClientRect().left/top` --
+silently assuming the SVG's `viewBox` always stays 1:1 with `mapWrap`'s
+live CSS pixel width. That assumption breaks for as long as `.main`'s real
+620ms `grid-template-columns` transition (`src/index.template.html`) is
+still narrowing the Field to make room for the Reader panel: `measureGraph()`
+(which keeps `viewBox` synced to `mapWrap.clientWidth`) only ever runs once,
+one frame after the panel's `reader-open` class is toggled on -- well before
+that transition settles. On desktop this transition runs exactly once per
+session (`returnToField()` never removes the `reader-open` class again), so
+it's specifically a fresh session's first Reader-opening hover that's
+affected -- exactly the reported scenario. Hovering a Reader cross-reference
+row in that window (`.index-item`, `touchObject(...'inline-hover')`) landed
+the preview hundreds of pixels from the object it names.
+
+**Fix.** `graphPointToScreen()` now reads the camera group's own live
+`getScreenCTM()` (`root.node().getScreenCTM()`) and maps the world point
+through it directly, via `createSVGPoint()`/`matrixTransform()` -- the same
+robust, DOM-native mechanism this codebase already uses elsewhere for exact
+rendered-geometry checks (FR-01's containment matrix). This is correct
+regardless of whether `viewBox` has caught up to `mapWrap`'s current width,
+so it isn't just a patch for this one race -- it removes the class of bug
+entirely. No other code path was touched: camera-fit timing, animation
+duration, and every other consumer of `uiRuntime.transform` are unchanged.
+
+**Regression:** `tests/e2e/tooltip-keyboard-status.spec.js` -- real
+onboarding (not `skipIntro`, since `prefers-reduced-motion` disables the
+transition outright and `skipIntro`'s fast bootstrap auto-focus doesn't
+reproduce a large enough offset to distinguish clean from broken), a
+prompt click on a RelO right after Enter, then a prompt hover on its first
+Reader cross-reference row. Proven to fail against the pre-fix source
+(`dx≈265px`), clean after (`dx≈18px`, matching the tooltip's own intentional
++18px placement offset).
+
+**Verification:** `npm run test:unit` (147/147), full `tests/e2e` +
+`tests/generated` suite (188/188, incl. the new regression), and
+`npm run verify:closure:local`.
+
 ## 2026-08-14 — Micro-refinement pre-promotion round (PRE-01/TYPO-01/MICRO-01–03/ADJ-01) — RELEASE_CANDIDATE_READY_FOR_OWNER_PROMOTION
 
 Branch: `claude/black-bird-system-recomposition-9hpoia`

@@ -235,6 +235,66 @@ test.describe('Tooltip, roving focus, and coalesced status (T22)', () => {
     expect(checked, 'at least one node produced a measurable preview to check').toBeGreaterThan(0);
   });
 
+  // Regression: the Reader's very first opening on desktop (real onboarding,
+  // a real user's first click -- src/app.js's returnToField() never
+  // re-collapses `.main`'s panel afterward, so it never happens again in
+  // the same session) drives `.main`'s real 620ms grid-template-columns
+  // transition (src/index.template.html). src/app.js's measureGraph()
+  // (which keeps the SVG's viewBox 1:1 with mapWrap's live CSS width) only
+  // ever runs once, one frame after the class toggle -- well before that
+  // transition settles -- so viewBox sits stale against mapWrap's still-
+  // narrowing width for hundreds of ms. Hovering a Reader cross-reference
+  // row in that window (`.index-item`, `touchObject(...'inline-hover')`)
+  // used to preview that object at graphPointToScreen()'s hand-composed
+  // (camera transform + mapWrap rect) screen point, which silently assumed
+  // that 1:1 relationship always held -- landing the preview hundreds of px
+  // from the object it names. graphPointToScreen() now reads the camera
+  // group's live getScreenCTM() instead, which is correct regardless of
+  // viewBox staleness.
+  test('hovering a Reader cross-reference previews it near its real Field position right after the Reader-open panel first opens', async ({
+    page,
+  }) => {
+    // Deliberately not waited-out via a "settled" condition: this test's
+    // whole point is the ~600ms window while the Reader's real, one-time
+    // opening transition is still animating, so it commits the object with
+    // a real click as soon as it's reachable, then hovers promptly rather
+    // than waiting for the camera/layout to fully settle first.
+    await page.goto('/?bbtest=1');
+    const enterBtn = page.getByRole('button', { name: /enter/i }).first();
+    await expect(enterBtn).toBeVisible();
+    await enterBtn.click();
+    await page.waitForTimeout(700);
+
+    const relId = 'RelO.R4CB4A8D8';
+    const reloHit = page
+      .locator(`g.node[data-bb-id="${relId}"]`)
+      .locator('.node-hit,.bb-hit,.node-core,.bb-body')
+      .first();
+    const reloBox = await reloHit.boundingBox();
+    await page.mouse.click(reloBox.x + reloBox.width / 2, reloBox.y + reloBox.height / 2);
+    await page.waitForSelector('#reader .index-item');
+    await page.waitForTimeout(900);
+
+    const row = page.locator('#reader .index-item').first();
+    const targetId = await row.getAttribute('data-id');
+    await row.hover();
+
+    const preview = await page.locator('#microPreview').boundingBox();
+    const target = await page.locator(`g.node[data-bb-id="${targetId}"]`).boundingBox();
+    expect(preview, 'preview rendered').not.toBeNull();
+    expect(target, `${targetId} measurable in the Field`).not.toBeNull();
+
+    const targetCenter = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+    const dx = Math.abs(preview.x - targetCenter.x);
+    const dy = Math.abs(preview.y - targetCenter.y);
+    // place() offsets the preview by 18px from the hovered point in the
+    // common case; well under 150px rules out the multi-hundred-px
+    // viewBox-scale drift this guards against without over-fitting to the
+    // exact offset constant.
+    expect(dx, `preview x too far from ${targetId}'s real position`).toBeLessThan(150);
+    expect(dy, `preview y too far from ${targetId}'s real position`).toBeLessThan(150);
+  });
+
   test('committing before the hover-preview delay elapses leaves no stale preview behind (P-SCN-020)', async ({
     page,
   }) => {

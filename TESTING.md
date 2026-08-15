@@ -715,3 +715,40 @@ local, not committed, per the intake's own harness constraint).
   and `publish` (the `/next/` preview) all completed with `conclusion:
   success`. `candidate-review-packet.json` records this exact-SHA CI result
   under `verification.exact_sha_ci`.
+
+## FIX-01: Reader hover-preview mispositioned right after the Reader panel first opens (owner-reported, post-MR-09)
+
+Owner-reported via screenshot: hovering an object showed its preview
+rendered far from the object, overlapping the Reader panel instead of
+sitting near the hovered object.
+
+**Root cause.** `graphPointToScreen()` (`src/app.js`) hand-composed a
+node's screen position (camera transform + `mapWrap.getBoundingClientRect()`),
+silently assuming the SVG `viewBox` always stays 1:1 with `mapWrap`'s live
+CSS width. That assumption breaks while `.main`'s real 620ms
+`grid-template-columns` transition (`src/index.template.html`) is still
+narrowing the Field for the newly-opened Reader panel: `measureGraph()`
+(which keeps `viewBox` synced) only runs once, one frame after the panel's
+`reader-open` class toggles on -- well before the transition settles. On
+desktop this transition runs exactly once per session (`returnToField()`
+never removes `reader-open` again), so it's specifically a fresh session's
+first Reader-opening hover that lands the preview hundreds of pixels off.
+
+**Fix.** `graphPointToScreen()` now reads the camera group's live
+`getScreenCTM()` and maps the world point through it directly
+(`createSVGPoint()`/`matrixTransform()`) -- the same DOM-native mechanism
+already used elsewhere in this codebase for exact rendered-geometry checks
+(FR-01's containment matrix). Correct regardless of `viewBox` staleness;
+no camera-fit, animation-timing, or other `uiRuntime.transform` consumer
+was touched.
+
+**Regression:** `tests/e2e/tooltip-keyboard-status.spec.js` -- real
+onboarding (reduced motion disables the transition outright, and
+`skipIntro`'s fast bootstrap doesn't reproduce a large enough offset to
+tell clean from broken), click a RelO promptly after Enter, hover its
+first Reader cross-reference row promptly after. Proven to fail pre-fix
+(`dx≈265px`), clean after (`dx≈18px`, matching the tooltip's own
+intentional +18px placement offset).
+
+**Verification:** `npm run test:unit` (147/147), full `tests/e2e` +
+`tests/generated` suite (188/188), `npm run verify:closure:local`.

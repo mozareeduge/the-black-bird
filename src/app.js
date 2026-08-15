@@ -2489,10 +2489,23 @@ async function selectInField(id, opts = {}) {
 }
 
 // ── Micro-preview ──────────────────────────────────────────────────────────
+// World point -> real screen coordinates via the camera group's own screen
+// CTM, not a hand-composed (transform + mapWrap rect) approximation. The
+// hand-composed version silently assumed the SVG's viewBox is always 1:1
+// with mapWrap's CSS pixel size; it drifts out of sync while `.main`'s
+// grid-template-columns transition (620ms, opening/closing the Reader) is
+// still settling, since viewBox is re-measured only once, one frame after
+// the class toggle (src/app.js's setReaderOpen()/measureGraph()) -- not
+// after the animation completes. getScreenCTM() reads the real, current
+// transform stack (camera pan/zoom + SVG-to-CSS scale + letterboxing)
+// directly from the DOM, so it's correct regardless of that timing gap.
 function graphPointToScreen(x, y) {
-  const p = uiRuntime.transform.apply([x, y]);
-  const rect = mapWrap.getBoundingClientRect();
-  return { x: rect.left + p[0], y: rect.top + p[1] };
+  const svgEl = svg.node();
+  const pt = svgEl.createSVGPoint();
+  pt.x = x;
+  pt.y = y;
+  const screenPt = pt.matrixTransform(root.node().getScreenCTM());
+  return { x: screenPt.x, y: screenPt.y };
 }
 function previewLineForObject(id) {
   const n = byId[id];
