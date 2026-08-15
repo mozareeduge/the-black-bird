@@ -4912,9 +4912,12 @@ const DATA = {"nodes": [{"id": "RNO.GHURAB_BURIAL__424A0ECF", "type": "RNO", "la
     updateRouteLiveRegion();
   }
   function graphPointToScreen(x, y) {
-    const p = uiRuntime.transform.apply([x, y]);
-    const rect = mapWrap.getBoundingClientRect();
-    return { x: rect.left + p[0], y: rect.top + p[1] };
+    const svgEl = svg.node();
+    const pt = svgEl.createSVGPoint();
+    pt.x = x;
+    pt.y = y;
+    const screenPt = pt.matrixTransform(root.node().getScreenCTM());
+    return { x: screenPt.x, y: screenPt.y };
   }
   function previewLineForObject(id) {
     const n = byId[id];
