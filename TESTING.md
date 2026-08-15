@@ -648,4 +648,70 @@ local, not committed, per the intake's own harness constraint).
   matching capture functions in `scripts/generate-evidence.mjs`.
   `scripts/ci-evidence-gate.mjs` needed no functional change (ids/count are
   already read dynamically from the plan). Validated via a dry
-  `evidence:generate` run: 49/49 entries, zero oracle failures.
+  `evidence:generate` run: 49/49 entries, zero oracle failures. The new
+  split is 34 static + 8 motion + 7 machine-report = 49 (motion count 7 →
+  8 for `motion/reader-context-actions-mobile`).
+- **Scoped-diff audit (MR-06).** `git diff --stat` over the full round
+  (`6afb258..HEAD` at the time: 19 files, 2044 insertions(+), 63
+  deletions(-)) maps every changed file to a named item above (PRE-01/
+  MICRO-01–03/ADJ-01/MR-04/MR-05/docs/generated build artifact) with
+  nothing unexplained or reverted-away. Explicit invariant re-checks, all
+  confirmed unchanged: canonical `DATA` block SHA-256 (recomputed
+  independently, exact match to the locked hash and the intake's declared
+  value), `src/data/world-layout.json` (`width=1000, height=760`), the
+  Reader-open grid column width, every file under `src/domain/ src/state/
+  src/layout/ src/controllers/ src/application/ src/accessibility/
+  src/styles/` (all empty diffs), `package.json`/`package-lock.json` (no
+  new runtime dependency), and the RelO clearing render/update/style
+  functions in `src/app.js` (absent from the diff's hunk headers). No new
+  specimen card/badge/toolbar/legend/tutorial was introduced.
+- **First full local closure pass surfaced two pre-existing test defects,
+  fixed (MR-07).** Both were latent since earlier in this round, not
+  introduced by MR-06:
+  - `tests/e2e/reader-context-actions.spec.js` (RCA-09) used
+    `.click({force:true})` against a disabled button to probe the type
+    gate. `scripts/source-policy-scan.mjs`'s forced-Playwright-action rule
+    correctly rejects this pattern repo-wide: a real disabled `<button>`
+    is not clickable by an actual user, so Playwright's own actionability
+    check already refuses a real click there, making the forced click both
+    prohibited and redundant with the disabled-state assertion already in
+    the test. Removed the forced click; the disabled-state assertion alone
+    is sufficient proof.
+  - `tests/unit/final-closure-contract.test.js`'s "exactly N primary
+    entries" test still hardcoded the pre-MR-05 45/31/7/7 split. Updated
+    to the current, intentional 49/34/8/7 split MR-05 actually produced.
+- **Two-pass local closure freeze (MR-08).** After the MR-07 fixes, `npm
+  run verify:closure:local` was run twice in immediate succession against
+  the identical, unchanged tree (`git status --short` clean before, between,
+  and after both passes): SUCCESS, 16/17 passed, 1 skipped
+  (`cross_browser_smoke` — Firefox/WebKit binaries unavailable to this
+  sandboxed session, the same disclosed limitation as every prior round;
+  `playwright.config.cjs` only pins Chromium's own binary path locally).
+  Functional freeze SHA: `ab237033fdcf309fc2bc07e1a807c4e6ead9a056` (HEAD
+  after the MR-07 fix commit — both passes ran against this exact tree).
+  Evidence was then regenerated fresh from this frozen SHA:
+  `evidence:generate` → "evidence generated for ab237033…: 49 required
+  entries, 3 supplementary artifacts", no oracle-failure exception (all 49
+  semantic-state oracles passed). The local `ci-evidence-gate.mjs` run
+  reported `valid:false`, but strictly on the disclosed "unprobeable video"
+  finding for all 8 motion entries (`ffprobe`/`ffmpeg` absent locally,
+  confirmed via `which ffprobe ffmpeg`) — every hash/candidate-SHA/
+  duplicate-bytes/completeness/semantic-state check passed.
+  `.github/workflows/final-candidate-gate.yml` installs `ffmpeg` explicitly
+  before running this same gate in CI, closing the gap there.
+- **Push + exact-SHA CI verification (MR-09).** Pushed `ab237033…` to PR
+  #9's branch and confirmed all 8 GitHub Actions checks green at that exact
+  commit via `mcp__github__pull_request_read.get_check_runs` and
+  `mcp__github__get_job_logs` — real job-log content inspected, not just
+  the green badge: `Exact-Head Verify` (`exact-head-verify`) log confirms
+  `=== verify:closure:ci: SUCCESS (17/17 passed, 0 skipped) ===` (the 17th
+  check being `cross_browser_smoke`, which only CI can run); `Final
+  Candidate Gate` (`final-candidate-evidence`) log confirms `evidence
+  generated for ab237033fdcf309fc2bc07e1a807c4e6ead9a056: 49 required
+  entries, 3 supplementary artifacts` and `ci-evidence-gate.mjs`:
+  `{"valid":true,"errors":[],"candidate_sha":"ab237033fdcf309fc2bc07e1a807c4e6ead9a056","entries_checked":49}`
+  (`ffmpeg` installed in that workflow, closing the local video-probe gap);
+  `build-and-test`, `cross-browser (chromium/firefox/webkit)`, `validate`,
+  and `publish` (the `/next/` preview) all completed with `conclusion:
+  success`. `candidate-review-packet.json` records this exact-SHA CI result
+  under `verification.exact_sha_ci`.

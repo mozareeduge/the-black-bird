@@ -81,14 +81,40 @@ Commands run:
   (dry-run validation; real gate-required evidence regenerated fresh from
   the frozen functional-freeze SHA per the intake, not from this
   validation run)
+- `git diff --stat` scoped-diff audit (MR-06) over the full round
+- `npm run verify:closure:local` x2 consecutive, clean tree between
+  passes (MR-08)
+- Pushed to PR #9 and verified all 8 GitHub Actions checks green at the
+  exact freeze SHA via the GitHub MCP tools, real job-log content
+  inspected (MR-09)
 
 Results:
-- 49/49 required evidence entries declared and dry-run validated with
-  zero oracle failures.
-- Full `tests/e2e` + `tests/generated` suite green (174 tests) after each
-  round; 147/147 unit tests green.
+- Scoped-diff audit (MR-06): every changed file in `6afb258..ab23703`
+  maps to a named item above; explicit re-checks of the canonical `DATA`
+  hash, world-layout dimensions, Reader width, and all protected
+  domain/state/layout/controllers/application/accessibility/styles
+  directories confirm zero drift into protected territory.
+- First full local closure pass surfaced two pre-existing test defects
+  (a prohibited forced click in `reader-context-actions.spec.js`, a
+  stale hardcoded evidence-count assertion), both fixed (MR-07).
+- Two consecutive clean `npm run verify:closure:local` passes at the
+  resulting freeze SHA `ab237033fdcf309fc2bc07e1a807c4e6ead9a056`, zero
+  interim tracked changes (16/17 checks; the 1 skip is Firefox/WebKit
+  binaries unavailable in this sandboxed session -- independently proven
+  green in CI).
+- 49/49 required evidence entries (34 static + 8 motion + 7 machine-
+  report) regenerated fresh from the frozen SHA, zero oracle failures.
+- Exact-SHA CI green at `ab237033...` across all 8 checks, real job-log
+  content inspected (not just the check badge): `Verify`, `Black Bird
+  Candidate Validation`, `Exact-Head Verify`
+  (`verify:closure:ci: SUCCESS (17/17 passed, 0 skipped)`), `Cross-Browser
+  Matrix` (chromium/firefox/webkit), `Final Candidate Gate` (evidence gate
+  `{"valid":true,"errors":[],"entries_checked":49}`), `Publish /next/
+  Preview`.
 - PR #9 remains draft, open, unmerged. Root production and `/next/`
-  publish state are untouched by this round's implementation work.
+  publish state are untouched by this round's implementation work (the
+  `Publish /next/ Preview` check publishes only the `/next/` preview path,
+  same as every prior round).
 
 Known risks / next step:
 - `ffprobe`/`ffmpeg` is not installed in this local sandbox (same
