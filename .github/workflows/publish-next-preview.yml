@@ -1,0 +1,84 @@
+name: Publish /next/ Preview
+
+# Publishes this candidate branch's built site into main's next/ subfolder --
+# and ONLY that subfolder. Every other path on main (root index.html, CNAME,
+# assets/, vendor/, research/, robots.txt, etc.) is never touched by this
+# job. GitHub Pages already serves main's root directly (classic
+# branch-deploy config, no GitHub Actions Pages deployment configured), so
+# writing into main:/next/ is sufficient to make the candidate live at
+# https://poem.theblackbirdfield.com/next/ with no Pages settings change and
+# no separate deploy pipeline for production.
+#
+# This is a PR #9 review aid (BLACK_BIRD_HEAD_EXECUTOR_SYSTEM_v6 package):
+# production (root) stays exactly what it is today; /next/ is the
+# in-progress candidate for owner review before anything is promoted.
+
+on:
+  push:
+    branches: [claude/black-bird-system-recomposition-9hpoia]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-next-preview
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate branch
+        uses: actions/checkout@v4
+        with:
+          path: candidate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: candidate/package-lock.json
+
+      - name: Build candidate
+        working-directory: candidate
+        run: |
+          npm ci
+          npm run build
+          npm run build:verify
+
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site
+
+      - name: Replace next/ only
+        run: |
+          set -euo pipefail
+          rm -rf site/next
+          mkdir -p site/next
+          cp candidate/index.html site/next/index.html
+          cp -r candidate/assets site/next/assets
+          cp -r candidate/vendor site/next/vendor
+          cp -r candidate/research site/next/research
+          # One CNAME per Pages site, at the true root only -- never let a
+          # candidate checkout's copy leak into the /next/ subfolder.
+          rm -f site/next/CNAME
+
+      - name: Commit and push if changed
+        working-directory: site
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add next
+          if git diff --cached --quiet; then
+            echo "no change to next/, skipping commit"
+            exit 0
+          fi
+          git commit -m "Publish /next/ preview from ${CANDIDATE_SHA:0:12} (PR #9 candidate branch)"
+          git push origin HEAD:main || (git pull --rebase origin main && git push origin HEAD:main)

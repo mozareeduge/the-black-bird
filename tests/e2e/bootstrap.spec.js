@@ -1,0 +1,304 @@
+'use strict';
+const { test, expect } = require('@playwright/test');
+const fs = require('fs');
+const path = require('path');
+const { gotoField, clickNode, commitViaIndex } = require('../bb-helpers.cjs');
+
+const UNAVAILABLE_TITLE = 'The field could not be opened';
+const UNAVAILABLE_BODY =
+  'The artwork did not finish loading. Reload the page. If the problem continues, use the source and citation links below.';
+
+const indexHtml = fs.readFileSync(path.resolve(__dirname, '../../index.html'), 'utf8');
+
+function corruptedDataHtml() {
+  const m = indexHtml.match(/^const DATA = (\{[\s\S]*?\});$/m);
+  if (!m) throw new Error('could not locate DATA block in built index.html');
+  const data = JSON.parse(m[1]);
+  data.nodes = data.nodes.slice(0, 2); // invalid: must be exactly 50
+  return indexHtml.replace(m[0], `const DATA = ${JSON.stringify(data)};`);
+}
+
+async function assertUnavailableSurface(page) {
+  const surface = page.locator('.bb-unavailable');
+  await expect(surface).toBeVisible();
+  await expect(page.locator('.bb-unavailable-title')).toHaveText(UNAVAILABLE_TITLE);
+  await expect(page.locator('.bb-unavailable-body')).toHaveText(UNAVAILABLE_BODY);
+  await expect(page.locator('.bb-unavailable-links a[href="research/"]')).toHaveText('Research');
+  await expect(
+    page.locator('.bb-unavailable-links a[href="https://github.com/mozareeduge/the-black-bird/blob/main/CITATION.cff"]')
+  ).toHaveText('Citation');
+  await expect(
+    page.locator('.bb-unavailable-links a[href="https://github.com/mozareeduge/the-black-bird"]')
+  ).toHaveText('Source repository');
+  expect(await page.locator('g.node').count()).toBe(0);
+}
+
+test.describe('Bootstrap validation and failure surfaces (T04)', () => {
+  test('ready state appears only after validation succeeds; no unavailable surface on the normal path', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto('/?skipIntro=1&bbtest=1');
+    await page.waitForFunction(() => window.__bbTest?.getState() && document.querySelectorAll('g.node').length === 50, {
+      timeout: 12000,
+    });
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    expect(await page.getAttribute('#app', 'class')).not.toMatch(/phase-unavailable/);
+    expect(errors).toEqual([]);
+  });
+
+  test('runtime failure (D3 unavailable) shows the truthful unavailable surface, never a blank or partial graph', async ({
+    page,
+  }) => {
+    await page.route('**/vendor/d3.v7.9.0.min.js', (route) =>
+      route.fulfill({ status: 200, contentType: 'text/javascript', body: '/* d3 failed to load */' })
+    );
+    await page.goto('/?skipIntro=1&bbtest=1');
+    await assertUnavailableSurface(page);
+    expect(await page.getAttribute('#app', 'class')).toBe('phase-unavailable');
+  });
+
+  test('invalid canonical data shows the truthful unavailable surface, never a blank or partial graph', async ({ page }) => {
+    const html = corruptedDataHtml();
+    await page.route('**/*', (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === '/' || pathname === '/index.html') {
+        return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html });
+      }
+      return route.continue();
+    });
+    await page.goto('/?skipIntro=1&bbtest=1');
+    await assertUnavailableSurface(page);
+    expect(await page.getAttribute('#app', 'class')).toBe('phase-unavailable');
+  });
+
+  test('no-script surface identifies the work and provides stable links when JavaScript is unavailable', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto('/');
+    const surface = page.locator('.bb-unavailable');
+    await expect(surface).toBeVisible();
+    await expect(page.locator('.bb-unavailable-card h1')).toHaveText('THE BLACK BIRD');
+    await expect(page.locator('.bb-unavailable-links a[href="research/"]')).toHaveText('Research');
+    await expect(
+      page.locator('.bb-unavailable-links a[href="https://github.com/mozareeduge/the-black-bird/blob/main/CITATION.cff"]')
+    ).toHaveText('Citation');
+    await expect(
+      page.locator('.bb-unavailable-links a[href="https://github.com/mozareeduge/the-black-bird"]')
+    ).toHaveText('Source repository');
+    expect(await page.locator('g.node').count()).toBe(0);
+    await context.close();
+  });
+
+  test('a direct object click interrupts tacit onboarding cleanly and commits that object (P-SCN-004)', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/?bbtest=1');
+    const enterBtn = page.getByRole('button', { name: /enter/i }).first();
+    await expect(enterBtn).toBeVisible();
+    await enterBtn.click();
+    // Reduced motion: each onboarding stage holds ~400ms; land inside stage 1.
+    await page.waitForFunction(() => window.__bbTest?.getUiRuntime()?.onboardingActive === true, { timeout: 4000 });
+    await page.waitForTimeout(150);
+
+    await page.evaluate(() => {
+      for (const g of document.querySelectorAll('g.node')) if (g.__data__?.id) g.setAttribute('data-bb-test-id', g.__data__.id);
+    });
+    const target = page.locator('g.node[data-bb-test-id="FO.CORPSE"]');
+    await expect(target).toBeVisible();
+    const hit = target.locator('.node-hit,.bb-hit,.node-core,.bb-body').first();
+    const box = await hit.boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+    await page.waitForFunction(() => window.__bbTest?.getUiRuntime()?.focusedId === 'FO.CORPSE', { timeout: 6000 });
+    const state = await page.evaluate(() => ({
+      onboardingActive: window.__bbTest.getUiRuntime().onboardingActive,
+      phase: window.__bbTest.getState().lifecycle.phase,
+      route: window.__bbTest.getState().history.route.map((e) => e.id),
+    }));
+    expect(state.onboardingActive, 'the interrupting click must end onboarding, not queue behind it').toBe(false);
+    expect(state.phase).toBe('focused');
+    expect(state.route).toEqual(['FO.CORPSE']);
+  });
+
+  test('a repeated Enter input is structurally impossible mid-transition, so entry only ever runs once (P-SCN-005)', async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/?bbtest=1');
+    const enterBtn = page.getByRole('button', { name: /enter/i }).first();
+    await expect(enterBtn).toBeVisible();
+    await enterBtn.click();
+    // CSS (.threshold.leaving { pointer-events: none }) disables the whole
+    // threshold, including this button, the instant the first click's
+    // "leaving" class is applied — verify that's actually in effect rather
+    // than assuming it from the stylesheet alone.
+    await expect(page.locator('#threshold')).toHaveClass(/leaving/);
+    await expect(page.locator('#threshold')).toHaveCSS('pointer-events', 'none');
+    // A genuine second click is therefore not deliverable to the button; a
+    // forced one lands on an unclickable target and must not be able to
+    // trigger a second entry.
+    await enterBtn.click({ force: true, timeout: 2000 }).catch(() => {});
+
+    await page.waitForFunction(() => window.__bbTest?.getState()?.lifecycle.phase === 'focused' && !!window.__bbTest.getUiRuntime().focusedId, {
+      timeout: 15000,
+    });
+    expect(errors).toEqual([]);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    expect(await page.locator('g.node').count()).toBe(50);
+    const state = await page.evaluate(() => ({ route: window.__bbTest.getState().history.route.map((e) => e.id) }));
+    // A repeated Enter must not double-run onboarding into two Route commits
+    // for the same landing object.
+    expect(new Set(state.route).size).toBe(state.route.length);
+  });
+
+  // P-SCN-003: registry evidence for this used to be "every e2e test's own
+  // setup uses gotoField({reduced:true})" -- true, but that's incidental
+  // (setup-only) coverage, not a scenario-specific proof that onboarding
+  // itself actually *completes* correctly, start to finish, under reduced
+  // motion. This lets a real Enter-triggered onboarding run to its own
+  // natural completion (not interrupted, unlike P-SCN-004/005 above) and
+  // checks the landing state and motion contract directly.
+  test('onboarding completes cleanly end to end under reduced motion, landing on exactly one Black Bird Route event with no blur/pulse (P-SCN-003)', async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/?bbtest=1');
+    const enterBtn = page.getByRole('button', { name: /enter/i }).first();
+    await expect(enterBtn).toBeVisible();
+    await enterBtn.click();
+    await page.waitForFunction(() => window.__bbTest?.getUiRuntime()?.onboardingActive === true, { timeout: 4000 });
+    // Let onboarding run to its own natural end, not an interrupting click.
+    await page.waitForFunction(() => window.__bbTest?.getUiRuntime()?.onboardingActive === false, { timeout: 8000 });
+    await page.waitForFunction(
+      () => window.__bbTest?.getState()?.lifecycle.phase === 'focused' && !!window.__bbTest.getUiRuntime().focusedId,
+      { timeout: 8000 },
+    );
+    expect(errors).toEqual([]);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    expect(await page.locator('g.node').count()).toBe(50);
+    const state = await page.evaluate(() => ({
+      focusedId: window.__bbTest.getUiRuntime().focusedId,
+      route: window.__bbTest.getState().history.route.map((e) => e.id),
+      design: window.__bbDesign?.snapshot(),
+    }));
+    expect(state.focusedId).toBe('FO.BLACK_BIRD_FIELD');
+    expect(state.route).toEqual(['FO.BLACK_BIRD_FIELD']);
+    expect(state.design.maxAppliedBlurPx).toBe(0);
+    expect(state.design.travelPulseActive).toBeFalsy();
+  });
+
+  test('the threshold card reveals within a bounded time even when custom fonts never finish loading (P-SCN-006)', async ({
+    page,
+  }) => {
+    await page.route(/assets\/fonts\/.+\.woff2?$/, (route) => route.abort());
+    await page.goto('/');
+    await expect(page.locator('.threshold-card')).toBeAttached();
+    // .threshold-card starts at opacity:0 in CSS by design (T04's own font-
+    // ready gate) — the 1600ms document.fonts.ready-or-timeout fallback
+    // (src/app.js "Threshold font-ready gate") must still reveal it even
+    // though every font request above is being aborted.
+    await expect
+      .poll(async () => page.locator('.threshold-card').evaluate((el) => getComputedStyle(el).opacity), {
+        timeout: 3000,
+      })
+      .toBe('1');
+  });
+
+  test('reloading after a long reading session comes back to a clean, correct initial state (P-SCN-088)', async ({
+    page,
+  }) => {
+    await gotoField(page, { reduced: true });
+    // A long session: many commits (building up Route/wear/afterglow),
+    // View/Index/Solo interaction, and About — all local state that has
+    // nowhere to persist (no localStorage/sessionStorage anywhere in
+    // src/app.js), so a reload must produce an identical fresh start.
+    // Committed via the Index drawer, not Field screen clicks: this
+    // sequence deliberately jumps between distant clusters (quran -> norse),
+    // and a correctly fitted focus camera (H-VIS-001) legitimately leaves a
+    // later, unrelated target off-screen after zooming in on the current one.
+    for (const id of ['FO.CORPSE', 'FO.CAIN', 'FO.ABEL', 'FO.BURIAL', 'FO.ODIN']) await commitViaIndex(page, id);
+    await page.locator('.rail-btn[data-action="about"]').click();
+    await page.keyboard.press('Escape');
+
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.reload();
+    // Same landing condition gotoField() waits for — the URL still carries
+    // ?skipIntro=1, so the setTimeout-scheduled enter({skipOnboarding:true})
+    // needs to actually fire and resolve before phase/activeId are settled.
+    await page.waitForFunction(
+      () =>
+        window.__bbTest?.getState() &&
+        document.querySelectorAll('g.node').length === 50 &&
+        window.__bbTest.getState().lifecycle.phase === 'focused' &&
+        !!window.__bbTest.getUiRuntime().focusedId,
+      { timeout: 12000 },
+    );
+
+    expect(errors).toEqual([]);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    const state = await page.evaluate(() => {
+      const s = window.__bbTest.getState();
+      return {
+        route: s.history.route.length,
+        wear: Object.keys(s.trace.wear || {}).length,
+        afterglow: s.trace.afterglows.length,
+        aboutOpen: s.overlay.kind === 'about',
+        soloSet: s.solo.active ? [...s.solo.members] : null,
+        phase: s.lifecycle.phase,
+        activeId: window.__bbTest.getUiRuntime().focusedId,
+      };
+    });
+    // Reload navigates the same ?skipIntro=1&bbtest=1 URL, so the fresh
+    // landing state is the skip-intro one (phase:'focused' on the field
+    // object), not the pre-entry threshold. Route ends up 0 or 1 depending
+    // on exactly when the fresh landing commit's own append is observed
+    // relative to the phase/activeId flip (both true harmless outcomes of
+    // one fresh landing commit) — what actually matters here, and what this
+    // scenario is really about, is that it is nowhere near the 6 events the
+    // five-commit reading session above had accumulated pre-reload: no
+    // carryover, not a specific landing-commit timing.
+    expect(state.route).toBeLessThanOrEqual(1);
+    expect(state.wear).toBe(0);
+    expect(state.afterglow).toBe(0);
+    expect(state.aboutOpen).toBe(false);
+    expect(state.soloSet).toBeNull();
+    expect(state.phase).toBe('focused');
+    expect(state.activeId).toBe('FO.BLACK_BIRD_FIELD');
+  });
+
+  test('resizing mid-transition during a camera/focus commit leaves a consistent, error-free session (P-SCN-089)', async ({
+    page,
+  }) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    // Full motion (not reduced) so the camera/focus commit has a real,
+    // resizable in-flight window rather than resolving instantly.
+    await gotoField(page);
+    await clickNode(page, 'FO.CORPSE');
+
+    const focusPromise = page.evaluate(() => window.__bbTest.focusObject('FO.CAIN', { source: 'test-transition' }));
+    await page.waitForTimeout(60); // land mid-transition, well inside the ~760ms default camera duration
+    await page.setViewportSize({ width: 900, height: 700 });
+    await focusPromise;
+    await page.waitForTimeout(200);
+
+    expect(errors).toEqual([]);
+    expect(await page.locator('.bb-unavailable').count()).toBe(0);
+    const state = await page.evaluate(() => {
+      const ui = window.__bbTest.getUiRuntime();
+      return { activeId: ui.focusedId, transform: ui.transform };
+    });
+    expect(state.activeId).toBe('FO.CAIN');
+    expect(Number.isFinite(state.transform.x) && Number.isFinite(state.transform.y) && Number.isFinite(state.transform.k)).toBe(
+      true,
+    );
+  });
+});

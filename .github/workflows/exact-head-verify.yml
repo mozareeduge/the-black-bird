@@ -1,0 +1,49 @@
+name: Exact-Head Verify
+# F10/R7: GitHub's default `pull_request` trigger checks out a synthetic
+# merge commit (the PR head merged onto the current base), not the literal
+# branch-head SHA -- useful for "will this merge cleanly onto main" (see
+# verify.yml / black-bird-validation.yml, which intentionally keep that
+# default behavior), but distinct from, and never a substitute for, proving
+# the exact candidate SHA itself is green (final-closure-contract.json's
+# evidence_truth invariant: "Synthetic PR-merge verification is recorded
+# separately and never substituted for the candidate SHA."). This workflow
+# explicitly checks out github.event.pull_request.head.sha (falling back to
+# github.sha on push, where no synthetic merge exists) and runs the same
+# full local suite against that literal commit.
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions: {contents: read}
+jobs:
+  exact-head-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      # verify:closure:ci (scripts/verify-closure.mjs --ci) is the actual
+      # complete closure command -- every local check plus the cross-browser
+      # smoke suite, all required (not skippable) in --ci mode. This step
+      # previously ran only build/build:verify/test:unit/test:e2e/test:a11y,
+      # a subset that didn't match this workflow's own header comment
+      # ("runs the same full local suite against that literal commit") --
+      # source-policy, contract-coherence, production-ownership,
+      # semantic-duplication, traceability, 115-scenario coverage, the
+      # generated pairwise/critical-triple suites, and the legacy Playwright
+      # suites were never actually exercised here.
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run verify:closure:ci
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: black-bird-exact-head-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: error
+          retention-days: 14

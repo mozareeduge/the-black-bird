@@ -1,0 +1,85 @@
+/* Final desktop composition across wide/standard/compact profiles (T23),
+   extracted and corrected from the layout rules in src/index.template.html.
+   Exact per-profile rail width and Reader [min,max] bands from
+   .bb-authority/contracts/visual-tokens.json#responsive -- not a single
+   clamp() formula spanning every breakpoint (the template's current
+   clamp(360px,34vw,500px) overshoots the wide profile's 480px max at
+   1440px+: 34vw of 1440 is 489.6px). Not yet linked from index.html; see
+   src/layout/camera.js for the matching safe-rect/occupancy geometry. */
+
+.app-frame {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+
+.main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 0px;
+  min-width: 0;
+  height: 100%;
+  transition: grid-template-columns 620ms cubic-bezier(0.22, 0.8, 0.36, 1);
+}
+
+/* Compact desktop: 901-1179px. rail 56px; Reader 340-400px. */
+@media (min-width: 901px) and (max-width: 1179px) {
+  .app-frame {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .main.reader-open {
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 34vw, 400px);
+  }
+}
+
+/* Desktop/laptop: 1180-1439px. rail 60px; Reader 390-450px. */
+@media (min-width: 1180px) and (max-width: 1439px) {
+  .app-frame {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+  .main.reader-open {
+    grid-template-columns: minmax(0, 1fr) clamp(390px, 34vw, 450px);
+  }
+}
+
+/* Wide desktop: 1440px+. rail 60px; Reader 420-480px, and the Field never
+   drops below 60% of the post-rail width (fieldMinShare). */
+@media (min-width: 1440px) {
+  .app-frame {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+  .main.reader-open {
+    grid-template-columns: minmax(0, 1fr) clamp(420px, 34vw, 480px);
+  }
+  .main.reader-open .map-wrap {
+    min-width: 60%;
+  }
+}
+
+.panel {
+  min-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(24px);
+  transition: opacity 520ms ease, transform 620ms cubic-bezier(0.22, 0.8, 0.36, 1);
+}
+.main.reader-open .panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.map-title {
+  position: absolute;
+  left: 24px;
+  top: 22px;
+  z-index: 5;
+  pointer-events: none; /* never occludes graph labels/focus underneath */
+}
+.map-tools {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  z-index: 8;
+}

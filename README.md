@@ -22,9 +22,19 @@ See [RIGHTS.md](RIGHTS.md) before reusing, modifying, redistributing, adapting, 
 
 ## Structure
 
-- `index.html` — the complete static artwork.
+- `index.html` — the complete static artwork, deterministically built from
+  `src/` (see below) by `npm run build`; this is the file GitHub Pages
+  actually serves.
+- `src/` — the modular source the build assembles from: `index.template.html`
+  (markup/CSS shell), `data/canonical-data.js` (canonical `DATA`), `app.js`
+  (the live application), plus an in-progress layered architecture
+  (`state/`, `domain/`, `layout/`, `application/`, `presentation/`,
+  `controllers/`, `accessibility/`, `styles/`) built and tested alongside
+  it — see `TESTING.md` for what's wired in versus still extraction-only.
+- `dist/` — a generated, gitignored copy of the same build output.
 - `vendor/d3.v7.9.0.min.js` — vendored D3 dependency.
 - `data-model.md` — data model and object grammar summary.
+- `TESTING.md` — how the candidate is validated.
 - `BLACK_BIRD_DECISIONS_CHANGELOG.md` — development and decision record.
 - `CITATION.cff` — citation metadata.
 - `RIGHTS.md` — rights and reuse statement.

@@ -5,16 +5,33 @@
   "description": "Validation harness for The Black Bird public source archive",
   "scripts": {
     "baseline:capture": "node tests/capture-canonical-baseline.cjs",
+    "build": "node scripts/build.mjs",
+    "build:verify": "node scripts/verify-build.mjs",
+    "test:unit": "node scripts/test-unit.mjs",
     "test:legacy": "node tests/no-active-legacy.cjs",
     "test:traceability": "node tests/traceability-contract.cjs",
     "test:data": "node tests/black-bird-data-integrity.cjs",
-    "test:baseline": "playwright test tests/black-bird-baseline.spec.js",
-    "test:design": "playwright test tests/black-bird-design.spec.js",
-    "test:visual": "playwright test tests/black-bird-evidence.spec.js",
-    "test:full": "npm run test:legacy && npm run test:traceability && npm run test:data && npm run test:baseline && npm run test:design && npm run test:visual && npm run test:docs",
-    "test:docs": "node tests/documentation-contract.cjs"
+    "test:baseline": "playwright test tests/black-bird-baseline.spec.js --project=chromium",
+    "test:route-solo": "playwright test tests/black-bird-route-solo.spec.js --project=chromium",
+    "test:world-camera": "playwright test tests/black-bird-world-camera.spec.js --project=chromium",
+    "test:accessibility": "playwright test tests/black-bird-accessibility.spec.js --project=chromium",
+    "test:mobile": "playwright test tests/black-bird-mobile.spec.js --project=chromium",
+    "test:design": "playwright test tests/black-bird-design.spec.js --project=chromium",
+    "test:visual": "playwright test tests/black-bird-evidence.spec.js --project=chromium",
+    "test:full": "npm run test:legacy && npm run test:traceability && npm run test:data && npm run test:baseline && npm run test:route-solo && npm run test:world-camera && npm run test:accessibility && npm run test:mobile && npm run test:design && npm run test:visual && npm run test:docs",
+    "test:docs": "node tests/documentation-contract.cjs",
+    "test:coverage": "node scripts/generate-coverage.mjs",
+    "test:e2e": "playwright test tests/e2e tests/generated --project=chromium",
+    "test:a11y": "playwright test tests/a11y --project=chromium",
+    "test:cross-browser": "playwright test tests/cross-browser --project=chromium --project=firefox --project=webkit",
+    "evidence:generate": "node scripts/generate-evidence.mjs",
+    "verify:closure": "node scripts/verify-closure.mjs --local",
+    "verify:closure:local": "node scripts/verify-closure.mjs --local",
+    "verify:closure:ci": "node scripts/verify-closure.mjs --ci"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.0"
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "1.62.0",
+    "esbuild": "^0.28.1"
   }
 }

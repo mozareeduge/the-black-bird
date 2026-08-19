@@ -1,0 +1,29 @@
+name: Verify
+# F10/R7: on pull_request, actions/checkout@v4's default ref is GitHub's
+# synthetic PR-merge commit (the head merged onto the current base), not the
+# literal branch-head SHA -- a legitimate, distinct check ("does this branch
+# still merge and pass on top of main's latest"), intentionally kept as
+# default-ref here. It is never a substitute for exact-head-verify.yml's
+# explicit github.event.pull_request.head.sha checkout, which is what
+# final-closure-contract.json's evidence_truth invariant actually requires
+# for candidate-bound proof.
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions: {contents: read}
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run build:verify
+      - run: npm run test:unit
+      - run: npm run test:e2e
+      - run: npm run test:a11y

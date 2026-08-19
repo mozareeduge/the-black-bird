@@ -1,0 +1,123 @@
+{
+  "schema_version": "3.0.0",
+  "focus_targets": {
+    "maxNeighbors": 14,
+    "innerRadius": 76,
+    "innerCapacity": 8,
+    "outerRadius": 118,
+    "ranking": [
+      "canonical participants when active is RelO",
+      "direct canonical base-edge neighbors",
+      "RelOs containing active object",
+      "text/name/reference structural neighbors",
+      "projected neighbors"
+    ],
+    "stableSort": [
+      "tier",
+      "authored polar angle around active home",
+      "canonical index"
+    ],
+    "slotAssignment": "For each ring preserve sorted circular order. Test 16 rotations at 22.5 degree increments; choose the rotation minimizing sum of squared wrapped angular displacement; tie uses smallest rotation index. Core stays at authored home. All unselected nodes stay at authored homes.",
+    "transition": "interpolate current rendered position to pure target under active txId; abort returns no semantic mutation."
+  },
+  "camera": {
+    "scaleMin": 0.2,
+    "scaleMax": 2.4,
+    "safeRect": "pane bounds minus title/navigation/Reader/modal-safe margins and safe-area insets",
+    "neutral": "fit all visible authored homes to target occupancy 0.80",
+    "firstFocus": "fit focus envelope to 0.70",
+    "laterFocus": "preserve transform when envelope is inside; otherwise minimal pan; refit only when more than 20% of focus envelope lies outside safe rect",
+    "durationMs": 520,
+    "reducedMotionMs": 0,
+    "activeLabelAndFocusContourMustBeInside": true
+  },
+  "labels": {
+    "candidates": [
+      "below",
+      "above",
+      "right",
+      "left",
+      "lower-right",
+      "lower-left",
+      "upper-right",
+      "upper-left"
+    ],
+    "tieBreakOrder": [
+      "below",
+      "above",
+      "right",
+      "left",
+      "lower-right",
+      "lower-left",
+      "upper-right",
+      "upper-left"
+    ],
+    "costWeights": {
+      "requiredLabelOverlapArea": 1000,
+      "anyLabelOverlapArea": 600,
+      "nodeBodyOverlapArea": 500,
+      "focusContourOverlapArea": 350,
+      "outsideSafeArea": 250,
+      "edgeCrossingCount": 80,
+      "distanceFromPreferred": 20,
+      "sideChangeFromPrevious": 12,
+      "radialAngularDeviation": 5
+    },
+    "requiredPriority": [
+      "active",
+      "canonical RelO participants under RelO focus",
+      "direct focus members needed to read relation",
+      "FO.BLACK_BIRD_FIELD",
+      "RNO and MNO structural anchors inside current focus"
+    ],
+    "rule": "score every candidate; choose minimum valid cost. Required labels must have zero label/body/chrome overlap. Suppress lower priority when no valid placement. Active label may not be suppressed; camera must reconcile and solve again."
+  },
+  "pointer": {
+    "ownerSelection": [
+      "visible candidate within modality radius",
+      "visible body containment first",
+      "active focus membership second",
+      "smallest screen distance third",
+      "canonical index fourth"
+    ],
+    "commitOnPointerUpOnly": true,
+    "requirements": [
+      "same owner at pointerdown and pointerup",
+      "movement <= modality slop",
+      "no pointercancel",
+      "no second pointer",
+      "no pinch or pan ownership",
+      "suppress compatible synthetic click after pointer commit"
+    ],
+    "keyboard": "commits the roving-focus node directly; pointer solver is not used."
+  },
+  "route": {
+    "append": "only COMMIT_OBJECT and onboarding direct commit when id changes",
+    "eventFields": [
+      "sequence",
+      "id",
+      "type",
+      "label",
+      "fromId",
+      "source",
+      "committedAt"
+    ],
+    "semanticLimit": null,
+    "presentation": "virtualized complete history; compact strip may show first plus recent tail without deleting events"
+  },
+  "trace": {
+    "wear": "stable BFS over currently visible canonical base links only; deterministic canonical-index neighbor ordering; cap 7 passes per edge",
+    "afterglow": "deadline timestamps; desktop max 8 / 10s; mobile max 3 / 4s; resume removes expired without replay",
+    "clear": "cancels all owned timers and leaves Route unchanged"
+  },
+  "modals": {
+    "singleActive": true,
+    "replacement": "close current without intermediate background focus, open replacement, update invoker",
+    "closeFallback": [
+      "recorded invoker if connected and visible",
+      "logical navigation control for modal kind",
+      "Field rail control"
+    ],
+    "escape": "tooltip first, then modal, then transient preview; never clears semantic history"
+  }
+}

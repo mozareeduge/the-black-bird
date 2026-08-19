@@ -1,0 +1,310 @@
+{
+  "schema_version": "4.0.0",
+  "purpose": "Verify transitive production ownership without flattening the architecture into 40 direct imports from src/app.js.",
+  "entrypoint": "src/app.js",
+  "build_metafile": "dist/build-meta.json",
+  "rules": {
+    "all_required_modules_reachable_from_entrypoint": true,
+    "all_required_modules_contribute_nonzero_bytes_to_production_bundle": true,
+    "direct_import_of_leaf_modules_by_entrypoint_is_not_required": true,
+    "allowed_importer_relationship_must_hold": true,
+    "duplicate_legacy_semantic_authority_must_be_zero": true
+  },
+  "modules": {
+    "src/state/command-types.js": {
+      "role": "typed-command-contract",
+      "allowed_importers": [
+        "src/app.js",
+        "src/state/guards.js",
+        "src/state/reducer.js",
+        "src/controllers/lifecycle-controller.js",
+        "src/controllers/environment-controller.js",
+        "src/controllers/navigation-controller.js",
+        "src/controllers/pointer-controller.js",
+        "src/controllers/keyboard-controller.js",
+        "src/controllers/modal-controller.js",
+        "src/controllers/external-link-controller.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/state/guards.js": {
+      "role": "command-validation-owner",
+      "allowed_importers": [
+        "src/application/dispatcher.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/state/initial-state.js": {
+      "role": "canonical-state-factory",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/state/invariants.js": {
+      "role": "state-invariant-owner",
+      "allowed_importers": [
+        "src/application/dispatcher.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/state/reducer.js": {
+      "role": "semantic-transition-owner",
+      "allowed_importers": [
+        "src/application/dispatcher.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/application/dispatcher.js": {
+      "role": "single-command-entrypoint",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/application/effect-planner.js": {
+      "role": "cancellable-effect-planner",
+      "allowed_importers": [
+        "src/application/dispatcher.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/application/timer-registry.js": {
+      "role": "owned-timer-authority",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/application/transaction-controller.js": {
+      "role": "transaction-owner",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/domain/reader-view-models.js": {
+      "role": "reader-subject-model-owner",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/domain/route.js": {
+      "role": "route-domain-owner",
+      "allowed_importers": [
+        "src/state/reducer.js",
+        "src/presentation/route-renderer.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/domain/selectors.js": {
+      "role": "derived-state-selector-owner",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/domain/solo.js": {
+      "role": "solo-domain-owner",
+      "allowed_importers": [
+        "src/state/reducer.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/domain/trace.js": {
+      "role": "trace-domain-owner",
+      "allowed_importers": [
+        "src/state/reducer.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/domain/visibility.js": {
+      "role": "visibility-domain-owner",
+      "allowed_importers": [
+        "src/state/reducer.js",
+        "src/domain/selectors.js",
+        "src/presentation/view-renderer.js",
+        "src/presentation/index-renderer.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/layout/authored-world.js": {
+      "role": "authored-world-owner",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/layout/camera.js": {
+      "role": "camera-solver-owner",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/layout/focus-targets.js": {
+      "role": "focus-geometry-owner",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/layout/label-solver.js": {
+      "role": "label-placement-owner",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/layout/pointer-ownership.js": {
+      "role": "pointer-hit-owner",
+      "allowed_importers": [
+        "src/controllers/pointer-controller.js",
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/controllers/environment-controller.js": {
+      "role": "environment-controller",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/controllers/external-link-controller.js": {
+      "role": "external-link-controller",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/controllers/keyboard-controller.js": {
+      "role": "keyboard-controller",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/controllers/lifecycle-controller.js": {
+      "role": "lifecycle-controller",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/controllers/modal-controller.js": {
+      "role": "modal-controller",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/controllers/navigation-controller.js": {
+      "role": "navigation-controller",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/controllers/pointer-controller.js": {
+      "role": "pointer-controller",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/bootstrap-renderer.js": {
+      "role": "bootstrap-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/field-renderer.js": {
+      "role": "field-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/index-renderer.js": {
+      "role": "index-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/reader-renderer.js": {
+      "role": "reader-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/route-renderer.js": {
+      "role": "route-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/solo-renderer.js": {
+      "role": "solo-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/status-renderer.js": {
+      "role": "status-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/tooltip-renderer.js": {
+      "role": "tooltip-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/trace-renderer.js": {
+      "role": "trace-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/view-renderer.js": {
+      "role": "view-renderer",
+      "allowed_importers": [
+        "src/app.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/presentation/modal-renderer.js": {
+      "role": "modal-dom-mechanics",
+      "allowed_importers": [
+        "src/controllers/modal-controller.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/accessibility/announcement-manager.js": {
+      "role": "coalesced-announcement-owner",
+      "allowed_importers": [
+        "src/presentation/status-renderer.js"
+      ],
+      "required_in_bundle": true
+    },
+    "src/accessibility/focus-manager.js": {
+      "role": "roving-focus-owner",
+      "allowed_importers": [
+        "src/app.js",
+        "src/controllers/keyboard-controller.js"
+      ],
+      "required_in_bundle": true
+    }
+  }
+}

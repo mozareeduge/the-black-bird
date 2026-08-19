@@ -1,0 +1,76 @@
+/* Mobile Field/Read chambers, safe areas, and bottom navigation (T24),
+   extracted from the mobile rules in src/index.template.html. Not yet
+   linked from index.html; see src/controllers/navigation-controller.js for
+   the matching surface-switching logic. */
+
+@media (max-width: 900px) {
+  .app-frame {
+    display: block;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+  .main {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px));
+  }
+  .main:not(.reader-open) .map-wrap {
+    height: calc(100dvh - 56px - env(safe-area-inset-bottom, 0px));
+    flex: 1 1 auto;
+    border-right: 0;
+    border-bottom: 0;
+  }
+  .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: #0b0a09;
+    border-top: 1px solid var(--line2, #3a352e);
+    z-index: 45;
+  }
+  .about-panel {
+    left: 0;
+    right: 0;
+    bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    max-width: 100vw;
+    overflow: hidden;
+    border-left: none;
+    border-top: 1px solid var(--line2, #3a352e);
+    z-index: 42;
+    transform: translateX(100%);
+  }
+
+  /* T-REQ-041: the virtual keyboard changes the visual viewport, not the
+     layout viewport -- Index search and modal controls stay reachable by
+     tracking the visual viewport height directly rather than 100vh/100dvh
+     for anything that must remain above the keyboard. */
+  .drawer[data-keyboard-aware] {
+    max-height: calc(var(--bb-visual-viewport-height, 100dvh) - 24px);
+  }
+
+  /* D-DEC-09/D-DEC-19: no redundant sheet -- when the Read chamber itself is
+     showing an object, the legacy bottom sheet must never also be open for
+     the same content at the same time (see navigation-controller.js). */
+  .sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    transform: translateY(110%);
+    transition: transform 0.24s ease;
+    max-height: 58vh;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+  }
+  .sheet.open {
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}

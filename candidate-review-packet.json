@@ -1,0 +1,132 @@
+{
+  "schema_version": "1.0.1",
+  "terminal_state": "RELEASE_CANDIDATE_READY_FOR_OWNER_PROMOTION",
+  "candidate_sha": "bee0ebb4663281af89c8fc5b1f7f94f36f01986b",
+  "verified_functional_sha": "ab237033fdcf309fc2bc07e1a807c4e6ead9a056",
+  "sha_note": "verified_functional_sha is the commit the verify_closure_local/exact_sha_ci/evidence sections below were actually run against -- the MR-07 fix commit that is this round's two-pass freeze target (build, tests, evidence generation, and CI). candidate_sha is this file's own commit -- necessarily one commit later, since a file cannot record its own hash before being committed; the placeholder above is replaced with the real hash immediately after that commit, and re-verified in CI (see verification.final_commit_ci). This supersedes the prior freeze recorded at 6afb258/aef73fb (the FQ-01-FR-02 round): a further, bounded owner-directed round (PRE-01 ported app-shell containment fix; MICRO-01 RelO Reader relational caption; MICRO-02/ADJ-01 Reader-local SOLO/HIDE-SHOW actions + shared presentation reconciliation; MICRO-03/TYPO-01 active NameO two-line linguistic inscription) on top of it -- not a redesign or further audit. TESTING.md's 'MR-00B/MICRO-01-03/ADJ-01/TYPO-01' section and BLACK_BIRD_DECISIONS_CHANGELOG.md have the full record.",
+  "branch": "claude/black-bird-system-recomposition-9hpoia",
+  "pull_request": 9,
+  "base_branch": "main",
+  "base_sha": "5972b2b2e4a70b2b2f457b6345f84894af95ef2a",
+  "generated_at": "2026-08-15T06:40:00.000Z",
+  "verification": {
+    "verify_closure_local": {
+      "passes_run": 2,
+      "consecutive_clean": true,
+      "no_interim_changes": true,
+      "overall_conclusion": "success",
+      "checks_passed": 16,
+      "checks_total": 17,
+      "checks_skipped": [
+        "cross_browser_smoke"
+      ],
+      "skip_reason": "browser binaries (Firefox/WebKit) unavailable in this sandboxed session; required and independently verified green in the Cross-Browser Matrix CI workflow instead",
+      "checks": [
+        { "id": "production_build", "label": "Deterministic production build + esbuild metafile", "conclusion": "success" },
+        { "id": "build_verify", "label": "Deterministic build verification", "conclusion": "success" },
+        { "id": "canonical_integrity", "label": "Canonical data integrity (50 nodes, six types, fixed hash)", "conclusion": "success" },
+        { "id": "source_policy", "label": "Source-policy scan (section 5 prohibited patterns)", "conclusion": "success" },
+        { "id": "no_legacy_control_plane", "label": "No tracked repository-resident Claude control-plane residue", "conclusion": "success" },
+        { "id": "contract_coherence", "label": "Canonical types + Route contract fields agree across contracts (R0)", "conclusion": "success" },
+        { "id": "production_ownership", "label": "Transitive production ownership: reachable, non-zero bundle bytes, allowed importers (R0/R2)", "conclusion": "success" },
+        { "id": "semantic_duplication", "label": "No parallel legacy semantic store or duplicate authority in src/app.js (R1)", "conclusion": "success" },
+        { "id": "unit_tests", "label": "Unit tests (node:test cases, 147, incl. new MICRO-03 splitNameOInscription/isArabicScript coverage)", "conclusion": "success" },
+        { "id": "traceability", "label": "Requirement traceability contract", "conclusion": "success" },
+        { "id": "scenario_coverage", "label": "115/115 declared scenario coverage, zero gap/excluded (F06)", "conclusion": "success" },
+        { "id": "generated_combinations", "label": "Generated pairwise/critical-triple coverage (Chromium)", "conclusion": "success" },
+        { "id": "chromium_e2e", "label": "Chromium E2E (tests/e2e), incl. PRE-01/MICRO-01/MICRO-02/MICRO-03/MR-04 new regressions", "conclusion": "success" },
+        { "id": "chromium_legacy_suite", "label": "Chromium legacy Playwright suites (baseline/route-solo/world-camera/mobile/design/visual)", "conclusion": "success" },
+        { "id": "accessibility", "label": "Accessibility: axe-core zero serious/critical, zero exclusions", "conclusion": "success" },
+        { "id": "documentation_truth", "label": "Documentation truth contract", "conclusion": "success" },
+        { "id": "cross_browser_smoke", "label": "Firefox/WebKit smoke (tests/cross-browser)", "conclusion": "skipped" }
+      ]
+    },
+    "exact_sha_ci": {
+      "checked_at": "2026-08-15T06:34:53Z",
+      "source": "GitHub Actions check runs + job logs for the exact verified_functional_sha (ab23703) via mcp__github__pull_request_read.get_check_runs and mcp__github__get_job_logs -- real log content inspected, not just the green check badge.",
+      "all_green": true,
+      "exact_head_verify_log_confirms": "=== verify:closure:ci: SUCCESS (17/17 passed, 0 skipped) === -- the complete closure command, all 17 checks including the 3-browser cross_browser_smoke this sandboxed session cannot run locally.",
+      "final_candidate_gate_log_confirms": "evidence generated for ab237033fdcf309fc2bc07e1a807c4e6ead9a056: 49 required entries, 3 supplementary artifacts; ci-evidence-gate.mjs: {\"valid\":true,\"errors\":[],\"candidate_sha\":\"ab237033fdcf309fc2bc07e1a807c4e6ead9a056\",\"entries_checked\":49} -- zero errors.",
+      "workflows": [
+        { "name": "Verify", "job": "build-and-test", "conclusion": "success" },
+        { "name": "Black Bird Candidate Validation", "job": "validate", "conclusion": "success" },
+        { "name": "Exact-Head Verify", "job": "exact-head-verify", "conclusion": "success" },
+        { "name": "Cross-Browser Matrix", "job": "cross-browser (chromium)", "conclusion": "success" },
+        { "name": "Cross-Browser Matrix", "job": "cross-browser (firefox)", "conclusion": "success" },
+        { "name": "Cross-Browser Matrix", "job": "cross-browser (webkit)", "conclusion": "success" },
+        { "name": "Final Candidate Gate", "job": "final-candidate-evidence", "conclusion": "success" },
+        { "name": "Publish /next/ Preview", "job": "publish", "conclusion": "success" }
+      ]
+    },
+    "final_commit_ci": {
+      "checked_at": "2026-08-15T12:24:27Z",
+      "source": "GitHub Actions check runs + job logs for candidate_sha (bee0ebb) itself via mcp__github__pull_request_read.get_check_runs and mcp__github__get_job_logs -- real log content inspected, not just the green check badge.",
+      "all_green": true,
+      "exact_head_verify_log_confirms": "=== verify:closure:ci: SUCCESS (17/17 passed, 0 skipped) ===",
+      "final_candidate_gate_log_confirms": "evidence generated for bee0ebb4663281af89c8fc5b1f7f94f36f01986b: 49 required entries, 3 supplementary artifacts; ci-evidence-gate.mjs: {\"valid\":true,\"errors\":[],\"candidate_sha\":\"bee0ebb4663281af89c8fc5b1f7f94f36f01986b\",\"entries_checked\":49}",
+      "workflows": [
+        { "name": "Verify", "job": "build-and-test", "conclusion": "success" },
+        { "name": "Black Bird Candidate Validation", "job": "validate", "conclusion": "success" },
+        { "name": "Exact-Head Verify", "job": "exact-head-verify", "conclusion": "success" },
+        { "name": "Cross-Browser Matrix", "job": "cross-browser (chromium)", "conclusion": "success" },
+        { "name": "Cross-Browser Matrix", "job": "cross-browser (firefox)", "conclusion": "success" },
+        { "name": "Cross-Browser Matrix", "job": "cross-browser (webkit)", "conclusion": "success" },
+        { "name": "Final Candidate Gate", "job": "final-candidate-evidence", "conclusion": "success" },
+        { "name": "Publish /next/ Preview", "job": "publish", "conclusion": "success" }
+      ],
+      "note": "This is the last commit this packet accounts for. It is documentation-only (no production/test code changed vs verified_functional_sha), and its own CI independently regenerated and gated evidence at its own SHA -- confirming the freeze holds under a real, unmodified re-run."
+    },
+    "evidence": {
+      "manifest_schema_version": "2.0.0",
+      "manifest_candidate_sha": "ab237033fdcf309fc2bc07e1a807c4e6ead9a056",
+      "manifest_candidate_sha_matches_frozen_sha": true,
+      "required_entries": 49,
+      "required_entries_expected": 49,
+      "supplementary_entries": 3,
+      "duplicate_screenshot_bytes_found": 0,
+      "semantic_state_oracle": "Every one of the 49 entries carries a state_proof (static) or start_state_proof/end_state_proof (motion), checked against a real expect/expect_end predicate in tests/contracts/evidence-plan.json. Zero oracle failures locally or in CI at this SHA. 4 new entries this round: ARTISTIC-CORE/relo-reader-caption, ARTISTIC-CORE/nameo-active-inscription, STATE-AND-RECOVERY/reader-actions-hide-show, motion/reader-context-actions-mobile (MR-05).",
+      "local_gate_result": "valid:false locally, but only on the 8 disclosed unprobeable-video (missing ffprobe/ffmpeg) findings -- every hash/candidate-SHA/dimension/duplicate-bytes/completeness/semantic-state check passed",
+      "ci_gate_result": "valid:true, zero errors (ffmpeg installed explicitly in .github/workflows/final-candidate-gate.yml, closing the local gap) -- confirmed via real job log content, not just the check conclusion",
+      "human_review_dimensions_pending": [
+        "field-compositional-authority",
+        "field-reader-unity",
+        "morphology-legibility",
+        "black-bird-aperture",
+        "attention-depth",
+        "relo-clearing-quality",
+        "temporal-material-distinction",
+        "mobile-completeness",
+        "motion-craft",
+        "apparatus-recession"
+      ],
+      "human_review_all_pending": true
+    }
+  },
+  "micro_refinement_round_summary": {
+    "note": "FQ-01-FR-02 was this file's prior round (full record in TESTING.md and BLACK_BIRD_DECISIONS_CHANGELOG.md). This round is a further, bounded owner-directed pre-promotion round on top of it -- three already-decided product/design refinements plus one narrowly necessary adjacent correction, not a redesign or a further audit pass -- summarized here for the reviewer.",
+    "pre01_app_shell_containment": "fixed -- ported the independently-verified app-shell containment fix (grid-template-rows:minmax(0,1fr) on .app-frame, src/index.template.html) into this candidate's own source rather than merging the separate old-root fix PR. New regression: tests/e2e/app-shell-containment.spec.js at the three protected desktop viewports plus a keyboard-traversal check.",
+    "micro01_relo_reader_caption": "added -- one restrained, derived .relation-caption between the RelO Reader's opaque meta identity and its existing participant Objects list (canonical participant-array order, first three participants, +N remainder, no interpretive prose). tests/e2e/reader-relation-caption.spec.js (RLC-01-07), 5/7 proven to fail pre-change.",
+    "micro02_adj01_reader_actions": "added -- a two-button contextual SOLO/HIDE-SHOW action row on every canonical object Reader, reusing the existing canonical ENTER_SOLO/EXIT_SOLO/SET_OBJECT_VISIBILITY commands (no second Solo state). ADJ-01 fixes a previously disclosed gap: reconcileHiddenPresentationFocus() now keeps presentation-only uiRuntime.focusedId in sync when the field-attended anchor becomes invisible, reused by both the new Reader HIDE action and the pre-existing Index eye-toggle. tests/e2e/reader-context-actions.spec.js (RCA-01-13), 10/11 proven to fail pre-change.",
+    "micro03_typo01_nameo_inscription": "added -- a directly committed, Field-attention-holding NameO unfolds its single-line label into a compact two-line inscription around its unchanged 3px body, derived purely from canonical node.label via new pure exports splitNameOInscription()/isArabicScript() (src/presentation/field-renderer.js). TYPO-01 (prerequisite): the Reader title's Arabic run is now correctly lang=\"ar\"/dir=\"rtl\"-wrapped instead of one plain text node. No label-solver change was needed -- confirmed by a real rendered-geometry containment matrix across all four NameOs and six protected viewports. tests/e2e/nameo-active-inscription.spec.js (NAI-01-10), 9/10 proven to fail pre-change.",
+    "mr04_cross_feature_composition": "verified, no product changes required -- tests/e2e/cross-feature-composition.spec.js exercises RelO+caption+Solo, RelO+hide+clearing, and mobile NameO+Reader-action combinations not already covered end-to-end by the per-feature specs.",
+    "mr06_scoped_diff_audit": "verified zero drift into protected territory -- every changed file in 6afb258..ab23703 (19 files, 2044 insertions(+), 63 deletions(-)) maps to a named item above; canonical DATA hash, world-layout dimensions, Reader width, and all domain/state/layout/controllers/application/accessibility/styles directories confirmed unchanged.",
+    "mr07_closure_pass_fixes": "the first full local closure pass surfaced two pre-existing test defects, both fixed: a source-policy-prohibited forced click on a disabled button in tests/e2e/reader-context-actions.spec.js (RCA-09; the disabled-state assertion already in the test is sufficient proof), and a stale hardcoded 45/31/7/7 evidence-count assertion in tests/unit/final-closure-contract.test.js updated to the current 49/34/8/7 split.",
+    "visual_verification": "ARTISTIC-CORE/relo-reader-caption and ARTISTIC-CORE/nameo-active-inscription regenerated from this frozen SHA as new required evidence entries (MR-05); the live /next/ preview itself could not be visually inspected from this sandboxed session (its own outbound network policy denies the external domain, same restriction class as the already-disclosed browser-binary/ffmpeg gaps) -- substituted with the local deterministic build, which CI's own build_verify check already proves byte-identical to what publish-next-preview.yml copies to /next/."
+  },
+  "known_disclosed_limitations": [
+    "Current protected densest-RelO tests require zero rendered label overlaps at 1440x960, 1280x800, and 1024x640 (tests/black-bird-world-camera.spec.js). This is an exact guarantee for those tested states, not a universal mathematical claim for every arbitrary transient user-created pan/zoom configuration.",
+    "This sandboxed session cannot fetch Firefox/WebKit browser binaries or install ffmpeg locally (package-mirror access is restricted). Both gaps are independently closed and verified green in CI (see verification.exact_sha_ci and verification.evidence.ci_gate_result above), not left as unverified code.",
+    "This sandboxed session's outbound network policy also denies reaching the live https://poem.theblackbirdfield.com/next/ preview directly, so this round's visual re-checks used the local, deterministically-built candidate instead (see micro_refinement_round_summary.visual_verification) rather than the live URL.",
+    "This session's own direct GitHub API / gh CLI access is blocked at the session level; all CI status above was verified through the GitHub MCP tools this session does have working access through."
+  ],
+  "self_attestation": {
+    "subjective_accepted": false,
+    "release_authorized": false,
+    "note": "Artistic acceptance is the user's decision; no dimension above is agent-attested, and this packet does not claim any."
+  },
+  "pr_state": {
+    "draft": true,
+    "merged": false,
+    "mergeable_state": "clean"
+  }
+}
