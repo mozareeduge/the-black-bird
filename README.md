@@ -1,6 +1,18 @@
 # The Black Bird
 
-A hypergraph research poem by Mohammad Zare.
+**by Mohammad Zare (Mozare) · version 1.0.0 · [Experience the work](https://poem.theblackbirdfield.com/)**
+
+A black bird appears beside a body, and other scenes gather around that contact. Each source, name, object, and relation receives an address without being closed into one explanation. *The Black Bird* is a hypergraph research poem: the reader moves between a field of linked materials and the text held in its Reader.
+
+A companion research annex, [Speculative Indices for a Research-Field](research/speculative-indices/) (v1.0), reports indices computed from the poem's object grammar; its deposit metadata is in [ZENODO_METADATA.md](release/zenodo/the-black-bird-speculative-indices-v1_0/ZENODO_METADATA.md), and no DOI has been assigned yet.
+
+**Status:** published work, version 1.0.0; this repository is its public source archive.
+
+**How to cite:** Zare, M. (2026). *The Black Bird: A Hypergraph Research Poem* (Version 1.0.0) [Electronic literature]. https://poem.theblackbirdfield.com/
+
+**Rights:** All rights reserved; the source is visible for reading, study and citation only. See [RIGHTS.md](RIGHTS.md).
+
+---
 
 ## Live work
 
@@ -23,7 +35,12 @@ See [RIGHTS.md](RIGHTS.md) before reusing, modifying, redistributing, adapting, 
 ## Structure
 
 - `index.html` — the complete static artwork.
+- `assets/`, `favicon/` — fonts, images and favicon files used by the artwork.
 - `vendor/d3.v7.9.0.min.js` — vendored D3 dependency.
+- `research/speculative-indices/` — the Research Annex page, PDF and data.
+- `release/zenodo/` — the Zenodo-ready package for the annex.
+- `next/`, `next2/` — review previews of candidate builds; not the public build.
+- `tests/`, `TESTING.md`, `package.json` — test harness and its description.
 - `data-model.md` — data model and object grammar summary.
 - `BLACK_BIRD_DECISIONS_CHANGELOG.md` — development and decision record.
 - `CITATION.cff` — citation metadata.
