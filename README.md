@@ -4,7 +4,7 @@
 
 A black bird appears beside a body, and other scenes gather around that contact. Each source, name, object, and relation receives an address without being closed into one explanation. *The Black Bird* is a hypergraph research poem: the reader moves between a field of linked materials and the text held in its Reader.
 
-A companion research annex, [Speculative Indices for a Research-Field](research/speculative-indices/) (v1.0), reports indices computed from the poem's object grammar; its deposit metadata is in [ZENODO_METADATA.md](release/zenodo/the-black-bird-speculative-indices-v1_0/ZENODO_METADATA.md), and no DOI has been assigned yet.
+**Research annex:** [Speculative Indices for a Research-Field](https://poem.theblackbirdfield.com/research/speculative-indices/) (v1.0; source in [`research/speculative-indices/`](research/speculative-indices/)) computes three index families from the poem's object grammar — Object Incidence, Relational Thickness and Mediational Incidence — over the four Research Note Objects and eighteen Field Objects of the v1.0 release. Its main finding: Black Bird and Corpse recur equally (Object Incidence 4 each), but Corpse is held more densely by Relation Objects (Mediational Incidence 9 against 8), so the entry-object and the densest relation-body are not the same. Deposit metadata is in [ZENODO_METADATA.md](release/zenodo/the-black-bird-speculative-indices-v1_0/ZENODO_METADATA.md); no DOI has been assigned yet.
 
 **Status:** published work, version 1.0.0; this repository is its public source archive.
 
