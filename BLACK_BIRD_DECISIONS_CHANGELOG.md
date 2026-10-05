@@ -2,6 +2,50 @@
 
 This file is the canonical project log. Keep it in the repository root. Update it after every Claude Code round.
 
+## 2026-08-13 — Fix keyboard Tab causing the app shell to scroll off-frame
+
+Branch: `claude/version-differences-comparison-v17kn3`
+Base file: `index.html`
+
+### Decision
+
+Fix a real, currently-live layout defect found while producing a visual comparison between this site and the `/next/` candidate: on every protected desktop viewport, pressing Tab enough times to reach an off-screen graph node scrolled the entire app shell (rail nav, graph, and Reader panel together) and left it visibly displaced.
+
+### Root cause
+
+`.app-frame{display:grid;grid-template-columns:56px minmax(0,1fr);}` never declared `grid-template-rows`. With no row track, the grid's single implicit row auto-sized to its content's max-content height instead of the intended 100% of `#app`. The default Reader content (the aperture `FO.BLACK_BIRD_FIELD`'s long "Appears in" list) is taller than the viewport, and that content height silently became every sibling's rendered height: `getBoundingClientRect()` showed `.rail`/`.main`/`.map-wrap`/`#graphSvg`/`.panel` all around 1420–1556px tall on an 800–960px-tall viewport, in the default state, before any interaction. This was invisible under `#app{overflow:hidden}` until keyboard focus landed on a node positioned outside the visible window — at that point the browser's native focus-scroll-into-view behavior scrolled `#app` (which, despite `overflow:hidden`, remains a valid native scroll container) to reveal the oversized content, shifting rail nav, graph, and Reader panel together and leaving the layout torn.
+
+Reproduces at all three protected desktop widths (1440×960, 1280×800, 1024×640): a keyboard user tabbing from the rail into the graph — live's only means of reaching most of the 50 objects one at a time, since roving tabindex is not part of this build — hits an off-screen node by the 9th Tab press at 1280×800, and the shell stays displaced for the rest of the traversal.
+
+### Fix
+
+Added the missing row track, mirroring the `minmax(0,1fr)` pattern the same rule already used for its column track:
+
+```css
+.app-frame{position:absolute;inset:0;display:grid;grid-template-columns:56px minmax(0,1fr);grid-template-rows:minmax(0,1fr);}
+```
+
+One property, one rule. No other selector, script, or visual token touched.
+
+### Changed files
+
+- `index.html`: one property added to `.app-frame`
+- `tests/black-bird-app-shell.spec.js`: new regression coverage — asserts `#app`/`.rail`/`.main`/`.panel` never exceed the viewport at the three protected desktop widths, and that a 58-keystroke Tab traversal never moves `#app`'s `scrollTop` off zero. Proven to fail at all three widths and on the traversal check before the fix, clean after.
+- `BLACK_BIRD_DECISIONS_CHANGELOG.md`: this entry added
+
+### Commands run
+
+- `npm run test:legacy` → PASS
+- `npm run test:traceability` → PASS
+- `npm run test:data` → PASS: canonical DATA integrity (50 nodes, six types, opaque RelO)
+- `npm run test:baseline` → PASS: 5/5
+- `npm run test:design` → PASS: 9/9
+- `npx playwright test tests/black-bird-app-shell.spec.js` → 4/4 passed (proven to fail at all 4 before the fix, clean after)
+
+### Known risks
+
+None. This does not touch `/next/` (PR #9, still an open draft on its own branch) — that candidate uses a different keyboard model (roving tabindex plus arrow-key movement constrained to already-visible neighbors) that structurally avoids this class of bug, independent of this fix.
+
 ## 2026-07-03 — Update Author section text
 
 Branch: `production/update-author-section`
